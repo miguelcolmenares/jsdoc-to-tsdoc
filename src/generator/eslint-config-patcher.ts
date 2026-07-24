@@ -51,7 +51,14 @@ const TSDOC_IMPORTS = [
 const SYNTAX_PLUGIN_IMPORT = /from\s+["']eslint-plugin-tsdoc["']/;
 const SYNTAX_PLUGIN_REQUIRE = /require\(\s*["']eslint-plugin-tsdoc["']\s*\)/;
 const REQUIRE_PLUGIN_IMPORT = /from\s+["']eslint-plugin-tsdoc-require-2["']/;
-const SYNTAX_RULE = /["']tsdoc\/syntax["']/;
+
+// Matches `"tsdoc/syntax"` only when it is set to an *enabled* severity — a
+// quoted `error`/`warn` or the numeric `1`/`2`, optionally as the first element
+// of an `[severity, options]` tuple. A mere mention or an explicit `"off"` / `0`
+// (for example in a test override) must not count as "rule already enabled",
+// otherwise the patch would no-op and never add the real source-file rule.
+const SYNTAX_RULE_ENABLED =
+  /["']tsdoc\/syntax["']\s*:\s*\[?\s*(?:["'](?:error|warn)["']|[12]\b)/;
 
 /**
  * Tests a pattern against the source while ignoring comments, so a commented-out
@@ -106,12 +113,15 @@ function hasSyntaxPlugin(source: string): boolean {
 /**
  * Reports whether the `tsdoc/syntax` rule is actually enabled in real code — the
  * signal that TSDoc linting is wired up, not merely that the plugin is imported.
+ * A rule that is only mentioned or explicitly disabled (`"off"` / `0`) does not
+ * count, so a config that turns the rule off does not block completion.
  *
  * @param source - The config source.
- * @returns `true` when the `tsdoc/syntax` rule appears outside of comments.
+ * @returns `true` when the `tsdoc/syntax` rule is set to an enabled severity
+ * outside of comments.
  */
 function hasSyntaxRule(source: string): boolean {
-  return testInCode(source, SYNTAX_RULE);
+  return testInCode(source, SYNTAX_RULE_ENABLED);
 }
 
 /**

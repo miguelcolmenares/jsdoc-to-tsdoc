@@ -117,6 +117,31 @@ describe("patchEslintFlatConfig", () => {
     expect(syntaxImports).toHaveLength(1);
   });
 
+  it("completes a config that only disables the rule in an override", () => {
+    const source = [
+      'import tsdoc from "eslint-plugin-tsdoc";',
+      "",
+      "export default defineConfig([",
+      "  {",
+      '    files: ["**/*.test.ts"],',
+      "    plugins: { tsdoc },",
+      '    rules: { "tsdoc/syntax": "off" },',
+      "  },",
+      "]);",
+    ].join("\n");
+
+    const result = patchEslintFlatConfig(source, { severity: "warn" });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // The only occurrence of the rule is `"off"`, so it is not "already enabled":
+    // the patch must still add the real enabled rule for source files.
+    expect(result.changed).toBe(true);
+    expect(result.content).toContain('"tsdoc/syntax": "error"');
+    // The pre-existing disabled override is preserved.
+    expect(result.content).toContain('"tsdoc/syntax": "off"');
+  });
+
   it("does not treat a comment mention of the plugin as already configured", () => {
     const source = [
       "// Reminder: enable eslint-plugin-tsdoc for TSDoc syntax validation.",
