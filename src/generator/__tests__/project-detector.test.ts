@@ -65,6 +65,21 @@ describe("detectProject", () => {
     expect(layout.installedDependencies.has("eslint")).toBe(true);
     expect(layout.installedDependencies.size).toBe(1);
   });
+
+  it("reads packages declared under optionalDependencies", async () => {
+    await writeFile(
+      join(root, "package.json"),
+      JSON.stringify({
+        optionalDependencies: { "eslint-plugin-tsdoc": "^0.4.0" },
+      }),
+    );
+
+    const layout = await detectProject(root);
+
+    // optionalDependencies is part of the declared-dependency union, so a plugin
+    // pinned there is not later reported as missing.
+    expect(layout.installedDependencies.has("eslint-plugin-tsdoc")).toBe(true);
+  });
 });
 
 describe("missingPackages", () => {

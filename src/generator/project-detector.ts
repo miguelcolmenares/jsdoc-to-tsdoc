@@ -94,7 +94,12 @@ async function readInstalledDependencies(
     const raw = await readFile(join(root, "package.json"), "utf8");
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     const names = new Set<string>();
-    for (const field of ["dependencies", "devDependencies", "peerDependencies"]) {
+    for (const field of [
+      "dependencies",
+      "devDependencies",
+      "peerDependencies",
+      "optionalDependencies",
+    ]) {
       const record = parsed[field];
       // Dependency fields are plain objects keyed by package name. Reject arrays
       // (and other non-plain values) so a malformed `dependencies: []` does not

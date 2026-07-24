@@ -53,22 +53,33 @@ const SYNTAX_PLUGIN_REQUIRE = /require\(\s*["']eslint-plugin-tsdoc["']\s*\)/;
 const REQUIRE_PLUGIN_IMPORT = /from\s+["']eslint-plugin-tsdoc-require-2["']/;
 
 /**
- * Tests a pattern against the source while ignoring full-line comments, so a
- * commented-out `import`/`require` (for example `// import … "eslint-plugin-tsdoc"`)
- * is never mistaken for a real reference.
+ * Tests a pattern against the source while ignoring comments, so a commented-out
+ * `import`/`require` (for example `// import … "eslint-plugin-tsdoc"`, or the
+ * same inside a multi-line `/* … *\/` block) is never mistaken for a real
+ * reference. A line-by-line block-comment state machine is used rather than a
+ * global `/* … *\/` strip, because a naive strip would also eat the `/*`…`*\/`
+ * that appear inside common glob strings such as `"src/**\/*.ts"`.
  *
  * @param source - The config source.
  * @param pattern - The regex to test against each non-comment line.
  * @returns `true` when any code line matches.
  */
 function testInCode(source: string, pattern: RegExp): boolean {
+  let inBlockComment = false;
   return source.split("\n").some((line) => {
     const trimmed = line.trim();
-    if (
-      trimmed.startsWith("//") ||
-      trimmed.startsWith("*") ||
-      trimmed.startsWith("/*")
-    ) {
+    if (inBlockComment) {
+      // A `*/` anywhere on the line closes the block; whatever trails it is rare
+      // enough in a flat config that the whole line stays treated as a comment.
+      if (trimmed.includes("*/")) inBlockComment = false;
+      return false;
+    }
+    if (trimmed.startsWith("/*")) {
+      // Enter a block comment unless it also closes on the same line.
+      if (!trimmed.includes("*/")) inBlockComment = true;
+      return false;
+    }
+    if (trimmed.startsWith("//")) {
       return false;
     }
     return pattern.test(trimmed);

@@ -110,6 +110,34 @@ describe("patchEslintFlatConfig", () => {
     expect(result.content).toContain('import tsdoc from "eslint-plugin-tsdoc";');
   });
 
+  it("ignores a plugin import inside a multi-line block comment", () => {
+    const source = [
+      "/*",
+      ' import tsdoc from "eslint-plugin-tsdoc";',
+      " Old setup, kept for reference.",
+      "*/",
+      'import js from "@eslint/js";',
+      "",
+      "export default defineConfig([",
+      "  js.configs.recommended,",
+      "]);",
+    ].join("\n");
+
+    const result = patchEslintFlatConfig(source, { severity: "warn" });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // The only reference sits inside a `/* … */` block, so the config must still
+    // be patched with a real import and rules.
+    expect(result.changed).toBe(true);
+    expect(result.content).toContain('"tsdoc/syntax": "error"');
+    // A real import lands outside the comment (after the closing `*/`), while the
+    // commented one is preserved verbatim inside the block.
+    expect(
+      result.content.lastIndexOf('import tsdoc from "eslint-plugin-tsdoc";'),
+    ).toBeGreaterThan(result.content.indexOf("*/"));
+  });
+
   it("ignores a commented-out container and patches the real one", () => {
     const source = [
       'import js from "@eslint/js";',
