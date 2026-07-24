@@ -573,6 +573,180 @@ without any LLM.
 
 ---
 
+## Code Architecture & Standards
+
+The CLI itself must be exemplary. Since its whole purpose is to enforce
+documentation quality, its own codebase follows strict, boring, predictable
+conventions. These standards are lifted from the Next.js projects that
+consume this tool (`family-nextjs`, `aa-nextjs`, `homecare-nextjs`, and
+friends) and adapted for a pure Node CLI.
+
+### Guiding Principles
+
+| Principle | Rule |
+|-----------|------|
+| **SRP** | One module = one responsibility. Rules, templates, and reporters are independent files. A file that exceeds ~150 lines is a smell. |
+| **DDD-lite** | Folder = domain (`scanner/`, `parser/`, `transformer/`, `scaffolder/`, `escalator/`, `reporter/`), never tech layer (❌ `utils/`, `helpers/`, `services/`). |
+| **Barrel exports** | Every domain folder ships an `index.ts` that re-exports its public API. Consumers import from the folder, never from internal files. |
+| **Colocation** | Tests live next to code in `__tests__/`. Fixtures live in the domain that owns them. |
+| **Dogfooding** | The CLI is documented with TSDoc, linted with `eslint-plugin-tsdoc` + `eslint-plugin-tsdoc-require-2`, and gated by its own `check` command in CI. |
+| **Determinism** | Same input → same output. No time, randomness, or network reads in the transformer pipeline. |
+
+### File & Identifier Naming
+
+- **Files & folders**: `kebab-case` (`project-scanner.ts`, `tag-registry.ts`, `remove-type-braces.ts`).
+- **Exports**: `PascalCase` for classes/types/interfaces, `camelCase` for functions and constants.
+- **Interfaces**: no `I` prefix. `TransformerContext`, not `ITransformerContext`.
+- **Boolean names**: prefix with `is`, `has`, `should` (`isDryRun`, `hasCustomTags`, `shouldEscalate`).
+- **Constants**: `UPPER_SNAKE_CASE` only for module-level frozen config (`DEFAULT_IGNORE_GLOBS`); scoped constants stay `camelCase`.
+- **File ↔ export**: filename mirrors its default/primary export in kebab-case form (`remove-type-braces.ts` exports `removeTypeBraces`).
+
+> **Note on the Core Modules diagram above.** The illustrative filenames in
+> [Core Modules](#core-modules) use camelCase for readability against the
+> Next.js source projects, but the actual implementation follows the
+> kebab-case rule defined here (`project-scanner.ts`, not `projectScanner.ts`).
+
+### Module Structure (barrel pattern)
+
+Every domain folder follows the same shape:
+
+```
+src/transformer/
+├── index.ts                    # Public API: `export { runPipeline, type Rule }`
+├── pipeline.ts                 # Composition (private module)
+├── rules/
+│   ├── index.ts                # Barrel: re-exports every rule
+│   ├── remove-type-braces.ts
+│   ├── add-hyphen-separator.ts
+│   └── ...
+└── __tests__/
+    ├── pipeline.test.ts
+    └── rules/
+        └── remove-type-braces.test.ts
+```
+
+Consumers import cleanly through the barrel:
+
+```ts
+// ✅ Correct — from the barrel
+import { runPipeline, type Rule } from "@/transformer";
+
+// ❌ Wrong — reaching into internals
+import { runPipeline } from "@/transformer/pipeline";
+import { removeTypeBraces } from "@/transformer/rules/remove-type-braces";
+```
+
+The barrel is the contract; internal files can be renamed or split without
+breaking consumers.
+
+### TSDoc-First (dogfooding)
+
+Every exported symbol in the CLI **must** have valid TSDoc. This is enforced
+by the CLI's own `check` command running in CI — the same command it exposes
+to users. Rules that apply to consumer projects apply here first, and
+**stricter**:
+
+```ts
+/**
+ * Removes `{Type}` braces from `@param` and `@returns` tags.
+ *
+ * TSDoc encodes parameter types via the surrounding TypeScript signature,
+ * so brace annotations are redundant and rejected by the official parser.
+ *
+ * @param comment - Raw JSDoc comment text, including leading `/**` and trailing `*\/`.
+ * @returns The rewritten comment with type braces stripped.
+ *
+ * @example
+ * ```ts
+ * removeTypeBraces("@param {string} name - The user name.");
+ * // → "@param name - The user name."
+ * ```
+ *
+ * @public
+ */
+export function removeTypeBraces(comment: string): string {
+  // ...
+}
+```
+
+Rules enforced on the CLI's own codebase (stricter than the defaults shipped
+to consumers):
+
+| Rule | Setting on the CLI | Default for consumers |
+|------|-------------------|-----------------------|
+| `tsdoc/syntax` | `error` | `error` |
+| `require-2/require-jsdoc-exported` | `error` | `warn` (progressive) |
+| `require-2/require-param` | `error` | `off` (opt-in) |
+| `require-2/require-returns` | `error` | `off` (opt-in) |
+
+### TypeScript Discipline
+
+- **`strict: true`**, `noUncheckedIndexedAccess: true`, `exactOptionalPropertyTypes: true`.
+- **No `any`.** Ever. Use `unknown` and narrow, or define a proper type.
+- **No non-null assertions (`!`).** Prove the value exists or handle the `undefined` branch explicitly.
+- **Discriminated unions** for command result types: `{ ok: true; data } | { ok: false; error }`.
+- **Named exports only** from library modules. Default export is reserved for `citty` command definitions.
+- **`readonly`** on all shared data structures (rules, template registries, config objects).
+
+### Imports
+
+- **Absolute paths** via `@/` (mapped in `tsconfig.json`) — never `../../`.
+- **Order** (blank line between groups):
+  1. Node built-ins (`node:fs`, `node:path`).
+  2. External deps (`citty`, `typescript`, `@microsoft/tsdoc`).
+  3. Internal absolute (`@/scanner`, `@/transformer`).
+  4. Type-only imports (`import type { … } from …`).
+- Within each group, alphabetize.
+- Type-only imports **must** use `import type` so the bundler drops them cleanly.
+
+### Error Handling
+
+- **Never `throw` for expected conditions.** Return a discriminated result union.
+- **`throw` is reserved for programmer errors** — invariants that should never fire at runtime.
+- **Every CLI command wraps its main flow in `try/catch`** and maps failures to the exit codes defined in [CLI UX & Distribution](#cli-ux--distribution) (0 / 1 / 2 / 3).
+- **All I/O is async.** No `readFileSync` in hot paths; parallelize with `Promise.all` for independent file reads.
+- **Errors carry context** — wrap with `{ cause }` so stack traces point to the real origin.
+
+### Testing
+
+- **Framework**: Vitest.
+- **Location**: `__tests__/` colocated with the module under test (never a global top-level `tests/`).
+- **Naming**: `<module-name>.test.ts` mirrors the source filename.
+- **Coverage targets**: 100% for pure transformer rules and the tag registry; ≥ 80% overall.
+- **Fixtures**: Real code snippets from the three completed migrations (see [Fixture Strategy](#fixture-strategy)); no synthetic-only tests for the transformer pipeline.
+- **Snapshot tests** for full pipeline outputs; **unit tests** for individual rules.
+- **Mocks defined before imports** (Vitest hoists `vi.mock` — same rule as Jest).
+- **No shared mutable state** between tests. Each test builds its own fixture in a temp dir when I/O is required.
+
+### Commits & Branches
+
+Same conventions as the Next.js consumer projects, adapted for public OSS
+(no Jira ticket prefix):
+
+- **Branches**: `feature/<short-description>` or `fix/<short-description>`.
+- **Commits**: Conventional Commits — `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `perf`, `ci`, `style`, `build`.
+- **One reviewable unit per commit.** Formatting-only changes go in their own commit, separate from logic.
+- **`CHANGELOG.md`**: Keep a Changelog format, updated for every user-visible change.
+- **No AI-attribution trailers** in commit messages.
+
+### Pre-commit Quality Gates
+
+Every push/PR to `main` must pass locally **and** in CI:
+
+| Check | Command |
+|-------|---------|
+| Type check | `tsc --noEmit` |
+| Lint | `eslint .` |
+| TSDoc lint (dogfood) | `jsdoc-to-tsdoc check` (once bootstrapped) |
+| Unit tests | `vitest run --coverage` |
+| Build | `unbuild` produces the `dist/` bundle |
+| Bundle size | Post-build assertion: gzipped `dist/cli.mjs` ≤ 500 KB |
+
+The CI matrix runs on **Node 20.11 LTS + Node 22 LTS**, on **Ubuntu + macOS**
+(matching where the tool is actually used).
+
+---
+
 ## Scope Boundaries
 
 ### In Scope (v0.1.0)
@@ -621,6 +795,11 @@ Distribution:
 - [x] **Bundle target < 500 KB gzipped** (unbuild/tsup, ESM only)
 - [x] **TypeScript as peer dependency** (never bundle the compiler)
 - [x] **Node >= 20.11**, well-defined exit codes (0/1/2/3)
+
+Codebase discipline:
+- [x] **CLI is TSDoc-strict from day one** — dogfoods its own `check` command in CI *(see [Code Architecture & Standards](#code-architecture--standards))*
+- [x] **Kebab-case files, barrel exports, DDD folder layout, no `any`**
+- [x] **Vitest colocated in `__tests__/`, ≥ 80% coverage, 100% on transformer rules**
 
 ### Out of Scope (future)
 
