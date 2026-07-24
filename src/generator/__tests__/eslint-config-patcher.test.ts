@@ -91,6 +91,32 @@ describe("patchEslintFlatConfig", () => {
     expect(requireImports).toHaveLength(1);
   });
 
+  it("completes a config that imports the plugin but never enabled the rules", () => {
+    const source = [
+      'import tsdoc from "eslint-plugin-tsdoc";',
+      "",
+      "export default defineConfig([",
+      "  {",
+      "    plugins: { tsdoc },",
+      "  },",
+      "]);",
+    ].join("\n");
+
+    const result = patchEslintFlatConfig(source, { severity: "warn" });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // The import alone must not read as fully configured: the rules were never
+    // enabled, so the patch has to add them.
+    expect(result.changed).toBe(true);
+    expect(result.content).toContain('"tsdoc/syntax": "error"');
+    // The existing plugin import must not be duplicated (insertImports is idempotent).
+    const syntaxImports = result.content.match(
+      /import tsdoc from "eslint-plugin-tsdoc";/g,
+    );
+    expect(syntaxImports).toHaveLength(1);
+  });
+
   it("does not treat a comment mention of the plugin as already configured", () => {
     const source = [
       "// Reminder: enable eslint-plugin-tsdoc for TSDoc syntax validation.",

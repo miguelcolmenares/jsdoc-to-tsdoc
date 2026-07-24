@@ -264,12 +264,15 @@ function renderMarkdown(input: {
 
   const extra: string[] = [];
   if (input.blockTags.length > 0) {
-    extra.push(`\nCustom tags registered: ${input.blockTags.join(", ")}`);
+    extra.push(`Custom tags registered: ${input.blockTags.join(", ")}`);
   }
   if (input.command !== "") {
     extra.push(`Install: \`${input.command}\``);
   }
-  return extra.length > 0 ? `${table}\n${extra.join("\n")}` : table;
+  // A single blank line separates the table from the extra lines regardless of
+  // which extras are present; the extras themselves stay newline-free so the
+  // join controls their spacing.
+  return extra.length > 0 ? `${table}\n\n${extra.join("\n")}` : table;
 }
 
 /**

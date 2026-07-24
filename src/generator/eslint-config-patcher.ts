@@ -51,6 +51,7 @@ const TSDOC_IMPORTS = [
 const SYNTAX_PLUGIN_IMPORT = /from\s+["']eslint-plugin-tsdoc["']/;
 const SYNTAX_PLUGIN_REQUIRE = /require\(\s*["']eslint-plugin-tsdoc["']\s*\)/;
 const REQUIRE_PLUGIN_IMPORT = /from\s+["']eslint-plugin-tsdoc-require-2["']/;
+const SYNTAX_RULE = /["']tsdoc\/syntax["']/;
 
 /**
  * Tests a pattern against the source while ignoring comments, so a commented-out
@@ -100,6 +101,17 @@ function hasSyntaxPlugin(source: string): boolean {
     testInCode(source, SYNTAX_PLUGIN_IMPORT) ||
     testInCode(source, SYNTAX_PLUGIN_REQUIRE)
   );
+}
+
+/**
+ * Reports whether the `tsdoc/syntax` rule is actually enabled in real code — the
+ * signal that TSDoc linting is wired up, not merely that the plugin is imported.
+ *
+ * @param source - The config source.
+ * @returns `true` when the `tsdoc/syntax` rule appears outside of comments.
+ */
+function hasSyntaxRule(source: string): boolean {
+  return testInCode(source, SYNTAX_RULE);
 }
 
 /**
@@ -274,13 +286,20 @@ function findContainerInsertPoint(source: string): number {
  * @param source - The current flat-config file contents.
  * @param options - Patch options (starting severity).
  * @returns An {@link EslintPatchResult}: updated content, an unchanged no-op when
- * already patched, or a failure with a manual snippet.
+ * the syntax plugin is imported and the `tsdoc/syntax` rule is already enabled,
+ * or a failure with a manual snippet.
  */
 export function patchEslintFlatConfig(
   source: string,
   options: PatchEslintOptions,
 ): EslintPatchResult {
-  if (hasSyntaxPlugin(source)) {
+  // Only a config that both imports the syntax plugin AND enables the
+  // `tsdoc/syntax` rule is fully set up. Gating the no-op on the import alone
+  // would wrongly leave a config that imports the plugin but never enabled the
+  // rules unpatched, so `init` would fail to bootstrap linting. `insertImports`
+  // is idempotent, so completing such a config adds the rules block without
+  // duplicating the existing import.
+  if (hasSyntaxPlugin(source) && hasSyntaxRule(source)) {
     return { ok: true, content: source, changed: false };
   }
 
