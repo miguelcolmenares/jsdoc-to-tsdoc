@@ -282,58 +282,87 @@ $ npx jsdoc-to-tsdoc escalate
 
 ### Core Modules
 
+Folders are DDD-lite domains; filenames follow the kebab-case rule defined in
+[Code Architecture & Standards](#code-architecture--standards). Each domain
+folder ships a barrel `index.ts` that re-exports its public API — internal
+files are private and can be renamed without breaking consumers.
+
 ```
 src/
-├── cli.ts                    # citty entry point + subcommand dispatch
-├── commands/
+├── cli.ts                            # citty entry point + subcommand dispatch
+├── commands/                         # One file per subcommand (citty default export)
 │   ├── init.ts
 │   ├── scan.ts
 │   ├── convert.ts
 │   ├── scaffold.ts
 │   ├── escalate.ts
-│   └── check.ts
+│   ├── check.ts
+│   └── index.ts                      # Barrel
 ├── scanner/
-│   ├── projectScanner.ts     # Find TS files, detect config
-│   ├── commentExtractor.ts   # ts.getLeadingCommentRanges() based extraction
-│   └── exportInventory.ts    # Enumerate exported declarations lacking TSDoc
+│   ├── project-scanner.ts            # Find TS files, detect config
+│   ├── comment-extractor.ts          # ts.getLeadingCommentRanges() based extraction
+│   ├── export-inventory.ts           # Enumerate exported declarations lacking TSDoc
+│   ├── __tests__/
+│   └── index.ts                      # Barrel: exports scanProject, extractComments, ...
 ├── parser/
-│   ├── jsdocParser.ts        # Parse JSDoc tags from comment text
-│   └── tagRegistry.ts        # JSDoc → TSDoc tag mapping
-├── transformer/
-│   ├── pipeline.ts
-│   ├── rules/
-│   │   ├── removeTypeBraces.ts
-│   │   ├── addHyphenSeparator.ts
-│   │   ├── convertFileOverview.ts
-│   │   ├── convertProperty.ts       # @property → inline interface docs (NEW)
-│   │   ├── removeRedundantTags.ts
-│   │   ├── removeJsDocOnlyTags.ts
-│   │   ├── convertAccessTags.ts
-│   │   └── splitRemarks.ts
+│   ├── jsdoc-parser.ts               # Parse JSDoc tags from comment text
+│   ├── tag-registry.ts               # JSDoc → TSDoc tag mapping (readonly)
+│   ├── __tests__/
 │   └── index.ts
-├── scaffolder/                       # NEW
+├── transformer/
+│   ├── pipeline.ts                   # Rule composition (private)
+│   ├── rules/
+│   │   ├── remove-type-braces.ts
+│   │   ├── add-hyphen-separator.ts
+│   │   ├── convert-file-overview.ts
+│   │   ├── convert-property.ts       # @property → inline interface docs
+│   │   ├── remove-redundant-tags.ts
+│   │   ├── remove-jsdoc-only-tags.ts
+│   │   ├── convert-access-tags.ts
+│   │   ├── split-remarks.ts
+│   │   ├── __tests__/
+│   │   └── index.ts                  # Barrel: re-exports every rule
+│   ├── __tests__/
+│   └── index.ts                      # Barrel: runPipeline, type Rule
+├── scaffolder/
 │   ├── templates/
-│   │   ├── reactComponent.ts         # export default function → props docs
-│   │   ├── serverAction.ts           # (prevState, formData) → param docs
+│   │   ├── react-component.ts        # export default function → props docs
+│   │   ├── server-action.ts          # (prevState, formData) → param docs
 │   │   ├── hook.ts                   # useX → return docs
 │   │   ├── interface.ts              # per-field inline docs
-│   │   ├── typeAlias.ts
-│   │   └── generic.ts                # fallback for arbitrary exports
-│   ├── nameInference.ts              # kebab/camelCase → prose summary
+│   │   ├── type-alias.ts
+│   │   ├── generic.ts                # fallback for arbitrary exports
+│   │   ├── __tests__/
+│   │   └── index.ts                  # Barrel
+│   ├── name-inference.ts             # kebab/camelCase → prose summary
+│   ├── __tests__/
 │   └── index.ts
 ├── generator/
-│   ├── tsdocJsonGenerator.ts         # from detected custom tags
-│   └── eslintConfigPatcher.ts        # patches flat config (in scope now)
-├── escalator/                        # NEW
-│   ├── ruleUpdater.ts                # warn → error patch
-│   └── preflightCheck.ts             # verify 0 warnings before escalating
+│   ├── tsdoc-json-generator.ts       # from detected custom tags
+│   ├── eslint-config-patcher.ts      # patches flat config
+│   ├── __tests__/
+│   └── index.ts
+├── escalator/
+│   ├── rule-updater.ts               # warn → error patch
+│   ├── preflight-check.ts            # verify 0 warnings before escalating
+│   ├── __tests__/
+│   └── index.ts
 ├── reporter/
-│   ├── dryRunReporter.ts
-│   ├── jsonReporter.ts               # machine-readable output for CI
-│   └── summaryReporter.ts
+│   ├── dry-run-reporter.ts
+│   ├── json-reporter.ts              # machine-readable output for CI
+│   ├── summary-reporter.ts
+│   ├── __tests__/
+│   └── index.ts
 └── writer/
-    └── fileWriter.ts
+    ├── file-writer.ts
+    ├── __tests__/
+    └── index.ts
 ```
+
+> **Naming rule.** Filenames are kebab-case (`remove-type-braces.ts`); the
+> exports they contain remain camelCase / PascalCase (`removeTypeBraces`,
+> `TransformerContext`). See
+> [File & Identifier Naming](#file--identifier-naming) for the full contract.
 
 ### Key Design Decisions
 
@@ -600,11 +629,6 @@ friends) and adapted for a pure Node CLI.
 - **Boolean names**: prefix with `is`, `has`, `should` (`isDryRun`, `hasCustomTags`, `shouldEscalate`).
 - **Constants**: `UPPER_SNAKE_CASE` only for module-level frozen config (`DEFAULT_IGNORE_GLOBS`); scoped constants stay `camelCase`.
 - **File ↔ export**: filename mirrors its default/primary export in kebab-case form (`remove-type-braces.ts` exports `removeTypeBraces`).
-
-> **Note on the Core Modules diagram above.** The illustrative filenames in
-> [Core Modules](#core-modules) use camelCase for readability against the
-> Next.js source projects, but the actual implementation follows the
-> kebab-case rule defined here (`project-scanner.ts`, not `projectScanner.ts`).
 
 ### Module Structure (barrel pattern)
 
