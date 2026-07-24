@@ -373,6 +373,206 @@ src/
 
 ---
 
+## CLI UX & Distribution
+
+This section covers three orthogonal concerns that shape the day-one user
+experience: how the CLI ships (`npx`), what operational modes it exposes
+(dry-run, preview, interactive, check), and how it handles the messy reality
+of real-world codebases (non-standard comments, missing docs, stale docs).
+
+### Distribution via `npx`
+
+The tool must be runnable as `npx jsdoc-to-tsdoc <command>` with **zero global
+install**. This drives several packaging decisions.
+
+**`package.json` shape:**
+
+```json
+{
+  "name": "jsdoc-to-tsdoc",
+  "type": "module",
+  "bin": { "jsdoc-to-tsdoc": "./dist/cli.mjs" },
+  "engines": { "node": ">=20.11" },
+  "peerDependencies": { "typescript": ">=5.0" }
+}
+```
+
+The entry file `dist/cli.mjs` must start with `#!/usr/bin/env node`.
+
+**Packaging constraints:**
+
+| Concern | Decision |
+|---------|----------|
+| **Bundler** | `unbuild` or `tsup` — outputs ESM (+ CJS if needed), tree-shakes, single file |
+| **Bundle size target** | **< 500 KB gzipped** (npx re-downloads on cache miss) |
+| **TypeScript as peer** | The user already has it — never bundle the ~50 MB compiler |
+| **Startup time** | Lazy-import `typescript`, `@microsoft/tsdoc`, `@clack/prompts` inside subcommand handlers; `citty` parses `argv` first |
+| **Module format** | ESM only (Node 20+ handles it natively; avoids dual-package hazard) |
+| **Zero-config init** | `npx jsdoc-to-tsdoc init` must succeed on any TS project without flags |
+| **Exit codes** | `0` OK · `1` logic error · `2` parse failure · `3` violations in `--check` mode (CI-friendly) |
+| **Version pinning in CI** | Publish under semver; recommend `npx jsdoc-to-tsdoc@0.1` in docs to prevent surprise upgrades |
+
+**Peer dependency for ESLint plugin:**
+
+`eslint-plugin-tsdoc-require-2` is declared as a peer dep and installed by
+`init` when it detects an ESLint config. This keeps the tool's own footprint
+small while still enabling the auto-patch workflow.
+
+### Operational Modes
+
+Beyond the built-in `--dry-run` semantics of `scan`, every mutating command
+exposes a consistent set of flags:
+
+| Flag | Applies to | Purpose |
+|------|-----------|---------|
+| `--preview` | `convert`, `scaffold` | Print colored unified diff per file, do not write |
+| `--interactive` | `convert`, `scaffold` | Prompt per file: **a**ccept · **s**kip · **e**dit · **q**uit |
+| `--check` | `convert`, `escalate` | CI mode — exit `3` if any file would change (mirrors `prettier --check`) |
+| `--lite` | `convert` | Only touch `@param` / `@returns`; leave `@example`, `@remarks`, custom tags untouched |
+| `--only <glob>` | all | Restrict to matching paths (e.g. `--only "src/actions/**"`) |
+| `--exclude <glob>` | all | Skip matching paths (e.g. `--exclude "**/*.test.ts"`) |
+| `--commit-per-file` | `convert`, `scaffold` | Auto `git commit` per file — produces reviewable PRs |
+| `--report=<fmt>` | `scan`, `check`, `convert` | `json` · `md` · `table` — JSON for tooling, MD for PR bodies |
+| `--fail-on-missing` | `scan` | Exit `1` if any public export lacks TSDoc — gap-analysis gate |
+| `--severity=<level>` | `escalate` | Override progressive default (`warn` or `error`) |
+
+**Example CI flow:**
+
+```bash
+npx jsdoc-to-tsdoc check --report=json --fail-on-missing > tsdoc-report.json
+```
+
+**Example interactive local flow:**
+
+```bash
+npx jsdoc-to-tsdoc convert --interactive --only "src/lib/**"
+# → [1/12] src/lib/api.ts
+#   <colored unified diff>
+#   [a]ccept · [s]kip · [e]dit · [q]uit ?
+```
+
+**Example minimal migration:**
+
+```bash
+# Only fix @param/@returns hygiene; leave prose untouched
+npx jsdoc-to-tsdoc convert --lite --commit-per-file
+```
+
+### Handling Non-Standard Documentation
+
+Real projects deviate from the "complete JSDoc" happy path in predictable
+ways. The tool must **classify first, then act** — never silently rewrite
+comments it does not understand.
+
+**Observed comment topologies:**
+
+1. **Valid JSDoc** — the happy path
+2. **Partial JSDoc** — `/** does X */` with no `@param` tags
+3. **Line-comment prose** — `// Fetches user by ID` above the export
+4. **No docs, rich types** — TS signature is expressive but there is no comment
+5. **Stale docs** — `@param name` when the signature actually has `userId`
+6. **Bilingual / mixed language** — some Silver Assist projects have Spanish
+   prose mixed with English JSDoc tags
+
+**Classification via `scan --classify`:**
+
+```
+📊 Documentation Analysis — 127 files scanned
+
+  ✅ VALID_JSDOC       84 files  → ready for `convert`
+  ⚠️  PARTIAL_JSDOC    12 files  → `convert` + gap report
+  💬 LINE_COMMENTS      8 files  → `convert --promote-line-comments`
+  📭 NO_DOCS           19 files  → `scaffold` recommended
+  🔴 STALE_DOCS         4 files  → manual review required
+
+Confidence:  HIGH 84 · MEDIUM 20 · LOW 23
+
+Next step:
+  npx jsdoc-to-tsdoc convert --only "$(cat .tsdoc-high-confidence.txt)"
+```
+
+**Inference rules per topology:**
+
+**Line-comment prose** → promote to `/** */`, then use TS types to add
+skeleton `@param` / `@returns`:
+
+```ts
+// Before
+// Fetches user by ID and returns null if not found
+export async function getUser(id: string): Promise<User | null> { ... }
+
+// After (with --promote-line-comments)
+/**
+ * Fetches user by ID and returns null if not found.
+ *
+ * @param id - TODO(tsdoc): describe id
+ * @returns The user or null when not found
+ */
+export async function getUser(id: string): Promise<User | null> { ... }
+```
+
+**No docs, rich types** → template-driven scaffold with **verb + noun**
+inference from the function name:
+
+```ts
+// Before (no comment)
+export function submitContactForm(
+  prevState: CF7ActionState,
+  formData: FormData
+): Promise<CF7ActionState> { ... }
+
+// After (via `scaffold`)
+/**
+ * Submits the contact form. // ← inferred from "submit" + "ContactForm"
+ *
+ * @param prevState - Previous action state.
+ * @param formData - Submitted form data.
+ * @returns Updated action state.
+ * @remarks TODO(tsdoc): verify auto-generated summary
+ */
+```
+
+Every inferred summary carries a `TODO(tsdoc)` marker so devs can
+`grep 'TODO(tsdoc)'` to find everything that needs human review.
+
+**Stale docs** → never auto-rewrite. Report in `scan`:
+
+```
+🔴 src/utils.ts:12  greet()
+   @param 'name' not in signature (found: 'userId')
+   Suggestion: manual review — likely stale documentation
+```
+
+### Confidence Levels
+
+Every file in the classification report carries a confidence label that
+drives the recommended action:
+
+| Level | Signal | Default action |
+|-------|--------|----------------|
+| **HIGH** | Complete JSDoc consistent with signature | Auto-convert |
+| **MEDIUM** | Partial JSDoc, clear TS types | Convert + gap warnings |
+| **LOW** | No docs, only types | Scaffold + `TODO(tsdoc)` markers |
+| **STALE** | JSDoc contradicts signature | Skip + manual-review report |
+
+The `--fail-on-missing` and `--fail-on-stale` flags let CI enforce a minimum
+confidence bar without blocking the entire pipeline on cosmetic issues.
+
+### Future: Optional LLM Enrichment
+
+For LOW / STALE cases the tool can offer opt-in enrichment through:
+
+- **GitHub Copilot CLI** (if available in the shell)
+- **Ollama** (local models, no API key required)
+- **Anthropic / OpenAI** (via env-provided API key)
+
+This is **always opt-in** (`--enrich=copilot|ollama|anthropic`), never
+default-on, and is deferred to **v0.2+**. It is listed in the roadmap
+(Phase 11) but the deterministic pipeline must ship first and be usable
+without any LLM.
+
+---
+
 ## Scope Boundaries
 
 ### In Scope (v0.1.0)
@@ -408,16 +608,30 @@ Reporting & CI:
 - [x] Dry-run mode with unified diff for every command
 - [x] `--report=<path>` JSON output for every command
 - [x] `check` command → exit 1 if warnings/errors remain
+- [x] **`--preview` and `--interactive` per-file review modes** *(see [CLI UX](#cli-ux--distribution))*
+- [x] **`--only` / `--exclude` glob filters** for targeted runs
+- [x] **`--lite` mode** — only `@param` / `@returns` hygiene, leave prose untouched
+- [x] **`--commit-per-file`** for reviewable PRs
+- [x] **`--fail-on-missing` / `--fail-on-stale`** confidence gates
+- [x] **`scan --classify`** — topology report (VALID / PARTIAL / LINE_COMMENTS / NO_DOCS / STALE)
+- [x] **`convert --promote-line-comments`** — wrap `//` prose into `/** */`
+
+Distribution:
+- [x] **Runnable via `npx jsdoc-to-tsdoc` with zero global install** *(see [Distribution](#distribution-via-npx))*
+- [x] **Bundle target < 500 KB gzipped** (unbuild/tsup, ESM only)
+- [x] **TypeScript as peer dependency** (never bundle the compiler)
+- [x] **Node >= 20.11**, well-defined exit codes (0/1/2/3)
 
 ### Out of Scope (future)
 
 - [ ] VS Code extension wrapper (v0.2+)
-- [ ] LLM-assisted summary rewriting (v0.2, opt-in flag only)
+- [ ] **LLM-assisted enrichment** (`--enrich=copilot|ollama|anthropic`) — v0.2, opt-in flag only
 - [ ] Automatic `@remarks` splitting on prose heuristics (fragile — defer)
 - [ ] Monorepo support with multiple `tsdoc.json` files (v0.3)
 - [ ] Prebuilt GitHub Action / Bitbucket Pipe wrapper (v0.2)
 - [ ] Framework-specific templates beyond React/Next.js (Vue, Svelte)
 - [ ] Automatic rebase-conflict resolver for the warn→error escalation line
+- [ ] **Automatic stale-doc rewriter** (always requires human review in v0.1)
 
 ---
 
