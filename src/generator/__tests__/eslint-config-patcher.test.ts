@@ -159,6 +159,44 @@ describe("patchEslintFlatConfig", () => {
     expect(result.content.startsWith("import {")).toBe(true);
   });
 
+  it("keeps the closing bracket on its own line for one-line containers", () => {
+    for (const source of ["export default [];", "export default defineConfig([]);"]) {
+      const result = patchEslintFlatConfig(source, { severity: "warn" });
+      expect(result.ok).toBe(true);
+      if (!result.ok) continue;
+      // No gluing of the suffix onto the block's last line.
+      expect(result.content).not.toContain("},];");
+      expect(result.content).not.toContain("},]);");
+      // The block landed and the container still closes.
+      expect(result.content).toContain('"tsdoc/syntax": "error"');
+      expect(result.content.trimEnd().endsWith(source.endsWith(");") ? "]);" : "];")).toBe(true);
+    }
+  });
+
+  it("ignores a commented-out plugin import when deciding to patch", () => {
+    const source = [
+      '// import tsdoc from "eslint-plugin-tsdoc";',
+      'import js from "@eslint/js";',
+      "",
+      "export default defineConfig([",
+      "  js.configs.recommended,",
+      "]);",
+    ].join("\n");
+
+    const result = patchEslintFlatConfig(source, { severity: "warn" });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // The only reference is commented out, so the config must still be patched.
+    expect(result.changed).toBe(true);
+    expect(result.content).toContain('"tsdoc/syntax": "error"');
+    // And a real import gets added (not just left as the commented one).
+    const realImports = result.content
+      .split("\n")
+      .filter((line) => /^import tsdoc from "eslint-plugin-tsdoc";/.test(line.trim()));
+    expect(realImports).toHaveLength(1);
+  });
+
   it("returns a manual snippet when no config container is recognized", () => {
     const result = patchEslintFlatConfig("export const notAConfig = 1;\n", {
       severity: "warn",

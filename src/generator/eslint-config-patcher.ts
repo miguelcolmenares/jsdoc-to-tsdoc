@@ -53,16 +53,42 @@ const SYNTAX_PLUGIN_REQUIRE = /require\(\s*["']eslint-plugin-tsdoc["']\s*\)/;
 const REQUIRE_PLUGIN_IMPORT = /from\s+["']eslint-plugin-tsdoc-require-2["']/;
 
 /**
+ * Tests a pattern against the source while ignoring full-line comments, so a
+ * commented-out `import`/`require` (for example `// import … "eslint-plugin-tsdoc"`)
+ * is never mistaken for a real reference.
+ *
+ * @param source - The config source.
+ * @param pattern - The regex to test against each non-comment line.
+ * @returns `true` when any code line matches.
+ */
+function testInCode(source: string, pattern: RegExp): boolean {
+  return source.split("\n").some((line) => {
+    const trimmed = line.trim();
+    if (
+      trimmed.startsWith("//") ||
+      trimmed.startsWith("*") ||
+      trimmed.startsWith("/*")
+    ) {
+      return false;
+    }
+    return pattern.test(trimmed);
+  });
+}
+
+/**
  * Reports whether a config already imports or requires the `eslint-plugin-tsdoc`
  * syntax plugin — the signal that the config is already set up. A config that
  * references only the presence plugin (`-require-2`) is not considered set up,
  * so it is still completed with the missing syntax plugin.
  *
  * @param source - The config source.
- * @returns `true` when the syntax plugin is imported or required.
+ * @returns `true` when the syntax plugin is imported or required in real code.
  */
 function hasSyntaxPlugin(source: string): boolean {
-  return SYNTAX_PLUGIN_IMPORT.test(source) || SYNTAX_PLUGIN_REQUIRE.test(source);
+  return (
+    testInCode(source, SYNTAX_PLUGIN_IMPORT) ||
+    testInCode(source, SYNTAX_PLUGIN_REQUIRE)
+  );
 }
 
 /**
@@ -143,10 +169,10 @@ export function buildTsdocConfigSnippet(severity: Severity): string {
  */
 function missingImports(source: string): string {
   const lines: string[] = [];
-  if (!SYNTAX_PLUGIN_IMPORT.test(source)) {
+  if (!testInCode(source, SYNTAX_PLUGIN_IMPORT)) {
     lines.push('import tsdoc from "eslint-plugin-tsdoc";');
   }
-  if (!REQUIRE_PLUGIN_IMPORT.test(source)) {
+  if (!testInCode(source, REQUIRE_PLUGIN_IMPORT)) {
     lines.push('import tsdocRequire from "eslint-plugin-tsdoc-require-2";');
   }
   return lines.join("\n");
@@ -258,6 +284,11 @@ export function patchEslintFlatConfig(
   }
 
   const block = buildConfigBlock(options.severity);
-  const content = `${withImports.slice(0, insertAt)}\n${block}${withImports.slice(insertAt)}`;
+  const suffix = withImports.slice(insertAt);
+  // Keep the container's closing bracket on its own line. For one-line
+  // containers (`export default [];`) the suffix (`];`) would otherwise glue
+  // onto the block's last line as `  },];`.
+  const separator = suffix.startsWith("\n") ? "" : "\n";
+  const content = `${withImports.slice(0, insertAt)}\n${block}${separator}${suffix}`;
   return { ok: true, content, changed: true };
 }
