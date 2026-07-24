@@ -13,6 +13,20 @@ export const VERSION = "0.1.0";
 
 export { convertSourceText, type FileConversion } from "@/commands/convert-file";
 export {
+  aggregateCommentTags,
+  collectProjectTags,
+  detectProject,
+  generateTsdocJson,
+  installCommand,
+  mergeTsdocJson,
+  missingPackages,
+  patchEslintFlatConfig,
+  type CustomTagReport,
+  type EslintPatchResult,
+  type PackageManager,
+  type ProjectLayout,
+} from "@/generator";
+export {
   getBlockTags,
   hasTypeBraces,
   mapCommentLines,
