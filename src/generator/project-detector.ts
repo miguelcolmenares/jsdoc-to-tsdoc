@@ -96,7 +96,10 @@ async function readInstalledDependencies(
     const names = new Set<string>();
     for (const field of ["dependencies", "devDependencies", "peerDependencies"]) {
       const record = parsed[field];
-      if (record && typeof record === "object") {
+      // Dependency fields are plain objects keyed by package name. Reject arrays
+      // (and other non-plain values) so a malformed `dependencies: []` does not
+      // contribute numeric indices as bogus "dependency names".
+      if (record && typeof record === "object" && !Array.isArray(record)) {
         for (const name of Object.keys(record)) {
           names.add(name);
         }

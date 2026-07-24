@@ -47,6 +47,24 @@ describe("detectProject", () => {
     expect(layout.packageManager).toBe("npm");
     expect(layout.installedDependencies.size).toBe(0);
   });
+
+  it("ignores non-object dependency fields instead of harvesting array indices", async () => {
+    await writeFile(
+      join(root, "package.json"),
+      JSON.stringify({
+        // Malformed: an array where an object is expected.
+        dependencies: [],
+        devDependencies: { eslint: "^10.0.0" },
+      }),
+    );
+
+    const layout = await detectProject(root);
+
+    // The array must not contribute numeric keys ("0", "1", …) as dep names.
+    expect(layout.installedDependencies.has("0")).toBe(false);
+    expect(layout.installedDependencies.has("eslint")).toBe(true);
+    expect(layout.installedDependencies.size).toBe(1);
+  });
 });
 
 describe("missingPackages", () => {

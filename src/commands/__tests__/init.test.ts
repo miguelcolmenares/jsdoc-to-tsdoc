@@ -5,7 +5,7 @@ import { join } from "node:path";
 import type { ArgsDef, CommandContext, CommandDef } from "citty";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import initCommand from "@/commands/init";
+import initCommand, { installFailureMessage } from "@/commands/init";
 
 let root = "";
 let eslintPath = "";
@@ -166,3 +166,21 @@ async function runHandler<T extends ArgsDef>(
 ): Promise<void> {
   await command.run?.(context(args) as unknown as CommandContext<T>);
 }
+
+describe("installFailureMessage", () => {
+  it("reports the exit code for a non-zero exit", () => {
+    expect(installFailureMessage("pnpm", 1, null)).toBe("pnpm exited with code 1");
+  });
+
+  it("names the signal when the process was killed", () => {
+    expect(installFailureMessage("npm", null, "SIGKILL")).toBe(
+      "npm was terminated by signal SIGKILL",
+    );
+  });
+
+  it("falls back to 'unknown' when neither a code nor a signal is present", () => {
+    expect(installFailureMessage("yarn", null, null)).toBe(
+      "yarn exited with code unknown",
+    );
+  });
+});

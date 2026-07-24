@@ -25,6 +25,7 @@ import {
   installCommand,
   mergeTsdocJson,
   missingPackages,
+  type PackageManager,
   patchEslintFlatConfig,
 } from "@/generator";
 import {
@@ -272,6 +273,28 @@ function renderMarkdown(input: {
 }
 
 /**
+ * Builds the human-readable failure message for a package-manager child process
+ * that did not exit cleanly. A signal termination (the process was killed) is
+ * reported distinctly from a non-zero exit code, since `code` is `null` in that
+ * case and a bare "code null" is not actionable.
+ *
+ * @param manager - The package manager that was invoked.
+ * @param code - The process exit code, or `null` when killed by a signal.
+ * @param signal - The terminating signal, or `null` on a normal exit.
+ * @returns The error message describing why the install failed.
+ */
+export function installFailureMessage(
+  manager: PackageManager,
+  code: number | null,
+  signal: NodeJS.Signals | null,
+): string {
+  if (signal) {
+    return `${manager} was terminated by signal ${signal}`;
+  }
+  return `${manager} exited with code ${code ?? "unknown"}`;
+}
+
+/**
  * Runs the package manager to install the given dev dependencies.
  *
  * @param manager - The detected package manager.
@@ -279,7 +302,7 @@ function renderMarkdown(input: {
  * @param cwd - The project directory to run in.
  */
 async function runInstall(
-  manager: string,
+  manager: PackageManager,
   packages: readonly string[],
   cwd: string,
 ): Promise<void> {
@@ -292,11 +315,11 @@ async function runInstall(
       stdio: "inherit",
     });
     child.on("error", rejectPromise);
-    child.on("close", (code) => {
+    child.on("close", (code, signal) => {
       if (code === 0) {
         resolvePromise();
       } else {
-        rejectPromise(new Error(`${manager} exited with code ${code ?? "null"}`));
+        rejectPromise(new Error(installFailureMessage(manager, code, signal)));
       }
     });
   });
