@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [main]
 
+# Force bash on every runner (including Windows, via Git Bash) so the shell
+# steps below behave identically across the OS matrix.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   check:
     name: check (node ${{ matrix.node }} · ${{ matrix.os }})
@@ -13,8 +19,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        node: ["20.19", "22"]
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: ["20.19", "22", "24"]
     steps:
       - uses: actions/checkout@v4
 

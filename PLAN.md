@@ -18,7 +18,7 @@ bundle size).
 
 | Area | Detail |
 |------|--------|
-| **Foundation** | ESM package (`bin: jsdoc-to-tsdoc`), TypeScript `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`, `@/` path alias, unbuild bundling, Vitest, CI matrix (Node 20.19 + 22 · Ubuntu + macOS) with a gzipped bundle-size gate |
+| **Foundation** | ESM package (`bin: jsdoc-to-tsdoc`), TypeScript `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`, `@/` path alias, unbuild bundling, Vitest, CI matrix (Node 20.19 + 22 + 24 · Ubuntu + macOS + Windows) with a gzipped bundle-size gate |
 | **Dogfooding** | ESLint flat config runs `tsdoc/syntax` + `tsdoc-require-2/require` at `error` over the CLI's own source (`require-param` / `require-returns` `off`, matching the learnings) |
 | **`parser`** | `comment-lines` (fence-aware, format-preserving line mapper), `tag-registry` (the full JSDoc → TSDoc mapping tables), `jsdoc-parser` (tag/brace inspection) |
 | **`transformer`** | 10 pure, deterministic rules + an ordered pipeline with `--lite` (`@param` / `@returns` hygiene) mode |
@@ -816,8 +816,14 @@ Every push/PR to `main` must pass locally **and** in CI:
 | Build | `unbuild` produces the `dist/` bundle |
 | Bundle size | Post-build assertion: gzipped `dist/cli.mjs` ≤ 500 KB |
 
-The CI matrix runs on **Node 20.19 LTS + Node 22 LTS**, on **Ubuntu + macOS**
-(matching where the tool is actually used).
+The CI matrix runs on **Node 20.19, 22, and 24 LTS**, across **Ubuntu, macOS,
+and Windows**. Windows is included because the CLI manipulates file paths and
+line endings — path-separator normalization and CRLF handling are exercised on
+a real Windows runner. Architecture (x64 vs ARM) is not fanned out separately:
+the tool and all its dependencies are pure JavaScript with no native addons, so
+behavior is identical across architectures (and `ubuntu-latest` / `macos-latest`
+already cover Linux x64 and macOS ARM64 respectively). All `run` steps use bash
+on every OS so the shell-based bundle-size gate is portable.
 
 ---
 

@@ -1,0 +1,12 @@
+# Normalize line endings to LF on checkout across all platforms so tests and
+# fixtures behave identically on Windows, macOS, and Linux. The CRLF handling in
+# the transformer is still exercised by explicit `\r\n` strings in the tests.
+* text=auto eol=lf
+
+# Binary assets should never be normalized.
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
