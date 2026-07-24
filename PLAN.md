@@ -1,5 +1,9 @@
 # jsdoc-to-tsdoc — Project Plan
 
+> **Revision:** v2 — Updated with learnings from three real-world migrations
+> (`nextjs-boilerplate`, `homecare-nextjs`, `assistedliving-nextjs`; ~87 files
+> across 3 repos, July 2026).
+
 ## Gap Analysis
 
 ### What Exists Today (July 2026)
@@ -37,11 +41,25 @@
 | tsdoc-insert (Topppy) | 460 | Minimal, unmaintained. |
 | tsdoc-gen (vicius) | 281 | Barely used. |
 
-### The Gap: No Migration Tool
+### The Gap: No End-to-End Migration Workflow
 
-**There is no CLI tool, codemod, or VS Code extension** that automates the conversion of existing JSDoc comments to TSDoc-compliant comments.
+The individual pieces exist (parser, syntax linter, presence linter), but **no
+tool orchestrates the full migration workflow** we consistently did by hand
+across three repositories:
 
-The differences are well-defined and mechanically transformable:
+1. **Bootstrap** — install two ESLint plugins, patch `eslint.config.mjs`,
+   create a `tsdoc.json` with the project's custom tags (`@since`, `@author`, …).
+2. **Convert** — transform existing JSDoc comments (`{types}`, `@typedef`,
+   `@fileoverview`, etc.) into TSDoc-compliant syntax.
+3. **Scaffold** — generate TSDoc stubs for **every export that has none**
+   (this was the majority of the work — see [Real-World Learnings](#real-world-learnings)).
+4. **Escalate** — bump the presence rule from `"warn"` to `"error"` in a
+   final commit, locking the codebase in.
+
+The syntactic conversion is one part of the job; the scaffolding and enforcement
+progression are the other two. All three must ship together to be useful.
+
+### Mechanical Transformations (still core to the tool)
 
 | JSDoc Pattern | TSDoc Equivalent | Automation Complexity |
 |---------------|-----------------|----------------------|
@@ -52,7 +70,7 @@ The differences are well-defined and mechanically transformable:
 | `@typedef {Object} MyType` | Remove entirely | Simple — delete |
 | `@callback MyCallback` | Remove entirely | Simple — delete |
 | `@type {Type}` | Remove entirely | Simple — delete |
-| `@property {string} name` | Inline `/** comment */` on interface member | Hard — structural |
+| `@property {string} name` | Inline `/** comment */` on interface member | Medium — structural (**now in scope**) |
 | `@function`, `@async`, `@class` | Remove entirely | Simple — delete |
 | `@enum {string}` | Remove entirely | Simple — delete |
 | `@fires`, `@emits` | Not in TSDoc standard | Medium — decide policy |
@@ -64,100 +82,294 @@ The differences are well-defined and mechanically transformable:
 
 ---
 
+## Real-World Learnings
+
+Data from the three completed migrations that inform this plan.
+
+### Migration Scope by Repo
+
+| Repo | JSDoc conversions | **New TSDoc stubs added** | Total files touched | ESLint plugins added |
+|------|-------------------|---------------------------|---------------------|----------------------|
+| `nextjs-boilerplate` | ~5 | 14 | 14 | `tsdoc` + `tsdoc-require-2` |
+| `homecare-nextjs` | ~8 | 26 | 26 | same |
+| `assistedliving-nextjs` | ~10 | 47 | 47 | same |
+| **Total** | ~23 | **87** | 87 | — |
+
+**Key insight:** scaffolding missing TSDoc was ~80 % of the work. The tool
+must generate stubs, not just convert existing comments.
+
+### ESLint Rule Configuration Gotchas
+
+`eslint-plugin-tsdoc-require-2` ships three rules. Only one is usable in
+practice across a real Next.js codebase:
+
+```js
+"tsdoc-require-2/require":         "warn",   // ✅ enforce presence on exports
+"tsdoc-require-2/require-param":   "off",    // ❌ false positives on interfaces/types/constants
+"tsdoc-require-2/require-returns": "off",    // ❌ false positives on interfaces/types/constants
+```
+
+The CLI's `init` command must scaffold this exact configuration by default —
+turning on `require-param`/`require-returns` produces hundreds of false
+positives that block adoption.
+
+### Progressive Enforcement Pattern
+
+The workflow that consistently succeeded:
+
+| Phase | Rule severity | Commit type |
+|-------|---------------|-------------|
+| 1. Bootstrap + convert | `"warn"` | `chore: add tsdoc plugins and convert existing JSDoc` |
+| 2. Fix / scaffold missing | `"warn"` | `docs: add missing TSDoc for exports` |
+| 3. Lock in | `"error"` | `chore: escalate tsdoc-require to error` |
+
+Attempting to introduce the rule as `"error"` upfront blocks CI on day one
+and stalls the migration. The `warn → error` split is a first-class workflow,
+not a workaround — the CLI must support both `init --progressive` (default)
+and `init --strict`.
+
+### Rebase Conflict Pattern
+
+When a `feature/tsdoc-migration` PR lives for several days and intermediate
+commits get merged into `dev`, the only line that consistently conflicts is
+the ESLint config rule severity:
+
+```diff
+- "tsdoc-require-2/require": "warn"
++ "tsdoc-require-2/require": "error"
+```
+
+Predictable enough that `escalate` should default to a one-line change that
+is trivial to auto-resolve with `git rerere` or the tool itself.
+
+### Next.js / React Patterns (the majority of stubs)
+
+The scaffolding step must recognize these idioms — they made up ~80 % of the
+87 new stubs we wrote:
+
+| Export shape | Stub template |
+|--------------|--------------|
+| `export default function ComponentName({...}: Props)` | Summary derived from name + `@param props - Component props` |
+| `export function actionName(prevState, formData)` (Server Action) | Summary "Server Action …" + per-param docs |
+| `export interface XProps` | Header + inline `/** */` per field |
+| `export const useX = ...` (custom hook) | Summary derived from name + `@returns` |
+| `export const X = ...` (arrow fn / object) | Summary inferred from name |
+| `export type X = ...` | Summary only |
+| `export { X } from '...'` (re-export) | **Skip** — no stub needed |
+
+### Custom Tags Detected in Practice
+
+Across the three repos: `@since` (dominant), `@author`, `@example`, `@remarks`,
+`@internal`. All are already valid TSDoc block or modifier tags — the only
+`tsdoc.json` work is registering `@since` as a custom block tag.
+
+---
+
 ## Architecture Plan
 
-### CLI Flow
+### CLI Flow — Subcommand Model
+
+Instead of a single monolithic flow, the CLI exposes verbs that mirror the
+four-step workflow. Each is independently runnable so users can adopt
+incrementally (or re-run one phase after edits).
 
 ```
-$ npx jsdoc-to-tsdoc
+$ npx jsdoc-to-tsdoc <command> [options]
 
-  jsdoc-to-tsdoc v0.1.0
+Commands:
+  init         Bootstrap ESLint plugins + tsdoc.json (rule=warn by default)
+  scan         Inventory report: what convert/scaffold will touch (no writes)
+  convert      Transform existing JSDoc → TSDoc syntax
+  scaffold     Generate TSDoc stubs for exports without documentation
+  escalate     Bump tsdoc-require-2/require from "warn" to "error"
+  check        CI-friendly: exit 1 if any warnings/errors remain
+
+Global options:
+  --dry-run          Show diff, do not write
+  --interactive      Prompt for ambiguous decisions (default: on for scaffold)
+  --config <path>    Path to eslint.config (auto-detected by default)
+  --report <path>    Write JSON report to path
+```
+
+### Example: `init`
+
+```
+$ npx jsdoc-to-tsdoc init
+
+  jsdoc-to-tsdoc v0.1.0 · init
 
   Scanning project...
-  ✓ Found tsconfig.json
-  ✓ Found eslint.config.mjs (flat config)
-  ✓ 142 TypeScript files in src/
-  ✓ 87 files have JSDoc comments
+  ✓ tsconfig.json found (src/ base)
+  ✓ eslint.config.mjs found (flat config)
+  ✓ package manager: npm
 
-  Detected custom tags in use:
-    @author (34 occurrences)
-    @since (12 occurrences)
-    @version (3 occurrences)
-    @todo (8 occurrences)
+  Detected custom tags in comments:
+    @since (34 occurrences)   → will register in tsdoc.json
+    @author (12 occurrences)  → already a standard TSDoc tag
+    @todo (8 occurrences)     → ? register / remove / leave
 
   ? How should we handle @todo? (Use arrow keys)
   ❯ Add to tsdoc.json as custom block tag
-    Remove from all comments
-    Skip (leave as-is, will cause lint warnings)
+    Remove during convert step
+    Skip (leaves them as-is)
 
-  Proposed changes:
-  ┌─────────────────────────────────────┬──────────┐
-  │ Transformation                      │ Files    │
-  ├─────────────────────────────────────┼──────────┤
-  │ Remove {type} from @param           │ 67       │
-  │ Remove {type} from @returns         │ 45       │
-  │ Remove @typedef/@callback/@type     │ 12       │
-  │ Convert @fileoverview → @package... │ 8        │
-  │ Remove @function/@async/@class      │ 23       │
-  │ Add hyphen to @param descriptions   │ 52       │
-  │ Generate tsdoc.json                 │ 1 (new)  │
-  ├─────────────────────────────────────┼──────────┤
-  │ Total files modified                │ 87       │
-  └─────────────────────────────────────┴──────────┘
+  Will install:
+    eslint-plugin-tsdoc@^0.4
+    eslint-plugin-tsdoc-require-2@^1
+
+  Will patch eslint.config.mjs:
+    + import tsdocPlugin from "eslint-plugin-tsdoc";
+    + import tsdocRequire from "eslint-plugin-tsdoc-require-2";
+    ...
+    + rules: {
+    +   "tsdoc/syntax": "warn",
+    +   "tsdoc-require-2/require": "warn",     ← starts at warn
+    +   "tsdoc-require-2/require-param": "off", ← known false positives
+    +   "tsdoc-require-2/require-returns": "off",
+    + }
+
+  Will create tsdoc.json:
+    {
+      "$schema": "https://developer.microsoft.com/json-schemas/tsdoc/v0/tsdoc.schema.json",
+      "tagDefinitions": [
+        { "tagName": "@since", "syntaxKind": "block" }
+      ]
+    }
 
   ? Apply changes? (y/N)
+```
+
+### Example: `scan`
+
+```
+$ npx jsdoc-to-tsdoc scan
+
+  jsdoc-to-tsdoc v0.1.0 · scan
+
+  ┌────────────────────────────────────────┬────────────┐
+  │ Category                               │ Count      │
+  ├────────────────────────────────────────┼────────────┤
+  │ Files with JSDoc to convert            │ 23         │
+  │ Exports without any TSDoc              │ 87         │
+  │   └─ React components                  │ 34         │
+  │   └─ Server Actions                    │ 12         │
+  │   └─ Interfaces/types                  │ 21         │
+  │   └─ Other named exports               │ 20         │
+  │ Files with re-exports only (skip)      │ 8          │
+  ├────────────────────────────────────────┼────────────┤
+  │ Total files to modify                  │ 110        │
+  └────────────────────────────────────────┴────────────┘
+
+  Run `jsdoc-to-tsdoc convert` first, then `scaffold`, then `escalate`.
+```
+
+### Example: `escalate`
+
+```
+$ npx jsdoc-to-tsdoc escalate
+
+  jsdoc-to-tsdoc v0.1.0 · escalate
+
+  ✓ Running `eslint --rule 'tsdoc-require-2/require: error'` in check mode...
+  ✓ 0 errors, 0 warnings
+
+  Will patch eslint.config.mjs:
+  -   "tsdoc-require-2/require": "warn"
+  +   "tsdoc-require-2/require": "error"
+
+  ? Apply and stage for commit? (y/N)
 ```
 
 ### Core Modules
 
 ```
 src/
-├── cli.ts                  # Entry point, argument parsing (commander/yargs)
+├── cli.ts                    # citty entry point + subcommand dispatch
+├── commands/
+│   ├── init.ts
+│   ├── scan.ts
+│   ├── convert.ts
+│   ├── scaffold.ts
+│   ├── escalate.ts
+│   └── check.ts
 ├── scanner/
-│   ├── projectScanner.ts   # Find TS files, detect config (tsconfig, eslint)
-│   └── commentExtractor.ts # Extract /** */ comments with position info
+│   ├── projectScanner.ts     # Find TS files, detect config
+│   ├── commentExtractor.ts   # ts.getLeadingCommentRanges() based extraction
+│   └── exportInventory.ts    # Enumerate exported declarations lacking TSDoc
 ├── parser/
-│   ├── jsdocParser.ts      # Parse JSDoc tags from comment text
-│   └── tagRegistry.ts      # Map of known JSDoc tags → TSDoc equivalents
+│   ├── jsdocParser.ts        # Parse JSDoc tags from comment text
+│   └── tagRegistry.ts        # JSDoc → TSDoc tag mapping
 ├── transformer/
-│   ├── pipeline.ts         # Orchestrates transformation rules
+│   ├── pipeline.ts
 │   ├── rules/
-│   │   ├── removeTypeBraces.ts     # Strip {type} from @param, @returns
-│   │   ├── addHyphenSeparator.ts   # @param name Description → @param name - Description
-│   │   ├── convertFileOverview.ts  # @fileoverview → @packageDocumentation
-│   │   ├── removeRedundantTags.ts  # @function, @async, @class, etc.
-│   │   ├── removeJsDocOnlyTags.ts  # @typedef, @callback, @type
-│   │   ├── convertAccessTags.ts    # @access private → @internal
-│   │   └── splitRemarks.ts         # Multi-paragraph → summary + @remarks
+│   │   ├── removeTypeBraces.ts
+│   │   ├── addHyphenSeparator.ts
+│   │   ├── convertFileOverview.ts
+│   │   ├── convertProperty.ts       # @property → inline interface docs (NEW)
+│   │   ├── removeRedundantTags.ts
+│   │   ├── removeJsDocOnlyTags.ts
+│   │   ├── convertAccessTags.ts
+│   │   └── splitRemarks.ts
+│   └── index.ts
+├── scaffolder/                       # NEW
+│   ├── templates/
+│   │   ├── reactComponent.ts         # export default function → props docs
+│   │   ├── serverAction.ts           # (prevState, formData) → param docs
+│   │   ├── hook.ts                   # useX → return docs
+│   │   ├── interface.ts              # per-field inline docs
+│   │   ├── typeAlias.ts
+│   │   └── generic.ts                # fallback for arbitrary exports
+│   ├── nameInference.ts              # kebab/camelCase → prose summary
 │   └── index.ts
 ├── generator/
-│   ├── tsdocJsonGenerator.ts  # Generate tsdoc.json from detected custom tags
-│   └── eslintConfigPatcher.ts # Add eslint-plugin-tsdoc to existing config
+│   ├── tsdocJsonGenerator.ts         # from detected custom tags
+│   └── eslintConfigPatcher.ts        # patches flat config (in scope now)
+├── escalator/                        # NEW
+│   ├── ruleUpdater.ts                # warn → error patch
+│   └── preflightCheck.ts             # verify 0 warnings before escalating
 ├── reporter/
-│   ├── dryRunReporter.ts   # Show proposed changes without applying
-│   └── summaryReporter.ts  # Post-migration summary
+│   ├── dryRunReporter.ts
+│   ├── jsonReporter.ts               # machine-readable output for CI
+│   └── summaryReporter.ts
 └── writer/
-    └── fileWriter.ts       # Apply transformations back to source files
+    └── fileWriter.ts
 ```
 
 ### Key Design Decisions
 
-1. **Use `@microsoft/tsdoc` parser for validation** — after transforming, parse the result with the official parser to guarantee validity.
-2. **Use TypeScript Compiler API for comment extraction** — `ts.getLeadingCommentRanges()` gives precise positions without regex fragility.
-3. **Rule-based pipeline** — each transformation is an independent rule that can be toggled on/off.
-4. **Non-destructive by default** — dry run mode shows a diff before applying.
-5. **Preserves formatting** — only modify the comment content, not surrounding code.
-6. **No dependency on AI/LLM** — pure deterministic transformations.
+1. **Use `@microsoft/tsdoc` parser for validation** — after transforming, parse
+   the result with the official parser to guarantee validity.
+2. **Use TypeScript Compiler API for comment extraction and export detection**
+   — `ts.getLeadingCommentRanges()` and `ts.SymbolTable` give precise positions
+   without regex fragility.
+3. **Rule-based pipeline** — each transformation is an independent rule that
+   can be toggled on/off.
+4. **Subcommand model, not a single flow** — matches the real 4-step workflow;
+   users can re-run any phase.
+5. **`init` defaults to progressive (`warn`) mode** — matches the pattern that
+   worked in three consecutive migrations; `--strict` opts into `error` upfront.
+6. **`require-param` / `require-returns` disabled by default** — they generate
+   false positives on interfaces, type aliases, and const exports.
+7. **Non-destructive by default** — every command supports `--dry-run` and
+   shows a unified diff before applying.
+8. **Preserves formatting** — only modify comment content, never surrounding
+   code layout.
+9. **No LLM dependency in v0.1.0** — deterministic templates and name inference.
+   LLM-assisted summary rewriting is a v0.2+ opt-in flag.
+10. **Machine-readable output** — every command supports `--report=<path>` for
+    JSON output, enabling GitHub Actions / Bitbucket Pipelines integrations.
 
 ### Technology Stack
 
 - **Language**: TypeScript
-- **CLI framework**: `commander` or `citty` (from UnJS)
-- **TS Compiler API**: For AST traversal and comment extraction
-- **`@microsoft/tsdoc`**: For validation of transformed comments
-- **`inquirer` or `@clack/prompts`**: For interactive wizard
-- **`diff`**: For showing before/after in dry run mode
-- **Testing**: Vitest with snapshot tests for each transformation rule
+- **CLI framework**: **`citty`** (UnJS) — first-class subcommand support
+- **TS Compiler API**: For AST traversal, comment extraction, export enumeration
+- **`@microsoft/tsdoc`** + **`@microsoft/tsdoc-config`**: Validation + `tsdoc.json` generation
+- **`eslint`** (peer): For `escalate --preflight` and `check`
+- **`@clack/prompts`**: Interactive wizard (nicer defaults than inquirer)
+- **`diff`**: Unified diffs in dry-run mode
+- **Testing**: Vitest with snapshot tests seeded from real repo fixtures
+  (see [Fixture Strategy](#fixture-strategy))
 
 ---
 
@@ -165,25 +377,64 @@ src/
 
 ### In Scope (v0.1.0)
 
-- [x] Scan TypeScript project for JSDoc comments
+Bootstrapping & config:
+- [x] Detect project layout (tsconfig, eslint flat config, package manager)
+- [x] **Auto-install `eslint-plugin-tsdoc` + `eslint-plugin-tsdoc-require-2`** *(promoted from Out of Scope)*
+- [x] **Auto-patch `eslint.config.mjs`** with correct rules and known-safe defaults *(promoted)*
+- [x] Detect custom tags → generate `tsdoc.json`
+
+Conversion (existing JSDoc → TSDoc):
 - [x] Remove `{type}` braces from `@param` and `@returns`
 - [x] Add hyphen separator to `@param` descriptions
 - [x] Remove redundant JSDoc tags (`@function`, `@async`, `@class`, `@enum`)
 - [x] Remove JSDoc-only tags (`@typedef`, `@callback`, `@type`)
 - [x] Convert `@fileoverview`/`@module` → `@packageDocumentation`
-- [x] Detect custom tags and generate `tsdoc.json`
-- [x] Dry run mode with diff output
-- [x] Interactive wizard for ambiguous decisions
+- [x] Convert `@access private` → `@internal`
+- [x] **Restructure `@property` → inline interface field docs** *(promoted from Out of Scope)*
+
+Scaffolding (new TSDoc for undocumented exports):
+- [x] Enumerate exports lacking TSDoc via TS Compiler API
+- [x] Template-based stubs for React components, Server Actions, hooks,
+      interfaces, type aliases, generic exports *(promoted from Out of Scope)*
+- [x] Name-based summary inference (kebab-case → prose)
+- [x] Interactive mode to confirm/edit generated summaries
+
+Enforcement progression:
+- [x] `init --progressive` (default) → starts at `warn`
+- [x] `init --strict` → starts at `error`
+- [x] `escalate` command → warn → error with preflight check
+
+Reporting & CI:
+- [x] Dry-run mode with unified diff for every command
+- [x] `--report=<path>` JSON output for every command
+- [x] `check` command → exit 1 if warnings/errors remain
 
 ### Out of Scope (future)
 
-- [ ] VS Code extension wrapper
-- [ ] Automatic `@remarks` splitting (heuristic, needs tuning)
-- [ ] `@property` → interface member comment restructuring
-- [ ] Monorepo support (multiple `tsdoc.json` files)
-- [ ] ESLint config auto-patching
-- [ ] CI integration (GitHub Action)
-- [ ] React/Next.js specific patterns (component prop docs)
+- [ ] VS Code extension wrapper (v0.2+)
+- [ ] LLM-assisted summary rewriting (v0.2, opt-in flag only)
+- [ ] Automatic `@remarks` splitting on prose heuristics (fragile — defer)
+- [ ] Monorepo support with multiple `tsdoc.json` files (v0.3)
+- [ ] Prebuilt GitHub Action / Bitbucket Pipe wrapper (v0.2)
+- [ ] Framework-specific templates beyond React/Next.js (Vue, Svelte)
+- [ ] Automatic rebase-conflict resolver for the warn→error escalation line
+
+---
+
+## Fixture Strategy
+
+Snapshot tests are seeded from the three real migrations already completed.
+Fixtures are stored in `tests/fixtures/<repo>/<before|after>/` and cover the
+end-to-end pipeline (init + convert + scaffold + escalate).
+
+| Fixture set | Source | Files | Notable patterns |
+|-------------|--------|-------|------------------|
+| `nextjs-boilerplate` | rebased `feature/tsdoc-migration` | 14 | React components, hooks, CCDS lib |
+| `homecare-nextjs` | merged squash on `dev` | 26 | Same + WP GraphQL types |
+| `assistedliving-nextjs` | merged squash on `stg` | 47 | Same + Server Actions, extensive interfaces |
+
+The repo owner has these commits locally and can extract before/after pairs
+without contacting the source projects.
 
 ---
 
@@ -192,14 +443,18 @@ src/
 | Phase | Description | Status |
 |-------|-------------|--------|
 | 0 | Project plan and gap analysis | **Done** |
-| 1 | Core scanner + comment extractor | Not started |
+| 0.5 | **Plan revision from real-world learnings** | **Done (this doc)** |
+| 1 | Core scanner + comment extractor + export inventory | Not started |
 | 2 | Parser + tag registry | Not started |
-| 3 | Transformation rules (simple tags) | Not started |
-| 4 | `tsdoc.json` generator | Not started |
-| 5 | CLI interface + dry run reporter | Not started |
-| 6 | Interactive wizard | Not started |
-| 7 | Testing on real projects (nextjs-boilerplate, etc.) | Not started |
-| 8 | npm publish as `jsdoc-to-tsdoc` | Not started |
+| 3 | Transformation rules (existing JSDoc → TSDoc) | Not started |
+| 4 | `tsdoc.json` + ESLint config generator/patcher | Not started |
+| 5 | **Scaffolder templates** (components, actions, hooks, interfaces) | Not started |
+| 6 | CLI subcommand shell (`init`, `scan`, `convert`, `scaffold`, `escalate`, `check`) | Not started |
+| 7 | Interactive wizard (`@clack/prompts`) | Not started |
+| 8 | **Escalator + preflight ESLint check** | Not started |
+| 9 | Fixture-based snapshot tests (3 real repos) | Not started |
+| 10 | Dogfood on a 4th real repo end-to-end | Not started |
+| 11 | npm publish as `jsdoc-to-tsdoc` v0.1.0 | Not started |
 
 ---
 
@@ -208,7 +463,10 @@ src/
 - [TSDoc specification](https://tsdoc.org/)
 - [TSDoc Playground](https://tsdoc.org/play/) — test comments interactively
 - [`@microsoft/tsdoc` parser](https://www.npmjs.com/package/@microsoft/tsdoc) — 49M weekly downloads
+- [`@microsoft/tsdoc-config`](https://www.npmjs.com/package/@microsoft/tsdoc-config) — `tsdoc.json` loader
 - [`eslint-plugin-tsdoc`](https://www.npmjs.com/package/eslint-plugin-tsdoc) — 4.3M weekly downloads
 - [`eslint-plugin-tsdoc-require-2`](https://www.npmjs.com/package/eslint-plugin-tsdoc-require-2) — enforces comment presence
 - [TypeScript Compiler API](https://github.com/microsoft/TypeScript/wiki/Using-the-Compiler-API) — for AST traversal
 - [TSDoc approach document](https://tsdoc.org/pages/intro/approach/) — design goals and lax/strict modes
+- [citty](https://github.com/unjs/citty) — subcommand-friendly CLI framework
+- [@clack/prompts](https://github.com/natemoo-re/clack) — interactive prompts
