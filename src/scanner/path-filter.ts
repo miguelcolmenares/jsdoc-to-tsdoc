@@ -80,8 +80,9 @@ export function matchesGlob(path: string, glob: string): boolean {
 }
 
 /**
- * Builds a predicate that keeps paths matching every `only` pattern set and no
- * `exclude` pattern.
+ * Builds a predicate that keeps a path when it matches at least one `only`
+ * pattern (or when no `only` patterns are given) and matches none of the
+ * `exclude` patterns.
  *
  * @param filters - Optional `only` and `exclude` glob lists.
  * @returns A predicate returning `true` for paths that pass the filter.

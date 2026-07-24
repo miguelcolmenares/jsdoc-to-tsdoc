@@ -143,6 +143,18 @@ describe("convertFileOverview", () => {
       comment("/**", " * @packageDocumentation", " * HTTP utilities.", " */"),
     );
   });
+
+  it("leaves a @module line inside a fenced block untouched", () => {
+    const input = comment(
+      "/**",
+      " * @example",
+      " * ```ts",
+      " * @module lib/x",
+      " * ```",
+      " */",
+    );
+    expect(convertFileOverview.apply(input)).toBe(input);
+  });
 });
 
 describe("removeRedundantTags", () => {

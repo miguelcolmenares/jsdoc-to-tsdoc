@@ -54,9 +54,12 @@ function isSourceFile(name: string): boolean {
  * Recursively finds TypeScript source files under a root directory.
  *
  * @remarks
- * Descends the tree asynchronously, skipping {@link DEFAULT_IGNORE_DIRS} and
- * declaration files. Glob filters are matched against each file's path relative
- * to `rootDir`, using forward slashes.
+ * Descends the tree one directory at a time, skipping {@link DEFAULT_IGNORE_DIRS}
+ * and declaration files. The walk is sequential rather than a fan-out of
+ * `Promise.all` so that a deep or wide tree cannot open an unbounded number of
+ * concurrent directory handles and exhaust the process file-descriptor limit
+ * (`EMFILE`). Glob filters are matched against each file's path relative to
+ * `rootDir`, using forward slashes.
  *
  * @param rootDir - The absolute directory to scan.
  * @param options - Optional `only` / `exclude` glob filters.
@@ -90,7 +93,9 @@ export async function findSourceFiles(
       }
     }
 
-    await Promise.all(subdirs.map(walk));
+    for (const subdir of subdirs) {
+      await walk(subdir);
+    }
   };
 
   await walk(rootDir);

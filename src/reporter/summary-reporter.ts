@@ -7,9 +7,10 @@
 import type { Colors } from "@/reporter/colors";
 
 /**
- * Supported machine- and human-readable report formats.
+ * Supported machine-readable report formats. When no format is selected the
+ * commands emit their default human-oriented output (tables and diffs).
  */
-export type ReportFormat = "table" | "json" | "md";
+export type ReportFormat = "json" | "md";
 
 /**
  * A single labelled row in a two-column summary table.

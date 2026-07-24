@@ -26,10 +26,11 @@ export function splitGlobs(value: unknown): string[] {
  * Parses the `--report` option into a known {@link ReportFormat}.
  *
  * @param value - The raw option value.
- * @returns The format, or `undefined` for human-oriented default output.
+ * @returns The format, or `undefined` for human-oriented default output (which
+ * is what any unrecognized value, including `table`, falls back to).
  */
 export function parseReportFormat(value: unknown): ReportFormat | undefined {
-  if (value === "json" || value === "md" || value === "table") {
+  if (value === "json" || value === "md") {
     return value;
   }
   return undefined;

@@ -31,13 +31,15 @@ export interface CommentLineContext {
  * @param content - The line text with its ` * ` prefix and any trailing `*\/`
  * already removed.
  * @param context - Positional and fence state for the line.
- * @returns The replacement content, or `null` to drop the entire physical line
- * (only honored for interior lines — structural lines are never dropped).
+ * @returns The replacement content: a string, or an array of strings to expand
+ * one source line into several (each rebuilt with the same prefix), or `null` to
+ * drop the entire physical line (only honored for interior lines — structural
+ * lines are never dropped).
  */
 export type CommentLineMapper = (
   content: string,
   context: CommentLineContext,
-) => string | null;
+) => string | readonly string[] | null;
 
 interface SplitLine {
   readonly prefix: string;
@@ -46,11 +48,14 @@ interface SplitLine {
   readonly canDrop: boolean;
 }
 
-const OPENING_LINE = /^(\s*\/\*\*\s?)(.*)$/;
-const SINGLE_LINE = /^(\s*\/\*\*\s?)(.*?)(\s?\*\/\s*)$/;
+// Prefixes greedily absorb all post-marker whitespace so that content always
+// begins at the first non-space character (robust to arbitrary alignment) while
+// the exact spacing is preserved for verbatim reconstruction.
+const OPENING_LINE = /^(\s*\/\*\*[ \t]*)(.*)$/;
+const SINGLE_LINE = /^(\s*\/\*\*[ \t]*)(.*?)([ \t]?\*\/[ \t]*)$/;
 const CLOSING_ONLY = /^\s*\*\/\s*$/;
-const CLOSING_WITH_CONTENT = /^(\s*\*\s?)(.*?)(\s?\*\/\s*)$/;
-const STAR_LINE = /^(\s*\*\s?)(.*)$/;
+const CLOSING_WITH_CONTENT = /^(\s*\*[ \t]*)(.*?)([ \t]?\*\/[ \t]*)$/;
+const STAR_LINE = /^(\s*\*[ \t]*)(.*)$/;
 
 /**
  * Splits one physical line into its structural prefix, editable content, and
@@ -101,7 +106,8 @@ function splitCommentLine(
  * structural scaffolding, indentation, and end-of-line style.
  *
  * @param comment - The full `/** *\/` comment text.
- * @param mapper - Per-line transform; return `null` to drop an interior line.
+ * @param mapper - Per-line transform; return `null` to drop an interior line,
+ * or an array of strings to expand one line into several.
  * @returns The rewritten comment.
  *
  * @example
@@ -122,7 +128,13 @@ export function mapCommentLines(
   if (single) {
     const [, prefix = "", content = "", suffix = ""] = single;
     const mapped = mapper(content, { inFence: false, index: 0 });
-    return `${prefix}${mapped ?? content}${suffix}`;
+    const value =
+      mapped === null
+        ? content
+        : Array.isArray(mapped)
+          ? mapped.join(" ")
+          : mapped;
+    return `${prefix}${value}${suffix}`;
   }
 
   const output: string[] = [];
@@ -148,7 +160,8 @@ export function mapCommentLines(
       inFence = !inFence;
     }
 
-    if (mapped === null) {
+    const isEmptyExpansion = Array.isArray(mapped) && mapped.length === 0;
+    if (mapped === null || isEmptyExpansion) {
       if (parts.canDrop) {
         return;
       }
@@ -156,7 +169,11 @@ export function mapCommentLines(
       return;
     }
 
-    output.push(`${parts.prefix}${mapped}${parts.suffix}`);
+    const producedLines = typeof mapped === "string" ? [mapped] : mapped;
+    producedLines.forEach((produced, index) => {
+      const suffix = index === producedLines.length - 1 ? parts.suffix : "";
+      output.push(`${parts.prefix}${produced}${suffix}`);
+    });
   });
 
   return output.join(eol);

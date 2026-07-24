@@ -98,4 +98,30 @@ describe("mapCommentLines", () => {
     );
     expect(result).toBe(["/**", " * @param x - VALUE */"].join("\n"));
   });
+
+  it("captures extra alignment whitespace into the prefix", () => {
+    const comment = ["/**", " *   @param name", " */"].join("\n");
+    const seen: string[] = [];
+    const result = mapCommentLines(comment, (content) => {
+      seen.push(content);
+      return content.startsWith("@param") ? content.toUpperCase() : content;
+    });
+
+    // Content begins at the tag despite the extra alignment spaces...
+    expect(seen).toContain("@param name");
+    // ...and the exact alignment is preserved on output.
+    expect(result).toBe(["/**", " *   @PARAM NAME", " */"].join("\n"));
+  });
+
+  it("expands an array return into multiple lines sharing the prefix", () => {
+    const comment = ["/**", " * @fileoverview Hello", " */"].join("\n");
+    const result = mapCommentLines(comment, (content) =>
+      content.startsWith("@fileoverview")
+        ? ["@packageDocumentation", "Hello"]
+        : content,
+    );
+    expect(result).toBe(
+      ["/**", " * @packageDocumentation", " * Hello", " */"].join("\n"),
+    );
+  });
 });

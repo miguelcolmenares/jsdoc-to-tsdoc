@@ -22,13 +22,13 @@ describe("splitGlobs", () => {
 });
 
 describe("parseReportFormat", () => {
-  it("accepts the known formats", () => {
+  it("accepts the known machine-readable formats", () => {
     expect(parseReportFormat("json")).toBe("json");
     expect(parseReportFormat("md")).toBe("md");
-    expect(parseReportFormat("table")).toBe("table");
   });
 
-  it("returns undefined for unknown or missing values", () => {
+  it("returns undefined for unknown or missing values (default human output)", () => {
+    expect(parseReportFormat("table")).toBeUndefined();
     expect(parseReportFormat("xml")).toBeUndefined();
     expect(parseReportFormat(undefined)).toBeUndefined();
   });
