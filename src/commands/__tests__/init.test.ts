@@ -121,6 +121,19 @@ describe("init command", () => {
     expect(patched).toContain('"tsdoc-require-2/require": "error"');
   });
 
+  it("emits a Markdown report with --report=md", async () => {
+    const output = await captureStdout(() =>
+      runHandler(initCommand, { cwd: root, "dry-run": true, report: "md" }),
+    );
+
+    expect(output).toContain("| File | Action |");
+    expect(output).toContain("| tsdoc.json | create |");
+    expect(output).toContain("| eslint.config.mjs | update |");
+    expect(output).toContain("Custom tags registered: @since");
+    // Dry-run still writes nothing.
+    expect(await fileExists(tsdocPath)).toBe(false);
+  });
+
   it("is a no-op on an already-bootstrapped project", async () => {
     await captureStdout(() => runHandler(initCommand, { cwd: root }));
 

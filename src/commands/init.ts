@@ -147,6 +147,18 @@ export default defineCommand({
         return;
       }
 
+      if (reportFormat === "md") {
+        process.stdout.write(
+          `${renderMarkdown({
+            cwd,
+            changes,
+            command,
+            blockTags,
+          })}\n`,
+        );
+        return;
+      }
+
       renderReport(
         {
           cwd,
@@ -229,6 +241,34 @@ function renderReport(input: RenderInput, colors: Colors): void {
   } else {
     out(colors.bold(`Next: install dev dependencies —\n  ${input.command}`));
   }
+}
+
+/**
+ * Renders the `init` plan as a Markdown report for `--report=md`.
+ *
+ * @param input - The computed changes, custom tags, and install command.
+ * @returns A Markdown document: a change table plus tag and install lines.
+ */
+function renderMarkdown(input: {
+  readonly cwd: string;
+  readonly changes: readonly FileChange[];
+  readonly command: string;
+  readonly blockTags: readonly string[];
+}): string {
+  const rows = input.changes.map((change) => {
+    const action = change.before === "" ? "create" : "update";
+    return `| ${relative(input.cwd, change.path)} | ${action} |`;
+  });
+  const table = ["| File | Action |", "| --- | --- |", ...rows].join("\n");
+
+  const extra: string[] = [];
+  if (input.blockTags.length > 0) {
+    extra.push(`\nCustom tags registered: ${input.blockTags.join(", ")}`);
+  }
+  if (input.command !== "") {
+    extra.push(`Install: \`${input.command}\``);
+  }
+  return extra.length > 0 ? `${table}\n${extra.join("\n")}` : table;
 }
 
 /**

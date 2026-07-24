@@ -8,8 +8,9 @@
  * then exported). Rather than parse and re-print an AST — which would lose the
  * author's formatting — this inserts two `import` lines after the existing
  * imports and a plugin/rules block as the first entry of the config container.
- * The patch is idempotent: a config that already references
- * `eslint-plugin-tsdoc` is returned unchanged. When no known container shape is
+ * The patch is idempotent: a config that already references the
+ * `eslint-plugin-tsdoc` syntax plugin is returned unchanged (a config that has
+ * only the presence plugin is still completed). When no known container shape is
  * recognized, the result carries a copy-pasteable snippet for manual insertion.
  *
  * @since 0.1.0
@@ -41,6 +42,18 @@ const TSDOC_IMPORTS = [
   'import tsdoc from "eslint-plugin-tsdoc";',
   'import tsdocRequire from "eslint-plugin-tsdoc-require-2";',
 ].join("\n");
+
+/**
+ * Matches a reference to the `eslint-plugin-tsdoc` syntax plugin specifically —
+ * a negative lookahead excludes `eslint-plugin-tsdoc-require-2`, whose name
+ * contains the shorter package as a substring. Used to decide whether the config
+ * is already set up, so a project that references only the presence plugin is
+ * still patched with the missing syntax plugin.
+ */
+const SYNTAX_PLUGIN_REFERENCE = /eslint-plugin-tsdoc(?!-require)/;
+
+const SYNTAX_PLUGIN_IMPORT = /from\s+["']eslint-plugin-tsdoc["']/;
+const REQUIRE_PLUGIN_IMPORT = /from\s+["']eslint-plugin-tsdoc-require-2["']/;
 
 /**
  * Regexes matching the opening bracket of a recognized config container. The
@@ -97,21 +110,43 @@ export function buildTsdocConfigSnippet(severity: Severity): string {
 }
 
 /**
- * Inserts the TSDoc imports after the last top-level `import` statement.
+ * Builds the import lines still missing from a config, so a partially-configured
+ * project is not given a duplicate import.
+ *
+ * @param source - The config source.
+ * @returns The needed `import` lines joined by newlines (possibly empty).
+ */
+function missingImports(source: string): string {
+  const lines: string[] = [];
+  if (!SYNTAX_PLUGIN_IMPORT.test(source)) {
+    lines.push('import tsdoc from "eslint-plugin-tsdoc";');
+  }
+  if (!REQUIRE_PLUGIN_IMPORT.test(source)) {
+    lines.push('import tsdocRequire from "eslint-plugin-tsdoc-require-2";');
+  }
+  return lines.join("\n");
+}
+
+/**
+ * Inserts the missing TSDoc imports after the last top-level `import` statement.
  *
  * @param source - The config source.
  * @returns The source with the imports inserted (or prepended if none exist).
  */
 function insertImports(source: string): string {
+  const imports = missingImports(source);
+  if (imports === "") {
+    return source;
+  }
   const importLine = /^import[^\n]*?;[ \t]*$/gm;
   let lastEnd = -1;
   for (let match = importLine.exec(source); match; match = importLine.exec(source)) {
     lastEnd = match.index + match[0].length;
   }
   if (lastEnd === -1) {
-    return `${TSDOC_IMPORTS}\n${source}`;
+    return `${imports}\n${source}`;
   }
-  return `${source.slice(0, lastEnd)}\n${TSDOC_IMPORTS}${source.slice(lastEnd)}`;
+  return `${source.slice(0, lastEnd)}\n${imports}${source.slice(lastEnd)}`;
 }
 
 /**
@@ -146,7 +181,7 @@ export function patchEslintFlatConfig(
   source: string,
   options: PatchEslintOptions,
 ): EslintPatchResult {
-  if (source.includes("eslint-plugin-tsdoc")) {
+  if (SYNTAX_PLUGIN_REFERENCE.test(source)) {
     return { ok: true, content: source, changed: false };
   }
 

@@ -63,6 +63,34 @@ describe("patchEslintFlatConfig", () => {
     expect(result.content).toContain('"tsdoc/syntax": "error"');
   });
 
+  it("completes a config that references only the presence plugin", () => {
+    const source = [
+      'import tsdocRequire from "eslint-plugin-tsdoc-require-2";',
+      "",
+      "export default defineConfig([",
+      "  {",
+      '    plugins: { "tsdoc-require-2": tsdocRequire },',
+      '    rules: { "tsdoc-require-2/require": "warn" },',
+      "  },",
+      "]);",
+    ].join("\n");
+
+    const result = patchEslintFlatConfig(source, { severity: "warn" });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // The substring "eslint-plugin-tsdoc" is present, but the syntax plugin is
+    // not — the patch must still run and add it.
+    expect(result.changed).toBe(true);
+    expect(result.content).toContain('import tsdoc from "eslint-plugin-tsdoc";');
+    expect(result.content).toContain('"tsdoc/syntax": "error"');
+    // The existing presence-plugin import must not be duplicated.
+    const requireImports = result.content.match(
+      /import tsdocRequire from "eslint-plugin-tsdoc-require-2";/g,
+    );
+    expect(requireImports).toHaveLength(1);
+  });
+
   it("returns a manual snippet when no config container is recognized", () => {
     const result = patchEslintFlatConfig("export const notAConfig = 1;\n", {
       severity: "warn",

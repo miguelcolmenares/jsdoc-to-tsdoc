@@ -81,10 +81,13 @@ export function mergeTsdocJson(
   let document: TsdocJsonDocument;
   try {
     const parsed = JSON.parse(existing) as unknown;
-    document =
-      parsed && typeof parsed === "object"
-        ? (parsed as TsdocJsonDocument)
-        : {};
+    // Only a plain object is a usable document. Arrays, `null`, and primitives
+    // are valid JSON but invalid `tsdoc.json`, and assigning `$schema` /
+    // `tagDefinitions` onto them would serialize to nothing — regenerate instead.
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return generateTsdocJson(blockTags);
+    }
+    document = parsed as TsdocJsonDocument;
   } catch {
     return generateTsdocJson(blockTags);
   }

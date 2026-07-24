@@ -57,4 +57,16 @@ describe("mergeTsdocJson", () => {
 
     expect(parsed.tagDefinitions).toEqual([{ tagName: "@since", syntaxKind: "block" }]);
   });
+
+  it("regenerates when the existing document is a JSON array", () => {
+    const merged = mergeTsdocJson("[]", ["@since"]);
+    const parsed = JSON.parse(merged) as {
+      $schema: string;
+      tagDefinitions: { tagName: string }[];
+    };
+
+    expect(Array.isArray(parsed)).toBe(false);
+    expect(parsed.$schema).toContain("tsdoc.schema.json");
+    expect(parsed.tagDefinitions).toEqual([{ tagName: "@since", syntaxKind: "block" }]);
+  });
 });
