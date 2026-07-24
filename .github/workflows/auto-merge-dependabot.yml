@@ -1,73 +1,38 @@
 name: Auto-merge Dependabot PRs
 
-on:
-  workflow_run:
-    workflows: ["CI"]
-    types: [completed]
+# Auto-merge Dependabot's minor and patch updates once required checks pass.
+# Runs on `pull_request`; the job-level `permissions:` block elevates the
+# GITHUB_TOKEN for Dependabot's own PRs. Major updates are left for manual
+# review, matching the "Separate major updates for careful review" intent in
+# .github/dependabot.yml.
+on: pull_request
 
-permissions:
-  contents: write
-  pull-requests: write
+# Least privilege by default: no token scopes at the workflow level. Only the
+# job below elevates, and only for Dependabot's own PRs, so a write-scoped token
+# is never exposed to other contributors' pull requests.
+permissions: {}
 
 jobs:
-  auto-merge:
+  dependabot-auto-merge:
     runs-on: ubuntu-latest
-    if: |
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'pull_request'
-
+    # Gate the whole (write-scoped) job on the actor, not just the merge step.
+    if: github.actor == 'dependabot[bot]'
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
-      - name: Resolve associated PR
-        id: pr
-        uses: actions/github-script@v9
-        with:
-          # Emit plain string outputs (never a JSON object) so the next step's
-          # `if:` can guard on `found` without dereferencing a possibly-null
-          # result — returning null here would make `fromJSON(...).user` throw.
-          script: |
-            const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              commit_sha: context.payload.workflow_run.head_sha,
-            });
+      - name: Fetch Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
 
-            if (prs.length === 0) {
-              core.info('No PR associated with this commit — nothing to merge.');
-              core.setOutput('found', 'false');
-              return;
-            }
-
-            const pr = prs[0];
-            core.info(`Found PR #${pr.number} by ${pr.user.login}`);
-            core.setOutput('found', 'true');
-            core.setOutput('number', String(pr.number));
-            core.setOutput('user', pr.user.login);
-
-      - name: Auto-merge Dependabot PR
-        if: steps.pr.outputs.found == 'true' && steps.pr.outputs.user == 'dependabot[bot]'
-        uses: actions/github-script@v9
-        with:
-          script: |
-            const prNumber = Number('${{ steps.pr.outputs.number }}');
-
-            const { data: pr } = await github.rest.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: prNumber,
-            });
-
-            core.info(`PR #${prNumber} mergeable_state: ${pr.mergeable_state}`);
-
-            if (pr.mergeable_state === 'clean') {
-              await github.rest.pulls.merge({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: prNumber,
-                merge_method: 'squash',
-                commit_title: pr.title,
-                commit_message: `${pr.title}\n\n${pr.body || ''}`,
-              });
-              core.info(`Merged PR #${prNumber}.`);
-            } else {
-              core.info(`PR #${prNumber} not ready for merge (state: ${pr.mergeable_state}).`);
-            }
+      - name: Enable auto-merge for minor and patch updates
+        # Skip semver-major bumps; they need a human. Reads the update type from
+        # the Dependabot metadata rather than parsing the PR title.
+        if: steps.metadata.outputs.update-type != 'version-update:semver-major'
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # `--auto` asks GitHub to merge only after required status checks pass,
+          # so there is no need to poll the PR's mergeable state ourselves.
+          gh pr merge --auto --squash "$PR_URL"
