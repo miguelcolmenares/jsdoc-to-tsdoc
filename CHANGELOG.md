@@ -25,5 +25,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `init` CLI subcommand: bootstraps `tsdoc.json` and the ESLint TSDoc rules
   (progressive `warn` by default, `--strict` for `error`), reports the
   dev dependencies to install (`--install` runs the package manager), and
-  supports `--dry-run` diffs and `--report=json`.
+  supports `--dry-run` diffs and `--report` (`json` / `md`).
 - `convert` and `scan` CLI subcommands with `--dry-run` / `--preview` diffs.

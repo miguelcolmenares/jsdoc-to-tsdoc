@@ -141,7 +141,7 @@ export default defineCommand({
             packagesToInstall: packages,
             installCommand: command,
             eslintConfigFound: layout.eslintConfigPath !== undefined,
-            eslintManualSnippet: manualEslintSnippet !== undefined,
+            eslintManualSnippet: manualEslintSnippet ?? null,
           })}\n`,
         );
         return;

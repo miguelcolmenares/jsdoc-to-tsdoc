@@ -90,15 +90,30 @@ describe("init command", () => {
       changes: { path: string }[];
       customTags: string[];
       packagesToInstall: string[];
+      eslintManualSnippet: string | null;
     };
 
     expect(report.wrote).toBe(false);
     expect(report.customTags).toContain("@since");
     expect(report.packagesToInstall).toContain("eslint-plugin-tsdoc");
     expect(report.changes.map((change) => change.path)).toContain("tsdoc.json");
+    // Config is patchable, so there is no manual snippet.
+    expect(report.eslintManualSnippet).toBeNull();
     // Nothing written.
     expect(await fileExists(tsdocPath)).toBe(false);
     expect(await readFile(eslintPath, "utf8")).toBe(eslintConfig);
+  });
+
+  it("emits the manual snippet text when the config is unpatchable", async () => {
+    await writeFile(eslintPath, "export const notAConfig = 1;\n");
+
+    const output = await captureStdout(() =>
+      runHandler(initCommand, { cwd: root, "dry-run": true, report: "json" }),
+    );
+    const report = JSON.parse(output) as { eslintManualSnippet: string | null };
+
+    expect(typeof report.eslintManualSnippet).toBe("string");
+    expect(report.eslintManualSnippet).toContain("eslint-plugin-tsdoc");
   });
 
   it("writes tsdoc.json and patches the ESLint config by default", async () => {

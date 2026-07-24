@@ -91,6 +91,25 @@ describe("patchEslintFlatConfig", () => {
     expect(requireImports).toHaveLength(1);
   });
 
+  it("does not treat a comment mention of the plugin as already configured", () => {
+    const source = [
+      "// Reminder: enable eslint-plugin-tsdoc for TSDoc syntax validation.",
+      'import js from "@eslint/js";',
+      "",
+      "export default defineConfig([",
+      "  js.configs.recommended,",
+      "]);",
+    ].join("\n");
+
+    const result = patchEslintFlatConfig(source, { severity: "warn" });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // The plugin name only appears in a comment — the config must still be patched.
+    expect(result.changed).toBe(true);
+    expect(result.content).toContain('import tsdoc from "eslint-plugin-tsdoc";');
+  });
+
   it("returns a manual snippet when no config container is recognized", () => {
     const result = patchEslintFlatConfig("export const notAConfig = 1;\n", {
       severity: "warn",

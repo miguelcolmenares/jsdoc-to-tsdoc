@@ -58,6 +58,29 @@ describe("mergeTsdocJson", () => {
     expect(parsed.tagDefinitions).toEqual([{ tagName: "@since", syntaxKind: "block" }]);
   });
 
+  it("tolerates malformed existing tagDefinitions without throwing", () => {
+    const existing = JSON.stringify({
+      $schema: "https://developer.microsoft.com/json-schemas/tsdoc/v0/tsdoc.schema.json",
+      tagDefinitions: [null, 42, { syntaxKind: "block" }, { tagName: "@author" }],
+    });
+
+    const merged = mergeTsdocJson(existing, ["@since", "@author"]);
+    const parsed = JSON.parse(merged) as {
+      tagDefinitions: unknown[];
+    };
+
+    const names = parsed.tagDefinitions
+      .filter(
+        (d): d is { tagName: string } =>
+          typeof d === "object" && d !== null && "tagName" in d,
+      )
+      .map((d) => d.tagName);
+    // @author already known (not duplicated); @since added; malformed kept.
+    expect(names).toContain("@author");
+    expect(names).toContain("@since");
+    expect(names.filter((n) => n === "@author")).toHaveLength(1);
+  });
+
   it("regenerates when the existing document is a JSON array", () => {
     const merged = mergeTsdocJson("[]", ["@since"]);
     const parsed = JSON.parse(merged) as {

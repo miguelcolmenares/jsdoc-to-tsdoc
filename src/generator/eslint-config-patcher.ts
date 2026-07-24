@@ -43,17 +43,27 @@ const TSDOC_IMPORTS = [
   'import tsdocRequire from "eslint-plugin-tsdoc-require-2";',
 ].join("\n");
 
-/**
- * Matches a reference to the `eslint-plugin-tsdoc` syntax plugin specifically —
- * a negative lookahead excludes `eslint-plugin-tsdoc-require-2`, whose name
- * contains the shorter package as a substring. Used to decide whether the config
- * is already set up, so a project that references only the presence plugin is
- * still patched with the missing syntax plugin.
- */
-const SYNTAX_PLUGIN_REFERENCE = /eslint-plugin-tsdoc(?!-require)/;
-
+// The closing quote right after `eslint-plugin-tsdoc` makes these match the
+// exact package, never the longer `eslint-plugin-tsdoc-require-2`. Matching an
+// actual `import`/`require` of the package — rather than a bare substring —
+// avoids a false "already configured" verdict when the name only appears in a
+// comment or string literal.
 const SYNTAX_PLUGIN_IMPORT = /from\s+["']eslint-plugin-tsdoc["']/;
+const SYNTAX_PLUGIN_REQUIRE = /require\(\s*["']eslint-plugin-tsdoc["']\s*\)/;
 const REQUIRE_PLUGIN_IMPORT = /from\s+["']eslint-plugin-tsdoc-require-2["']/;
+
+/**
+ * Reports whether a config already imports or requires the `eslint-plugin-tsdoc`
+ * syntax plugin — the signal that the config is already set up. A config that
+ * references only the presence plugin (`-require-2`) is not considered set up,
+ * so it is still completed with the missing syntax plugin.
+ *
+ * @param source - The config source.
+ * @returns `true` when the syntax plugin is imported or required.
+ */
+function hasSyntaxPlugin(source: string): boolean {
+  return SYNTAX_PLUGIN_IMPORT.test(source) || SYNTAX_PLUGIN_REQUIRE.test(source);
+}
 
 /**
  * Regexes matching the opening bracket of a recognized config container. The
@@ -181,7 +191,7 @@ export function patchEslintFlatConfig(
   source: string,
   options: PatchEslintOptions,
 ): EslintPatchResult {
-  if (SYNTAX_PLUGIN_REFERENCE.test(source)) {
+  if (hasSyntaxPlugin(source)) {
     return { ok: true, content: source, changed: false };
   }
 

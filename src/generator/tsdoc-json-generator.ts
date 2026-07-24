@@ -99,7 +99,19 @@ export function mergeTsdocJson(
   const definitions = Array.isArray(document.tagDefinitions)
     ? [...document.tagDefinitions]
     : [];
-  const known = new Set(definitions.map((definition) => definition.tagName));
+  // Existing entries are unvalidated JSON: guard against `null`, primitives, or
+  // objects without a `tagName` so a partially-invalid file cannot crash the
+  // merge. Malformed entries are preserved as-is; only valid names gate dedup.
+  const known = new Set(
+    definitions
+      .filter(
+        (definition): definition is TsdocTagDefinition =>
+          typeof definition === "object" &&
+          definition !== null &&
+          typeof (definition as { tagName?: unknown }).tagName === "string",
+      )
+      .map((definition) => definition.tagName),
+  );
 
   for (const tagName of blockTags) {
     if (!known.has(tagName)) {
