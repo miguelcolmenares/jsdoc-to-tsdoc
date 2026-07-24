@@ -18,7 +18,7 @@ bundle size).
 
 | Area | Detail |
 |------|--------|
-| **Foundation** | ESM package (`bin: jsdoc-to-tsdoc`), TypeScript `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`, `@/` path alias, unbuild bundling, Vitest, CI matrix (Node 20.11 + 22 · Ubuntu + macOS) with a gzipped bundle-size gate |
+| **Foundation** | ESM package (`bin: jsdoc-to-tsdoc`), TypeScript `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`, `@/` path alias, unbuild bundling, Vitest, CI matrix (Node 20.19 + 22 · Ubuntu + macOS) with a gzipped bundle-size gate |
 | **Dogfooding** | ESLint flat config runs `tsdoc/syntax` + `tsdoc-require-2/require` at `error` over the CLI's own source (`require-param` / `require-returns` `off`, matching the learnings) |
 | **`parser`** | `comment-lines` (fence-aware, format-preserving line mapper), `tag-registry` (the full JSDoc → TSDoc mapping tables), `jsdoc-parser` (tag/brace inspection) |
 | **`transformer`** | 10 pure, deterministic rules + an ordered pipeline with `--lite` (`@param` / `@returns` hygiene) mode |
@@ -471,7 +471,7 @@ install**. This drives several packaging decisions.
   "name": "jsdoc-to-tsdoc",
   "type": "module",
   "bin": { "jsdoc-to-tsdoc": "./dist/cli.mjs" },
-  "engines": { "node": ">=20.11" },
+  "engines": { "node": ">=20.19" },
   "peerDependencies": { "typescript": ">=5.0" }
 }
 ```
@@ -816,7 +816,7 @@ Every push/PR to `main` must pass locally **and** in CI:
 | Build | `unbuild` produces the `dist/` bundle |
 | Bundle size | Post-build assertion: gzipped `dist/cli.mjs` ≤ 500 KB |
 
-The CI matrix runs on **Node 20.11 LTS + Node 22 LTS**, on **Ubuntu + macOS**
+The CI matrix runs on **Node 20.19 LTS + Node 22 LTS**, on **Ubuntu + macOS**
 (matching where the tool is actually used).
 
 ---
@@ -868,7 +868,8 @@ Distribution:
 - [x] **Runnable via `npx jsdoc-to-tsdoc` with zero global install** *(see [Distribution](#distribution-via-npx))*
 - [x] **Bundle target < 500 KB gzipped** (unbuild/tsup, ESM only)
 - [x] **TypeScript as peer dependency** (never bundle the compiler)
-- [x] **Node >= 20.11**, well-defined exit codes (0/1/2/3)
+- [x] **Node >= 20.19** (toolchain floor: Vitest needs `util.styleText`, added in
+      Node 20.12; ESLint 10 requires `^20.19`), well-defined exit codes (0/1/2/3)
 
 Codebase discipline:
 - [x] **CLI is TSDoc-strict from day one** — dogfoods its own `check` command in CI *(see [Code Architecture & Standards](#code-architecture--standards))*
