@@ -1,0 +1,48 @@
+name: Request Copilot review
+
+# Re-request a GitHub Copilot code review whenever a pull request is opened or
+# receives new commits, so every push gets a fresh review without asking by hand.
+#
+# `synchronize` fires on each new push to the PR head; `opened` / `reopened` /
+# `ready_for_review` cover the remaining ways a PR becomes reviewable.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+# One in-flight request per PR is enough; cancel superseded runs on rapid pushes.
+concurrency:
+  group: copilot-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  pull-requests: write
+
+jobs:
+  request-copilot-review:
+    name: Request Copilot review
+    runs-on: ubuntu-latest
+    # Skip drafts (Copilot does not review them) and forks (the token cannot
+    # write to the base repo's PR from a fork event).
+    if: >-
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - name: Request review from Copilot
+        env:
+          # Prefer a PAT with Copilot access if provided; otherwise fall back to
+          # the built-in token. If the default token lacks Copilot entitlement,
+          # add a repo/org secret named COPILOT_REVIEW_TOKEN (a fine-grained PAT
+          # with "Pull requests: write" on this repo).
+          GH_TOKEN: ${{ secrets.COPILOT_REVIEW_TOKEN || github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          echo "Requesting Copilot review on ${REPO}#${PR_NUMBER}"
+          # Tolerate a non-2xx response (for example when Copilot is already a
+          # pending reviewer) without failing the check.
+          if gh api --method POST "repos/${REPO}/pulls/${PR_NUMBER}/requested_reviewers" \
+              -f 'reviewers[]=copilot-pull-request-reviewer[bot]'; then
+            echo "::notice::Copilot review requested."
+          else
+            echo "::warning::Could not request Copilot review (already pending, or the token lacks Copilot access — see COPILOT_REVIEW_TOKEN)."
+          fi
