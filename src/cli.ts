@@ -8,7 +8,7 @@
 
 import { defineCommand, runMain } from "citty";
 
-import { convertCommand, scanCommand } from "@/commands";
+import { convertCommand, initCommand, scanCommand } from "@/commands";
 import { VERSION } from "@/index";
 
 const main = defineCommand({
@@ -18,6 +18,7 @@ const main = defineCommand({
     description: "Migrate JSDoc comments to the TSDoc standard.",
   },
   subCommands: {
+    init: initCommand,
     scan: scanCommand,
     convert: convertCommand,
   },
