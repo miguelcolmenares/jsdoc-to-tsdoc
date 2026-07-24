@@ -182,13 +182,13 @@ Commands:
   convert      Transform existing JSDoc → TSDoc syntax
   scaffold     Generate TSDoc stubs for exports without documentation
   escalate     Bump tsdoc-require-2/require from "warn" to "error"
-  check        CI-friendly: exit 1 if any warnings/errors remain
+  check        CI-friendly: exit 3 if any file would change / rule violations remain
 
 Global options:
   --dry-run          Show diff, do not write
   --interactive      Prompt for ambiguous decisions (default: on for scaffold)
   --config <path>    Path to eslint.config (auto-detected by default)
-  --report <path>    Write JSON report to path
+  --report <fmt>     Report format: json | md | table (writes to stdout; redirect with `>`)
 ```
 
 ### Example: `init`
@@ -385,8 +385,9 @@ src/
    code layout.
 9. **No LLM dependency in v0.1.0** — deterministic templates and name inference.
    LLM-assisted summary rewriting is a v0.2+ opt-in flag.
-10. **Machine-readable output** — every command supports `--report=<path>` for
-    JSON output, enabling GitHub Actions / Bitbucket Pipelines integrations.
+10. **Machine-readable output** — every command supports `--report=<fmt>` (`json` /
+    `md` / `table`) written to stdout, enabling GitHub Actions / Bitbucket
+    Pipelines integrations (redirect with `> report.json`).
 
 ### Technology Stack
 
@@ -461,8 +462,8 @@ exposes a consistent set of flags:
 | `--only <glob>` | all | Restrict to matching paths (e.g. `--only "src/actions/**"`) |
 | `--exclude <glob>` | all | Skip matching paths (e.g. `--exclude "**/*.test.ts"`) |
 | `--commit-per-file` | `convert`, `scaffold` | Auto `git commit` per file — produces reviewable PRs |
-| `--report=<fmt>` | `scan`, `check`, `convert` | `json` · `md` · `table` — JSON for tooling, MD for PR bodies |
-| `--fail-on-missing` | `scan` | Exit `1` if any public export lacks TSDoc — gap-analysis gate |
+| `--report=<fmt>` | `scan`, `check`, `convert` | `json` · `md` · `table` — written to stdout (redirect with `>` for tooling / PR bodies) |
+| `--fail-on-missing` | `scan` | Exit `3` if any public export lacks TSDoc — gap-analysis gate (matches CI exit-code contract) |
 | `--severity=<level>` | `escalate` | Override progressive default (`warn` or `error`) |
 
 **Example CI flow:**
@@ -596,9 +597,9 @@ For LOW / STALE cases the tool can offer opt-in enrichment through:
 - **Anthropic / OpenAI** (via env-provided API key)
 
 This is **always opt-in** (`--enrich=copilot|ollama|anthropic`), never
-default-on, and is deferred to **v0.2+**. It is listed in the roadmap
-(Phase 11) but the deterministic pipeline must ship first and be usable
-without any LLM.
+default-on, and is deferred to **post v0.1.0** (a v0.2+ roadmap item added
+after the deterministic pipeline ships). The deterministic pipeline must be
+fully usable without any LLM.
 
 ---
 
@@ -699,9 +700,9 @@ to consumers):
 | Rule | Setting on the CLI | Default for consumers |
 |------|-------------------|-----------------------|
 | `tsdoc/syntax` | `error` | `error` |
-| `require-2/require-jsdoc-exported` | `error` | `warn` (progressive) |
-| `require-2/require-param` | `error` | `off` (opt-in) |
-| `require-2/require-returns` | `error` | `off` (opt-in) |
+| `tsdoc-require-2/require` | `error` | `warn` (progressive) |
+| `tsdoc-require-2/require-param` | `error` | `off` (opt-in) |
+| `tsdoc-require-2/require-returns` | `error` | `off` (opt-in) |
 
 ### TypeScript Discipline
 
@@ -804,8 +805,8 @@ Enforcement progression:
 
 Reporting & CI:
 - [x] Dry-run mode with unified diff for every command
-- [x] `--report=<path>` JSON output for every command
-- [x] `check` command → exit 1 if warnings/errors remain
+- [x] `--report=<fmt>` (`json` / `md` / `table`) written to stdout for every command
+- [x] `check` command → exit `3` on rule violations (per exit-code contract)
 - [x] **`--preview` and `--interactive` per-file review modes** *(see [CLI UX](#cli-ux--distribution))*
 - [x] **`--only` / `--exclude` glob filters** for targeted runs
 - [x] **`--lite` mode** — only `@param` / `@returns` hygiene, leave prose untouched
