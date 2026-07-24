@@ -6,8 +6,10 @@ import { defineConfig } from "vitest/config";
  * Vitest configuration.
  *
  * Mirrors the `@/` path alias from `tsconfig.json` so test files import from
- * the same barrels as production code. Coverage thresholds encode the plan's
- * targets: 100% on the pure transformer rules and tag registry, >= 80% overall.
+ * the same barrels as production code. Coverage is gated globally at 80%. The
+ * pure transformer rules and tag registry sit at or near 100% via their unit
+ * tests, but that is a convention the global gate protects, not a per-file
+ * threshold.
  */
 export default defineConfig({
   resolve: {

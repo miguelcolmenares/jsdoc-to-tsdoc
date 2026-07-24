@@ -7,8 +7,11 @@
 import { mapCommentLines } from "@/parser";
 import type { Rule } from "@/transformer/pipeline";
 
-const RETURNS_PROMISE_WITH_DESC = /^(@returns)\s+Promise<[^>]*>\s*-\s*/;
-const RETURNS_PROMISE_ONLY = /^(@returns)\s+Promise<[^>]*>\s*$/;
+// `.*?` (lazy) rather than `[^>]*` so nested generics such as
+// `Promise<Array<User>>` are matched in full instead of stopping at the first
+// `>`, while still stopping at the first `> -` / `>` that ends the wrapper.
+const RETURNS_PROMISE_WITH_DESC = /^(@returns)\s+Promise<.*?>\s*-\s*/;
+const RETURNS_PROMISE_ONLY = /^(@returns)\s+Promise<.*?>\s*$/;
 
 /**
  * Strips an inline `Promise<...>` type from a `@returns` line. Written without

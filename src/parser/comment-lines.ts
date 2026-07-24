@@ -128,13 +128,23 @@ export function mapCommentLines(
   if (single) {
     const [, prefix = "", content = "", suffix = ""] = single;
     const mapped = mapper(content, { inFence: false, index: 0 });
-    const value =
-      mapped === null
-        ? content
-        : Array.isArray(mapped)
-          ? mapped.join(" ")
-          : mapped;
-    return `${prefix}${value}${suffix}`;
+
+    if (mapped === null) {
+      return `${prefix}${content}${suffix}`;
+    }
+    if (typeof mapped === "string") {
+      return `${prefix}${mapped}${suffix}`;
+    }
+    if (mapped.length <= 1) {
+      return `${prefix}${mapped[0] ?? content}${suffix}`;
+    }
+    // A multi-line expansion of a single-line comment: promote it to a proper
+    // multi-line block so each produced line becomes its own ` * ` content line
+    // (collapsing onto one line would yield invalid TSDoc, e.g. a
+    // `@packageDocumentation` modifier followed by an argument).
+    const indent = /^\s*/.exec(prefix)?.[0] ?? "";
+    const body = mapped.map((line) => `${indent} * ${line}`).join(eol);
+    return `${indent}/**${eol}${body}${eol}${indent} */`;
   }
 
   const output: string[] = [];

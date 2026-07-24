@@ -87,6 +87,18 @@ describe("stripReturnPromise", () => {
       comment("/**", " * @returns", " */"),
     );
   });
+
+  it("handles nested generics without leaving a stray angle bracket", () => {
+    expect(
+      stripReturnPromise.apply(
+        "/** @returns Promise<Array<User>> - the users */",
+      ),
+    ).toBe("/** @returns the users */");
+    const bare = comment("/**", " * @returns Promise<Map<string, User>>", " */");
+    expect(stripReturnPromise.apply(bare)).toBe(
+      comment("/**", " * @returns", " */"),
+    );
+  });
 });
 
 describe("addHyphenSeparator", () => {
@@ -154,6 +166,14 @@ describe("convertFileOverview", () => {
       " */",
     );
     expect(convertFileOverview.apply(input)).toBe(input);
+  });
+
+  it("expands a single-line @fileoverview into a multi-line comment", () => {
+    expect(
+      convertFileOverview.apply("/** @fileoverview HTTP utilities. */"),
+    ).toBe(
+      comment("/**", " * @packageDocumentation", " * HTTP utilities.", " */"),
+    );
   });
 });
 
