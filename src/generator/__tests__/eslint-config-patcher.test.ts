@@ -110,6 +110,55 @@ describe("patchEslintFlatConfig", () => {
     expect(result.content).toContain('import tsdoc from "eslint-plugin-tsdoc";');
   });
 
+  it("ignores a commented-out container and patches the real one", () => {
+    const source = [
+      'import js from "@eslint/js";',
+      "",
+      "// Legacy: export default [oldConfig]",
+      "export default defineConfig([",
+      "  js.configs.recommended,",
+      "]);",
+    ].join("\n");
+
+    const result = patchEslintFlatConfig(source, { severity: "warn" });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // The block is inserted after the real container, not the comment.
+    expect(result.content).toContain("// Legacy: export default [oldConfig]");
+    expect(result.content.indexOf('"tsdoc/syntax"')).toBeGreaterThan(
+      result.content.indexOf("export default defineConfig("),
+    );
+    // The comment line is preserved verbatim (nothing injected right after it).
+    expect(result.content).toContain(
+      "// Legacy: export default [oldConfig]\nexport default defineConfig([",
+    );
+  });
+
+  it("inserts after a multi-line, semicolon-less import block", () => {
+    const source = [
+      "import {",
+      "  defineConfig,",
+      "  globalIgnores,",
+      '} from "eslint/config"',
+      "",
+      "export default defineConfig([",
+      "  globalIgnores([]),",
+      "])",
+    ].join("\n");
+
+    const result = patchEslintFlatConfig(source, { severity: "warn" });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // Imports land after the multi-line import, not prepended before it.
+    expect(result.content.indexOf('import tsdoc from "eslint-plugin-tsdoc";')).toBeGreaterThan(
+      result.content.indexOf('} from "eslint/config"'),
+    );
+    // The file does not start with the injected import.
+    expect(result.content.startsWith("import {")).toBe(true);
+  });
+
   it("returns a manual snippet when no config container is recognized", () => {
     const result = patchEslintFlatConfig("export const notAConfig = 1;\n", {
       severity: "warn",
@@ -122,9 +171,10 @@ describe("patchEslintFlatConfig", () => {
 });
 
 describe("buildTsdocConfigSnippet", () => {
-  it("includes imports and the rule block", () => {
+  it("includes ESM imports, a CommonJS variant, and the rule block", () => {
     const snippet = buildTsdocConfigSnippet("warn");
     expect(snippet).toContain('import tsdoc from "eslint-plugin-tsdoc";');
+    expect(snippet).toContain('const tsdoc = require("eslint-plugin-tsdoc");');
     expect(snippet).toContain('"tsdoc-require-2/require": "warn"');
   });
 });

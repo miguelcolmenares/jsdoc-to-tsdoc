@@ -54,6 +54,12 @@ generator domain).
 - Interactive mode, `--commit-per-file`, and `--promote-line-comments`.
 - A validation pass with the official `@microsoft/tsdoc` parser.
 - Fixture-based snapshot tests seeded from the three real migrations.
+- **Agent customization (next iteration):** flesh out the `.github/copilot-instructions.md`
+  TODO into path-specific `.github/instructions/*.instructions.md` files
+  (architecture, documentation, testing, reviews) and reusable `.github/skills/`
+  for the recurring tasks (add a transformer rule, a scaffolder template, a CLI
+  subcommand). Groundwork already shipped: [`AGENTS.md`](./AGENTS.md) and
+  `.github/copilot-instructions.md`.
 
 ## Gap Analysis
 

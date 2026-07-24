@@ -67,14 +67,16 @@ function hasSyntaxPlugin(source: string): boolean {
 
 /**
  * Regexes matching the opening bracket of a recognized config container. The
- * match end is the insertion point for the plugin block.
+ * match end is the insertion point for the plugin block. Each is anchored to a
+ * line start (`^[ \t]*`, multiline) so a mention inside a comment or string
+ * (for example `// export default [`) is never mistaken for the real container.
  */
 const CONTAINER_OPENERS: readonly RegExp[] = [
-  /export\s+default\s+defineConfig\s*\(\s*\[/,
-  /export\s+default\s+tseslint\.config\s*\(/,
-  /export\s+default\s+\[/,
-  /(?:const|let|var)\s+\w+\s*=\s*defineConfig\s*\(\s*\[/,
-  /(?:const|let|var)\s+\w+\s*=\s*tseslint\.config\s*\(/,
+  /^[ \t]*export\s+default\s+defineConfig\s*\(\s*\[/m,
+  /^[ \t]*export\s+default\s+tseslint\.config\s*\(/m,
+  /^[ \t]*export\s+default\s+\[/m,
+  /^[ \t]*(?:const|let|var)\s+\w+\s*=\s*defineConfig\s*\(\s*\[/m,
+  /^[ \t]*(?:const|let|var)\s+\w+\s*=\s*tseslint\.config\s*\(/m,
 ];
 
 /**
@@ -116,7 +118,20 @@ function buildConfigBlock(severity: Severity): string {
  * @returns The imports and config block joined for display.
  */
 export function buildTsdocConfigSnippet(severity: Severity): string {
-  return `${TSDOC_IMPORTS}\n\n// Add inside your exported config array:\n${buildConfigBlock(severity)}`;
+  const cjs = [
+    'const tsdoc = require("eslint-plugin-tsdoc");',
+    'const tsdocRequire = require("eslint-plugin-tsdoc-require-2");',
+  ].join("\n");
+  return [
+    "// ESM (eslint.config.mjs / .js):",
+    TSDOC_IMPORTS,
+    "",
+    "// CommonJS (eslint.config.cjs):",
+    cjs,
+    "",
+    "// Then add inside your exported config array:",
+    buildConfigBlock(severity),
+  ].join("\n");
 }
 
 /**
@@ -137,6 +152,47 @@ function missingImports(source: string): string {
   return lines.join("\n");
 }
 
+const FROM_SOURCE = /\bfrom\s+["'][^"']*["']/;
+const SIDE_EFFECT_IMPORT = /^import\s+["'][^"']*["']/;
+
+/**
+ * Finds the character offset just past the last top-level `import` statement,
+ * tolerating semicolon-less style, side-effect imports, and multi-line imports
+ * (which a single-line regex would miss, causing the TSDoc imports to be
+ * wrongly prepended ahead of leading comments or directives).
+ *
+ * @param source - The config source.
+ * @returns The offset after the last import's final line, or `-1` when none.
+ */
+function findLastImportOffset(source: string): number {
+  const lines = source.split("\n");
+  let offset = 0;
+  let lastEnd = -1;
+  let inMultiLineImport = false;
+
+  for (const line of lines) {
+    const contentEnd = offset + line.length;
+    const trimmed = line.trim();
+
+    if (inMultiLineImport) {
+      if (FROM_SOURCE.test(trimmed)) {
+        inMultiLineImport = false;
+        lastEnd = contentEnd;
+      }
+    } else if (/^import\b/.test(trimmed)) {
+      if (FROM_SOURCE.test(trimmed) || SIDE_EFFECT_IMPORT.test(trimmed)) {
+        lastEnd = contentEnd;
+      } else {
+        inMultiLineImport = true;
+      }
+    }
+
+    offset = contentEnd + 1;
+  }
+
+  return lastEnd;
+}
+
 /**
  * Inserts the missing TSDoc imports after the last top-level `import` statement.
  *
@@ -148,11 +204,7 @@ function insertImports(source: string): string {
   if (imports === "") {
     return source;
   }
-  const importLine = /^import[^\n]*?;[ \t]*$/gm;
-  let lastEnd = -1;
-  for (let match = importLine.exec(source); match; match = importLine.exec(source)) {
-    lastEnd = match.index + match[0].length;
-  }
+  const lastEnd = findLastImportOffset(source);
   if (lastEnd === -1) {
     return `${imports}\n${source}`;
   }
