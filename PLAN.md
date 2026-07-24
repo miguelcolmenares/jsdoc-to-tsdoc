@@ -3,6 +3,55 @@
 > **Revision:** v2 — Updated with learnings from three real-world migrations
 > (`nextjs-boilerplate`, `homecare-nextjs`, `assistedliving-nextjs`; ~87 files
 > across 3 repos, July 2026).
+>
+> **Implementation status (v0.1.0-dev):** the deterministic `convert` engine and
+> the `scan` inventory command are implemented, tested, and runnable. See
+> [Implementation Status](#implementation-status) below.
+
+## Implementation Status
+
+First development increment — the project foundation plus the `convert`/`scan`
+vertical slice. All quality gates pass locally (typecheck, lint, tests, build,
+bundle size).
+
+### Shipped
+
+| Area | Detail |
+|------|--------|
+| **Foundation** | ESM package (`bin: jsdoc-to-tsdoc`), TypeScript `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`, `@/` path alias, unbuild bundling, Vitest, CI matrix (Node 20.19 + 22 + 24 · Ubuntu + macOS + Windows) with a gzipped bundle-size gate |
+| **Dogfooding** | ESLint flat config runs `tsdoc/syntax` + `tsdoc-require-2/require` at `error` over the CLI's own source (`require-param` / `require-returns` `off`, matching the learnings) |
+| **`parser`** | `comment-lines` (fence-aware, format-preserving line mapper), `tag-registry` (the full JSDoc → TSDoc mapping tables), `jsdoc-parser` (tag/brace inspection) |
+| **`transformer`** | 10 pure, deterministic rules + an ordered pipeline with `--lite` (`@param` / `@returns` hygiene) mode |
+| **`scanner`** | comment extraction via the TypeScript Compiler API (`ts.getLeadingCommentRanges`), recursive source-file discovery, and minimal glob matching for `--only` / `--exclude` |
+| **`reporter`** | colored unified diffs, bordered summary tables, and machine-readable JSON / Markdown output |
+| **`writer`** | async file writes |
+| **`commands`** | `scan` (read-only inventory) and `convert` (`--dry-run` / `--preview` / `--check` / `--lite` / `--only` / `--exclude` / `--report`) wired through citty |
+
+Conversions implemented (from [Mechanical Transformations](#mechanical-transformations-still-core-to-the-tool)
+and the real-world learnings): `{Type}`-brace stripping, tag renames
+(`@return` → `@returns`, `@template` → `@typeParam`, `@default` → `@defaultValue`),
+`@returns Promise<T>` unwrapping, JSDoc optional-bracket removal, the mandatory
+`@param name - desc` hyphen, `@access` → visibility modifiers,
+`@module` / `@fileoverview` → `@packageDocumentation`, and removal of
+TypeScript-redundant and JSDoc-only tags (`@function`, `@async`, `@typedef`,
+`@property`, …). Fenced example code is never modified.
+
+Coverage: 103 tests, ~95 % overall (100 % on the transformer rules).
+
+### Deferred (next increments)
+
+- `init` — ESLint / `tsdoc.json` bootstrap (config generator + patcher).
+- `scaffold` — export inventory + template stubs for undocumented exports.
+- `escalate` — `warn` → `error` with preflight ESLint check.
+- `check` as a standalone TSDoc-validation command (today `convert --check`
+  gates on "would change").
+- Structural `@property` → inline interface-member docs (the redundant
+  `@property` block is currently removed, which is the correct action; splitting
+  it onto interface members is the remaining structural step).
+- `scan --classify` topology report and confidence levels.
+- Interactive mode, `--commit-per-file`, and `--promote-line-comments`.
+- A validation pass with the official `@microsoft/tsdoc` parser.
+- Fixture-based snapshot tests seeded from the three real migrations.
 
 ## Gap Analysis
 
@@ -422,7 +471,7 @@ install**. This drives several packaging decisions.
   "name": "jsdoc-to-tsdoc",
   "type": "module",
   "bin": { "jsdoc-to-tsdoc": "./dist/cli.mjs" },
-  "engines": { "node": ">=20.11" },
+  "engines": { "node": ">=20.19" },
   "peerDependencies": { "typescript": ">=5.0" }
 }
 ```
@@ -767,8 +816,14 @@ Every push/PR to `main` must pass locally **and** in CI:
 | Build | `unbuild` produces the `dist/` bundle |
 | Bundle size | Post-build assertion: gzipped `dist/cli.mjs` ≤ 500 KB |
 
-The CI matrix runs on **Node 20.11 LTS + Node 22 LTS**, on **Ubuntu + macOS**
-(matching where the tool is actually used).
+The CI matrix runs on **Node 20.19, 22, and 24 LTS**, across **Ubuntu, macOS,
+and Windows**. Windows is included because the CLI manipulates file paths and
+line endings — path-separator normalization and CRLF handling are exercised on
+a real Windows runner. Architecture (x64 vs ARM) is not fanned out separately:
+the tool and all its dependencies are pure JavaScript with no native addons, so
+behavior is identical across architectures (and `ubuntu-latest` / `macos-latest`
+already cover Linux x64 and macOS ARM64 respectively). All `run` steps use bash
+on every OS so the shell-based bundle-size gate is portable.
 
 ---
 
@@ -819,7 +874,8 @@ Distribution:
 - [x] **Runnable via `npx jsdoc-to-tsdoc` with zero global install** *(see [Distribution](#distribution-via-npx))*
 - [x] **Bundle target < 500 KB gzipped** (unbuild/tsup, ESM only)
 - [x] **TypeScript as peer dependency** (never bundle the compiler)
-- [x] **Node >= 20.11**, well-defined exit codes (0/1/2/3)
+- [x] **Node >= 20.19** (toolchain floor: Vitest needs `util.styleText`, added in
+      Node 20.12; ESLint 10 requires `^20.19`), well-defined exit codes (0/1/2/3)
 
 Codebase discipline:
 - [x] **CLI is TSDoc-strict from day one** — dogfoods its own `check` command in CI *(see [Code Architecture & Standards](#code-architecture--standards))*
@@ -862,15 +918,15 @@ without contacting the source projects.
 |-------|-------------|--------|
 | 0 | Project plan and gap analysis | **Done** |
 | 0.5 | **Plan revision from real-world learnings** | **Done (this doc)** |
-| 1 | Core scanner + comment extractor + export inventory | Not started |
-| 2 | Parser + tag registry | Not started |
-| 3 | Transformation rules (existing JSDoc → TSDoc) | Not started |
+| 1 | Core scanner + comment extractor + export inventory | **Partial** — scanner + comment extractor done; export inventory pending (scaffold) |
+| 2 | Parser + tag registry | **Done** |
+| 3 | Transformation rules (existing JSDoc → TSDoc) | **Done** |
 | 4 | `tsdoc.json` + ESLint config generator/patcher | Not started |
 | 5 | **Scaffolder templates** (components, actions, hooks, interfaces) | Not started |
-| 6 | CLI subcommand shell (`init`, `scan`, `convert`, `scaffold`, `escalate`, `check`) | Not started |
+| 6 | CLI subcommand shell (`init`, `scan`, `convert`, `scaffold`, `escalate`, `check`) | **Partial** — `scan` + `convert` done |
 | 7 | Interactive wizard (`@clack/prompts`) | Not started |
 | 8 | **Escalator + preflight ESLint check** | Not started |
-| 9 | Fixture-based snapshot tests (3 real repos) | Not started |
+| 9 | Fixture-based snapshot tests (3 real repos) | **Partial** — unit + integration tests done (103 tests, ~95 %); repo fixtures pending |
 | 10 | Dogfood on a 4th real repo end-to-end | Not started |
 | 11 | npm publish as `jsdoc-to-tsdoc` v0.1.0 | Not started |
 

@@ -1,0 +1,73 @@
+{
+  "name": "jsdoc-to-tsdoc",
+  "version": "0.1.0",
+  "description": "CLI tool to migrate JSDoc comments to the TSDoc standard in TypeScript projects.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Miguel Colmenares",
+  "homepage": "https://github.com/miguelcolmenares/jsdoc-to-tsdoc#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/miguelcolmenares/jsdoc-to-tsdoc.git"
+  },
+  "bugs": {
+    "url": "https://github.com/miguelcolmenares/jsdoc-to-tsdoc/issues"
+  },
+  "keywords": [
+    "jsdoc",
+    "tsdoc",
+    "typescript",
+    "migration",
+    "codemod",
+    "documentation",
+    "eslint",
+    "cli"
+  ],
+  "bin": {
+    "jsdoc-to-tsdoc": "./dist/cli.mjs"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "build": "unbuild",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "check": "npm run typecheck && npm run lint && npm run test"
+  },
+  "peerDependencies": {
+    "typescript": ">=5.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/diff": "^7.0.2",
+    "@types/node": "^26.1.1",
+    "@vitest/coverage-v8": "^4.1.10",
+    "eslint": "^10.7.0",
+    "eslint-plugin-tsdoc": "^0.5.2",
+    "eslint-plugin-tsdoc-require-2": "^1.2.4",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.65.0",
+    "unbuild": "^3.6.1",
+    "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.7.0",
+    "@microsoft/tsdoc": "^0.16.0",
+    "@microsoft/tsdoc-config": "^0.18.1",
+    "citty": "^0.2.2",
+    "diff": "^9.0.0"
+  }
+}
