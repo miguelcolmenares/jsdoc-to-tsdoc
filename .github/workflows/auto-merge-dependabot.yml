@@ -17,45 +17,46 @@ jobs:
       github.event.workflow_run.event == 'pull_request'
 
     steps:
-      - name: Get PR details
-        id: pr-details
+      - name: Resolve associated PR
+        id: pr
         uses: actions/github-script@v9
         with:
+          # Emit plain string outputs (never a JSON object) so the next step's
+          # `if:` can guard on `found` without dereferencing a possibly-null
+          # result — returning null here would make `fromJSON(...).user` throw.
           script: |
-            const { data: pullRequests } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+            const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
               owner: context.repo.owner,
               repo: context.repo.repo,
               commit_sha: context.payload.workflow_run.head_sha,
             });
 
-            if (pullRequests.length === 0) {
-              console.log('No PR found for this commit');
-              return null;
+            if (prs.length === 0) {
+              core.info('No PR associated with this commit — nothing to merge.');
+              core.setOutput('found', 'false');
+              return;
             }
 
-            const pr = pullRequests[0];
-            console.log(`Found PR #${pr.number} by ${pr.user.login}`);
+            const pr = prs[0];
+            core.info(`Found PR #${pr.number} by ${pr.user.login}`);
+            core.setOutput('found', 'true');
+            core.setOutput('number', String(pr.number));
+            core.setOutput('user', pr.user.login);
 
-            return {
-              number: pr.number,
-              user: pr.user.login,
-              mergeable_state: pr.mergeable_state
-            };
-
-      - name: Auto-merge Dependabot PRs
-        if: fromJSON(steps.pr-details.outputs.result).user == 'dependabot[bot]'
+      - name: Auto-merge Dependabot PR
+        if: steps.pr.outputs.found == 'true' && steps.pr.outputs.user == 'dependabot[bot]'
         uses: actions/github-script@v9
         with:
           script: |
-            const prNumber = ${{ fromJSON(steps.pr-details.outputs.result).number }};
+            const prNumber = Number('${{ steps.pr.outputs.number }}');
 
             const { data: pr } = await github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              pull_number: prNumber
+              pull_number: prNumber,
             });
 
-            console.log(`PR #${prNumber} mergeable_state: ${pr.mergeable_state}`);
+            core.info(`PR #${prNumber} mergeable_state: ${pr.mergeable_state}`);
 
             if (pr.mergeable_state === 'clean') {
               await github.rest.pulls.merge({
@@ -64,9 +65,9 @@ jobs:
                 pull_number: prNumber,
                 merge_method: 'squash',
                 commit_title: pr.title,
-                commit_message: `${pr.title}\n\n${pr.body || ''}`
+                commit_message: `${pr.title}\n\n${pr.body || ''}`,
               });
-              console.log(`Successfully merged PR #${prNumber}`);
+              core.info(`Merged PR #${prNumber}.`);
             } else {
-              console.log(`PR #${prNumber} not ready for merge. State: ${pr.mergeable_state}`);
+              core.info(`PR #${prNumber} not ready for merge (state: ${pr.mergeable_state}).`);
             }
