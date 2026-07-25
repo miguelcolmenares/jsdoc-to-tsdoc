@@ -27,7 +27,7 @@ src/transformer/rules/
 ```typescript
 import { describe, expect, it } from "vitest";
 
-import { addHyphenSeparator } from "@/transformer/rules/add-hyphen-separator";
+import { addHyphenSeparator } from "@/transformer/rules";
 
 describe("addHyphenSeparator", () => {
   it("inserts the hyphen when it is missing", () => {
@@ -71,7 +71,7 @@ afterEach(async () => {
 
 Subcommands are tested with a synthetic `CommandContext`, a stdout spy, and an exit-code
 reset. Follow the established pattern in
-[`src/commands/__tests__/init.test.ts`](../commands/__tests__/init.test.ts):
+[`src/commands/__tests__/init.test.ts`](../../src/commands/__tests__/init.test.ts):
 
 ```typescript
 import type { CommandContext } from "citty";

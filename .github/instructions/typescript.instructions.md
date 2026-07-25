@@ -71,7 +71,7 @@ import { readFile } from "node:fs/promises";
 import { defineCommand } from "citty";
 
 import { mapCommentLines } from "@/parser";
-import type { Rule } from "@/transformer/pipeline";
+import type { Rule } from "@/transformer";
 ```
 
 ## Naming & files
