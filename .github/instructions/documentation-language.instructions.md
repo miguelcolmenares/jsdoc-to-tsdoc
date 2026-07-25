@@ -22,7 +22,7 @@ There is no localized/user-content exception in this repo — it is a developer 
 ## Markdown conventions
 
 - One `# H1` per file (the title).
-- Always tag fenced code blocks with a language (```` ```typescript ````, ```` ```bash ````).
+- Always specify a language on every fenced code block (`typescript`, `bash`, `yaml`, `text`, …).
 - `**Bold**` for key terms, `` `code` `` for identifiers, paths, flags, and commands.
 - Numbered lists for sequential steps; bullet lists otherwise.
 - Callouts:
