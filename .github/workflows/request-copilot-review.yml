@@ -5,8 +5,14 @@ name: Request Copilot review
 #
 # `synchronize` fires on each new push to the PR head; `opened` / `reopened` /
 # `ready_for_review` cover the remaining ways a PR becomes reviewable.
+#
+# Uses `pull_request_target` (not `pull_request`): this job reads a repository
+# secret (COPILOT_REVIEW_TOKEN), and `pull_request_target` always runs the
+# workflow definition from the BASE branch — a PR branch cannot modify this file
+# to exfiltrate the secret. We never check out PR code, so running in the
+# privileged base context stays safe.
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review]
 
 # One in-flight request per PR is enough; cancel superseded runs on rapid pushes.
@@ -21,8 +27,9 @@ jobs:
   request-copilot-review:
     name: Request Copilot review
     runs-on: ubuntu-latest
-    # Skip drafts (Copilot does not review them) and forks (the token cannot
-    # write to the base repo's PR from a fork event).
+    # Skip drafts (Copilot does not review them) and restrict to same-repo PRs.
+    # With pull_request_target the job can access secrets even on fork PRs, so we
+    # intentionally do not run for forks.
     if: >-
       github.event.pull_request.draft == false &&
       github.event.pull_request.head.repo.full_name == github.repository
