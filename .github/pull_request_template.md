@@ -9,7 +9,7 @@ Types: feat · fix · docs · refactor · test · chore · ci   (no ticket prefi
 
 ## Changes
 
--
+<!-- One bullet per change. -->
 
 ## Testing
 
