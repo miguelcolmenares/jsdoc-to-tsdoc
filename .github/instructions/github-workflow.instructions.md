@@ -112,8 +112,8 @@ Workflows in `.github/workflows/`:
 | `request-copilot-review.yml` | Re-request Copilot review on each PR push |
 | `auto-merge-dependabot.yml` | Auto-merge Dependabot **minor/patch** once required checks pass |
 
-- **Action pinning**: this repo pins to **major-version tags** (`actions/checkout@v4`,
-  `dependabot/fetch-metadata@v2`) and lets **Dependabot** (`.github/dependabot.yml`, weekly
+- **Action pinning**: this repo pins to **major-version tags** (e.g. `actions/checkout@v7`,
+  `dependabot/fetch-metadata@v3`) and lets **Dependabot** (`.github/dependabot.yml`, weekly
   `github-actions` ecosystem) bump them. Keep that convention; don't hand-pin to SHAs.
 - **Dependabot auto-merge** uses the canonical pattern: `on: pull_request`, top-level
   `permissions: {}`, and a single job gated on `if: github.actor == 'dependabot[bot]'` with
