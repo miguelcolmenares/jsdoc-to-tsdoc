@@ -36,7 +36,7 @@ describe("addHyphenSeparator", () => {
   });
 
   it("leaves code inside fences untouched", () => {
-    const input = "/**\n * @example\n * ```ts\n * foo(a: 1)\n * ```\n */";
+    const input = "/**\n * @example\n * ```ts\n * const x = { a: 1 };\n * ```\n */";
     expect(addHyphenSeparator.apply(input)).toBe(input);
   });
 });
