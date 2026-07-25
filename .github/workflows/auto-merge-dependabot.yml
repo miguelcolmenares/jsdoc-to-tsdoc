@@ -1,0 +1,38 @@
+name: Auto-merge Dependabot PRs
+
+# Auto-merge Dependabot's minor and patch updates once required checks pass.
+# Runs on `pull_request`; the job-level `permissions:` block elevates the
+# GITHUB_TOKEN for Dependabot's own PRs. Major updates are left for manual
+# review, matching the "Separate major updates for careful review" intent in
+# .github/dependabot.yml.
+on: pull_request
+
+# Least privilege by default: no token scopes at the workflow level. Only the
+# job below elevates, and only for Dependabot's own PRs, so a write-scoped token
+# is never exposed to other contributors' pull requests.
+permissions: {}
+
+jobs:
+  dependabot-auto-merge:
+    runs-on: ubuntu-latest
+    # Gate the whole (write-scoped) job on the actor, not just the merge step.
+    if: github.actor == 'dependabot[bot]'
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Fetch Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+
+      - name: Enable auto-merge for minor and patch updates
+        # Skip semver-major bumps; they need a human. Reads the update type from
+        # the Dependabot metadata rather than parsing the PR title.
+        if: steps.metadata.outputs.update-type != 'version-update:semver-major'
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # `--auto` asks GitHub to merge only after required status checks pass,
+          # so there is no need to poll the PR's mergeable state ourselves.
+          gh pr merge --auto --squash "$PR_URL"
