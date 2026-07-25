@@ -13,7 +13,7 @@ Mirrors `AGENTS.md` §7.
 
 Colocate tests in a `__tests__/` folder next to the code, named `<module>.test.ts`:
 
-```
+```text
 src/transformer/rules/
 ├── add-hyphen-separator.ts
 └── __tests__/

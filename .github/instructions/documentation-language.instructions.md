@@ -36,7 +36,7 @@ There is no localized/user-content exception in this repo — it is a developer 
 
 ## Commit messages (Conventional Commits)
 
-```
+```text
 type(scope): brief imperative description
 
 Optional body explaining the why.
@@ -50,7 +50,7 @@ Types: `feat` · `fix` · `docs` · `refactor` · `test` · `chore` · `ci`.
 
 **Good**
 
-```
+```text
 feat: Add remove-redundant-tags rule
 
 Drops @type/@augments and other tags TSDoc renders redundant once the signature

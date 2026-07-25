@@ -11,7 +11,7 @@ Mirrors `AGENTS.md` §6 and §9.
 
 ## Branch management
 
-```
+```text
 main                → default / release branch
 feature/<desc>      → new features
 fix/<desc>          → bug fixes
@@ -60,7 +60,7 @@ Types: `feat` · `fix` · `docs` · `refactor` · `test` · `chore` · `ci`.
 **No ticket prefix** (OSS). **No AI-attribution trailers** (`Co-Authored-By: …`, "Generated with …").
 Imperative subject; body explains the _why_.
 
-```
+```text
 feat: Add scaffold command for undocumented exports
 
 Generates TSDoc stubs from the symbol name and signature. Off by default for
