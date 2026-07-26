@@ -19,15 +19,22 @@ export function toJsonReport(payload: unknown): string {
 /**
  * Renders summary rows as a GitHub-flavored Markdown table.
  *
+ * @remarks
+ * An empty `rows` list yields just the header and divider, so a run with
+ * nothing to report still emits a well-formed table rather than a dangling
+ * blank row.
+ *
  * @param title - Column header for the label column.
  * @param rows - The label/value rows.
- * @returns A Markdown table string.
+ * @param valueLabel - Column header for the value column.
+ * @returns A Markdown table string, without a trailing newline.
  */
 export function toMarkdownTable(
   title: string,
   rows: readonly SummaryRow[],
+  valueLabel = "Count",
 ): string {
-  const header = `| ${title} | Count |`;
+  const header = `| ${title} | ${valueLabel} |`;
   const divider = "| --- | ---: |";
   const body = rows.map((row) => `| ${row.label} | ${row.value} |`);
   return [header, divider, ...body].join("\n");

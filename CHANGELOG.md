@@ -40,4 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   documentation, with `--dry-run` / `--preview` diffs, `--check` (exit `3` for
   CI), `--only` / `--exclude` globs, and `--report` (`json` / `md`) including a
   per-kind breakdown. Generated stubs are valid under `tsdoc/syntax`, satisfy
-  `tsdoc-require-2/require`, and re-running the command is a no-op.
+  `tsdoc-require-2/require`, and re-running the command is a no-op. A contract
+  suite runs those two rules over the scaffolded output of every supported
+  export form, so the guarantee is checked against the real linter rather than
+  against an assumption about it.

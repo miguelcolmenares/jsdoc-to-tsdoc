@@ -18,6 +18,7 @@ import {
   formatTable,
   shouldUseColor,
   toJsonReport,
+  toMarkdownTable,
   type SummaryRow,
 } from "@/reporter";
 import { TODO_MARKER } from "@/scaffolder";
@@ -148,10 +149,26 @@ export default defineCommand({
           })}\n`,
         );
       } else if (reportFormat === "md") {
-        const rows = scaffoldedFiles
-          .map((file) => `| ${file.path} | ${file.stubsAdded} |`)
-          .join("\n");
-        process.stdout.write(`| File | Stubs added |\n| --- | ---: |\n${rows}\n`);
+        // Both machine-readable modes report the same facts: the JSON `byKind`
+        // field and this breakdown must stay in step.
+        const fileRows: SummaryRow[] = scaffoldedFiles.map((file) => ({
+          label: file.path,
+          value: file.stubsAdded,
+        }));
+        const kindRows: SummaryRow[] = Object.entries(KIND_LABELS)
+          .map(([kind, label]) => ({
+            label,
+            value: totalsByKind[kind as ExportKind] ?? 0,
+          }))
+          .filter((row) => row.value > 0);
+
+        process.stdout.write(
+          `${toMarkdownTable("File", fileRows, "Stubs added")}\n\n${toMarkdownTable(
+            "Export kind",
+            kindRows,
+            "Stubs added",
+          )}\n`,
+        );
       } else {
         for (const diff of diffs) {
           process.stdout.write(`${diff}\n`);

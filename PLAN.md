@@ -49,7 +49,7 @@ TSDoc convention (summary, `@remarks`, `@typeParam`/`@param`, `@returns`), and
 the generated output is itself valid under `tsdoc/syntax` and satisfies
 `tsdoc-require-2/require`.
 
-Coverage: 241 tests, ~94 % overall (100 % on the transformer rules and the
+Coverage: 313 tests, ~94 % overall (100 % on the transformer rules and the
 generator domain; ~98 % on the scaffolder).
 
 ### Deferred (next increments)
