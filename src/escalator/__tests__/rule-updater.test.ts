@@ -71,6 +71,25 @@ describe("updateRuleSeverity", () => {
     expect(result.reason).toMatch(/disabled everywhere/);
   });
 
+  it("does not claim 'disabled everywhere' when another key is unreadable", () => {
+    // One key is off, another carries a severity this module cannot parse. The
+    // rule is not disabled everywhere, so telling the user to enable it would
+    // send them after the wrong problem.
+    const source = [
+      config(['"tsdoc-require-2/require": "off",']),
+      "export const fromEnv = {",
+      '  rules: { "tsdoc-require-2/require": severityFromEnv },',
+      "};",
+      "",
+    ].join("\n");
+    const result = updateRuleSeverity(source, { severity: "error" });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toMatch(/could not read its severity/);
+    expect(result.reason).not.toMatch(/disabled everywhere/);
+  });
+
   it("updates every enabled assignment across config blocks", () => {
     const source = [
       config(['"tsdoc-require-2/require": "warn",']),

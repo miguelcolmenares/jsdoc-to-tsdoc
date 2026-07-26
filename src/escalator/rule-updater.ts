@@ -65,9 +65,10 @@ export type RuleSeverityUpdate =
 const ASSIGNMENT =
   /(["']tsdoc-require-2\/require["']\s*:\s*\[?\s*)(?:(["'])(off|warn|error)\2|([012])(?![\w.]))/g;
 
-// The rule key alone. A config that sets the severity on the following line is
-// reported as unrecognized rather than silently left unchanged.
-const RULE_KEY = /["']tsdoc-require-2\/require["']\s*:/;
+// The rule key alone, counted so that keys carrying a severity this module
+// cannot read (a variable, a value on the following line, a stray `10`) are
+// told apart from keys that were read and turned out to be `off`.
+const RULE_KEY = /["']tsdoc-require-2\/require["']\s*:/g;
 
 const FROM_NUMERIC: Readonly<Record<string, RuleSeverity>> = Object.freeze({
   "0": "off",
@@ -137,18 +138,25 @@ function replaceInCode(
 /**
  * Explains why no assignment could be rewritten.
  *
- * @param sawRuleKey - Whether the rule key appears in real code at all.
- * @param disabledCount - How many assignments were explicitly `off`.
+ * @remarks
+ * The unreadable-severity case is reported ahead of the disabled one: a config
+ * mixing an explicit `off` with a key this module cannot parse is not "disabled
+ * everywhere", and telling the user to enable a rule that is already enabled
+ * somewhere would send them after the wrong problem.
+ *
+ * @param keyCount - How many `tsdoc-require-2/require` keys appear in real code.
+ * @param disabledCount - How many of them were read and turned out to be `off`.
  * @returns The failure reason shown to the user.
  */
-function explainMiss(sawRuleKey: boolean, disabledCount: number): string {
-  if (disabledCount > 0) {
-    return `"${PRESENCE_RULE_ID}" is disabled everywhere in this config — enable it (or re-run \`jsdoc-to-tsdoc init\`) before escalating.`;
+function explainMiss(keyCount: number, disabledCount: number): string {
+  if (keyCount === 0) {
+    return `"${PRESENCE_RULE_ID}" is not configured — run \`jsdoc-to-tsdoc init\` first.`;
   }
-  if (sawRuleKey) {
+  // Reached only when nothing was rewritten, so every readable key was `off`.
+  if (keyCount > disabledCount) {
     return `Found "${PRESENCE_RULE_ID}" but could not read its severity — set it manually.`;
   }
-  return `"${PRESENCE_RULE_ID}" is not configured — run \`jsdoc-to-tsdoc init\` first.`;
+  return `"${PRESENCE_RULE_ID}" is disabled everywhere in this config — enable it (or re-run \`jsdoc-to-tsdoc init\`) before escalating.`;
 }
 
 /**
@@ -171,14 +179,14 @@ export function updateRuleSeverity(
   options: { readonly severity: Severity },
 ): RuleSeverityUpdate {
   const occurrences: SeverityOccurrence[] = [];
-  let sawRuleKey = false;
+  let keyCount = 0;
   let disabledCount = 0;
 
   const content = readConfigLines(source)
     .map((line, index) => {
-      if (RULE_KEY.test(line.code)) {
-        sawRuleKey = true;
-      }
+      // `String.match` with a global regex returns every hit and leaves no
+      // `lastIndex` state behind, so the count is safe to take per line.
+      keyCount += line.code.match(RULE_KEY)?.length ?? 0;
 
       return replaceInCode(line, ASSIGNMENT, (match) => {
         const [, prefix, quote, word, numeric] = match;
@@ -206,7 +214,7 @@ export function updateRuleSeverity(
     .join("\n");
 
   if (occurrences.length === 0) {
-    return { ok: false, reason: explainMiss(sawRuleKey, disabledCount) };
+    return { ok: false, reason: explainMiss(keyCount, disabledCount) };
   }
 
   return { ok: true, content, changed: content !== source, occurrences };
