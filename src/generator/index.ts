@@ -19,6 +19,7 @@ export { readConfigLines, type ConfigLine } from "@/generator/config-source";
 export {
   buildTsdocConfigSnippet,
   patchEslintFlatConfig,
+  TEST_FILE_GLOBS,
   type EslintPatchResult,
   type PatchEslintOptions,
   type Severity,

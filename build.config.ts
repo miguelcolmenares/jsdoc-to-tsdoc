@@ -10,7 +10,7 @@ import { defineBuildConfig } from "unbuild";
  * - `dist/index.mjs` — the programmatic library surface (barrel re-exports).
  *
  * `typescript` is a peer dependency and is never bundled — the consumer already
- * ships it. The bundle target is < 500 KB gzipped (asserted in CI).
+ * ships it. The bundle target is `< 500 KB` gzipped (asserted in CI).
  */
 export default defineBuildConfig({
   entries: ["src/cli", "src/index"],

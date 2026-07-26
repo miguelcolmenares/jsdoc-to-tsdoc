@@ -40,6 +40,21 @@ export type EslintPatchResult =
   | { readonly ok: true; readonly content: string; readonly changed: boolean }
   | { readonly ok: false; readonly reason: string; readonly snippet: string };
 
+/**
+ * The paths `init` exempts from the TSDoc rules.
+ *
+ * @remarks
+ * Test files hold intentionally malformed fixtures and export helpers nobody
+ * consumes, so both the syntax and the presence rule are turned off for them in
+ * the generated config. `check` reads the same list, so the gate never reports a
+ * file the configuration it scaffolds would have excused.
+ */
+export const TEST_FILE_GLOBS: readonly string[] = Object.freeze([
+  "**/*.test.ts",
+  "**/*.test.tsx",
+  "**/__tests__/**",
+]);
+
 const TSDOC_IMPORTS = [
   'import tsdoc from "eslint-plugin-tsdoc";',
   'import tsdocRequire from "eslint-plugin-tsdoc-require-2";',
@@ -142,7 +157,7 @@ function buildConfigBlock(severity: Severity): string {
     "    },",
     "  },",
     "  {",
-    '    files: ["**/*.test.ts", "**/*.test.tsx", "**/__tests__/**"],',
+    `    files: [${TEST_FILE_GLOBS.map((glob) => `"${glob}"`).join(", ")}],`,
     "    rules: {",
     '      "tsdoc/syntax": "off",',
     '      "tsdoc-require-2/require": "off",',
