@@ -342,12 +342,20 @@ interface DeclarationShape {
 /**
  * Describes a top-level statement as a documentable declaration.
  *
+ * @remarks
+ * `only` narrows a multi-binding variable statement to the names that are
+ * actually exported. `const A = 1, useHash = () => …; export { useHash };`
+ * publishes just `useHash`, so the record must be named and classified after
+ * that binding rather than after the first one in the statement.
+ *
  * @param statement - The statement to inspect.
+ * @param only - When present, restricts the described bindings to these names.
  * @returns Its shape, or `undefined` when the statement is not a declaration
- * that can carry documentation.
+ * that can carry documentation, or when `only` matches none of its bindings.
  */
 function describeStatement(
   statement: ts.Statement,
+  only?: ReadonlySet<string>,
 ): DeclarationShape | undefined {
   const base = {
     parameters: [] as readonly ExportParameter[],
@@ -416,9 +424,25 @@ function describeStatement(
   }
 
   if (ts.isVariableStatement(statement)) {
-    const { declarations } = statement.declarationList;
-    const names = declarations.flatMap((declaration) =>
-      bindingNames(declaration.name),
+    // Keep each declarator paired with its names so a narrowed statement can
+    // still tell which initializer belongs to the exported binding.
+    const declared = statement.declarationList.declarations.map(
+      (declaration) => ({
+        declaration,
+        names: bindingNames(declaration.name),
+      }),
+    );
+    const selected =
+      only === undefined
+        ? declared
+        : declared.filter((entry) =>
+            entry.names.some((name) => only.has(name)),
+          );
+
+    const names = selected.flatMap((entry) =>
+      only === undefined
+        ? entry.names
+        : entry.names.filter((name) => only.has(name)),
     );
     const primary = names[0];
     if (primary === undefined) {
@@ -426,11 +450,14 @@ function describeStatement(
     }
 
     // A single identifier bound to a function expression is function-like; a
-    // multi-binding or destructuring statement never is.
-    const [only] = declarations;
+    // destructuring binding, or a statement contributing several names, is not.
+    const [first] = selected;
     const initializer =
-      declarations.length === 1 && only && ts.isIdentifier(only.name)
-        ? only.initializer
+      selected.length === 1 &&
+      names.length === 1 &&
+      first &&
+      ts.isIdentifier(first.declaration.name)
+        ? first.declaration.initializer
         : undefined;
 
     if (
@@ -544,16 +571,23 @@ export function collectExportedDeclarations(
     }
   }
 
-  // Pass 2 — exports expressed as statements over local declarations.
-  const recordLocal = (name: string): void => {
+  // Pass 2 — exports expressed as statements over local declarations. Names are
+  // accumulated per target statement first, because one statement can bind
+  // several names while an export list publishes only some of them; the record
+  // must describe exactly the exported subset.
+  const exportedNamesByStatement = new Map<ts.Statement, Set<string>>();
+
+  const noteExported = (name: string): void => {
     const target = localsByName.get(name);
     if (target === undefined) {
       return;
     }
-    const shape = describeStatement(target);
-    if (shape !== undefined) {
-      record(target, shape);
+    const names = exportedNamesByStatement.get(target);
+    if (names === undefined) {
+      exportedNamesByStatement.set(target, new Set([name]));
+      return;
     }
+    names.add(name);
   };
 
   for (const statement of sourceFile.statements) {
@@ -568,13 +602,20 @@ export function collectExportedDeclarations(
       }
       for (const specifier of clause.elements) {
         // `export { local as public }` documents `local`.
-        recordLocal((specifier.propertyName ?? specifier.name).text);
+        noteExported((specifier.propertyName ?? specifier.name).text);
       }
       continue;
     }
 
     if (ts.isExportAssignment(statement) && ts.isIdentifier(statement.expression)) {
-      recordLocal(statement.expression.text);
+      noteExported(statement.expression.text);
+    }
+  }
+
+  for (const [target, names] of exportedNamesByStatement) {
+    const shape = describeStatement(target, names);
+    if (shape !== undefined) {
+      record(target, shape);
     }
   }
 

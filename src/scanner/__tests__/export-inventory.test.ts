@@ -72,6 +72,57 @@ describe("collectExportedDeclarations", () => {
     );
   });
 
+  it("describes only the bindings an export list actually publishes", () => {
+    // The statement also binds `A`, but the module publishes just `useHash`,
+    // so the record must be named and classified after that binding.
+    const source = [
+      "const A = 1, useHash = () => '';",
+      "export { useHash };",
+    ].join("\n");
+
+    const declarations = collectExportedDeclarations(source, "a.ts");
+    expect(declarations).toHaveLength(1);
+    expect(declarations[0]?.name).toBe("useHash");
+    expect(declarations[0]?.names).toEqual(["useHash"]);
+    expect(declarations[0]?.kind).toBe("hook");
+  });
+
+  it("narrows a multi-binding statement to the exported subset", () => {
+    const declarations = collectExportedDeclarations(
+      "const A = 1, B = 2;\nexport { B };",
+      "a.ts",
+    );
+    expect(declarations[0]?.name).toBe("B");
+    expect(declarations[0]?.names).toEqual(["B"]);
+  });
+
+  it("narrows a destructuring statement to the exported subset", () => {
+    const declarations = collectExportedDeclarations(
+      "const { a, b } = src;\nexport { b };",
+      "a.ts",
+    );
+    expect(declarations[0]?.name).toBe("b");
+    expect(declarations[0]?.names).toEqual(["b"]);
+  });
+
+  it("keeps every name when the export list publishes them all", () => {
+    const declarations = collectExportedDeclarations(
+      "const A = 1, B = 2;\nexport { A, B };",
+      "a.ts",
+    );
+    expect(declarations).toHaveLength(1);
+    expect(declarations[0]?.names).toEqual(["A", "B"]);
+  });
+
+  it("merges names published across separate export lists", () => {
+    const declarations = collectExportedDeclarations(
+      "const A = 1, B = 2;\nexport { A };\nexport { B };",
+      "a.ts",
+    );
+    expect(declarations).toHaveLength(1);
+    expect(declarations[0]?.names).toEqual(["A", "B"]);
+  });
+
   it("does not document an imported binding that is only re-exported", () => {
     const source = ['import { x } from "./x";', "export { x };"].join("\n");
     expect(collectExportedDeclarations(source, "a.ts")).toHaveLength(0);
