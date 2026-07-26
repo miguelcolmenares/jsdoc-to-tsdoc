@@ -255,6 +255,34 @@ describe("collectExportedDeclarations", () => {
     expect(findByName(fn, "use-mounted.ts", "useMounted").kind).toBe("hook");
   });
 
+  it("keeps the hook classification for a hook produced by a factory", () => {
+    // The canonical store idiom binds `useX` to a factory call, not to a
+    // function expression, and is a genuine hook.
+    const factory = "export const useStore = create<State>()((set) => ({}));";
+    expect(findByName(factory, "a.ts", "useStore").kind).toBe("hook");
+
+    const alias = "export const useAuth = useAuthBase;";
+    expect(findByName(alias, "a.ts", "useAuth").kind).toBe("hook");
+
+    // Ambient declarations have no initializer but are still hooks.
+    const ambient = "export declare const useTheme: () => string;";
+    expect(findByName(ambient, "a.ts", "useTheme").kind).toBe("hook");
+  });
+
+  it("does not call a useX data export a hook", () => {
+    // A `useX` name alone must not produce a "React hook ..." summary when the
+    // value provably cannot be callable.
+    for (const source of [
+      "export const useDefaults = { a: 1 };",
+      "export const useList = [1, 2];",
+      "export const useMax = 42;",
+      'export const useName = "x";',
+    ]) {
+      const [declaration] = collectExportedDeclarations(source, "a.ts");
+      expect(declaration?.kind).toBe("variable");
+    }
+  });
+
   it("classifies interfaces, type aliases, classes, enums and constants", () => {
     const source = [
       "export interface Config { endpoint: string }",

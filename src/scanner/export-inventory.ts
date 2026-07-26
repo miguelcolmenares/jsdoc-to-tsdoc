@@ -315,6 +315,40 @@ function locateInsertion(
 }
 
 /**
+ * Reports whether an initializer could hold a callable value.
+ *
+ * @remarks
+ * The `useX` naming convention alone does not make an export a hook: a plain
+ * data export named `useDefaults` would get a "React hook …" summary it does not
+ * deserve. Requiring a literal function expression is too strict in the other
+ * direction, because hooks are routinely produced by a factory call
+ * (`export const useStore = create(…)`), so only initializers that provably
+ * cannot be callable are rejected. A missing initializer stays eligible: an
+ * ambient `declare const useTheme: () => Theme` is a hook declaration.
+ *
+ * @param initializer - The declarator's initializer, when present.
+ * @returns `false` only for literals that can never be a function.
+ */
+function mayHoldFunction(initializer: ts.Expression | undefined): boolean {
+  if (initializer === undefined) {
+    return true;
+  }
+  return !(
+    ts.isObjectLiteralExpression(initializer) ||
+    ts.isArrayLiteralExpression(initializer) ||
+    ts.isStringLiteral(initializer) ||
+    ts.isNumericLiteral(initializer) ||
+    ts.isBigIntLiteral(initializer) ||
+    ts.isNoSubstitutionTemplateLiteral(initializer) ||
+    ts.isTemplateExpression(initializer) ||
+    ts.isRegularExpressionLiteral(initializer) ||
+    initializer.kind === ts.SyntaxKind.TrueKeyword ||
+    initializer.kind === ts.SyntaxKind.FalseKeyword ||
+    initializer.kind === ts.SyntaxKind.NullKeyword
+  );
+}
+
+/**
  * Every name bound by a declaration name, flattening destructuring patterns.
  *
  * @param name - The binding name or pattern to walk.
@@ -486,7 +520,10 @@ function describeStatement(
       ...base,
       name: primary,
       names,
-      kind: isHookName(primary) ? "hook" : "variable",
+      kind:
+        isHookName(primary) && mayHoldFunction(first?.declaration.initializer)
+          ? "hook"
+          : "variable",
     };
   }
 
