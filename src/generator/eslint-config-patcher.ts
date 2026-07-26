@@ -65,17 +65,15 @@ const SYNTAX_RULE_ENABLED =
 /**
  * Tests a pattern against the source while ignoring comments, so a commented-out
  * `import`/`require` (for example `// import … "eslint-plugin-tsdoc"`, or the
- * same inside a multi-line `/* … *\/` block) is never mistaken for a real
- * reference.
+ * same inside a `/* … *\/` block that opened mid-line) is never mistaken for a
+ * real reference.
  *
  * @param source - The config source.
- * @param pattern - The regex to test against each non-comment line.
- * @returns `true` when any code line matches.
+ * @param pattern - The regex to test against the comment-free form of each line.
+ * @returns `true` when any line matches outside its comments.
  */
 function testInCode(source: string, pattern: RegExp): boolean {
-  return readConfigLines(source).some(
-    (line) => line.isCode && pattern.test(line.text.trim()),
-  );
+  return readConfigLines(source).some((line) => pattern.test(line.code));
 }
 
 /**

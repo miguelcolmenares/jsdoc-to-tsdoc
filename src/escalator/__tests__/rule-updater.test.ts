@@ -154,6 +154,45 @@ describe("updateRuleSeverity", () => {
     expect(result.reason).toMatch(/not configured/);
   });
 
+  it("ignores an assignment inside a block comment that opened mid-line", () => {
+    // Rewriting here would report a successful escalation while the real rule
+    // stayed at warn — the config would be written back effectively unchanged.
+    const source = [
+      "export default [ /* disabled for now",
+      '  "tsdoc-require-2/require": "warn",',
+      "*/ ];",
+      "",
+    ].join("\n");
+    const result = updateRuleSeverity(source, { severity: "error" });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toMatch(/not configured/);
+  });
+
+  it("ignores an assignment quoted in a trailing line comment", () => {
+    const source = 'const note = 1; // "tsdoc-require-2/require": "warn"\n';
+    const result = updateRuleSeverity(source, { severity: "error" });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toMatch(/not configured/);
+  });
+
+  it("rewrites the real assignment and not the one in the trailing comment", () => {
+    const source = config([
+      '"tsdoc-require-2/require": "warn", // was "tsdoc-require-2/require": "off"',
+    ]);
+    const result = updateRuleSeverity(source, { severity: "error" });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.occurrences).toHaveLength(1);
+    expect(result.content).toContain(
+      '"tsdoc-require-2/require": "error", // was "tsdoc-require-2/require": "off"',
+    );
+  });
+
   it("reports changed=false when the target severity is already set", () => {
     const source = config(['"tsdoc-require-2/require": "error",']);
     const result = updateRuleSeverity(source, { severity: "error" });

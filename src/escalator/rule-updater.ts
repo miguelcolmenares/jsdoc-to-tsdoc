@@ -21,7 +21,7 @@
  * @since 0.1.0
  */
 
-import { readConfigLines, type Severity } from "@/generator";
+import { readConfigLines, type ConfigLine, type Severity } from "@/generator";
 
 /** The presence rule the migration workflow escalates. */
 export const PRESENCE_RULE_ID = "tsdoc-require-2/require";
@@ -93,6 +93,48 @@ function asSeverity(value: string | undefined): RuleSeverity | undefined {
 }
 
 /**
+ * Applies a replacement to the code portion of a line only.
+ *
+ * @remarks
+ * Matches are searched in {@link ConfigLine.code}, where comment characters are
+ * blanked, but spliced into {@link ConfigLine.text}. The mask is
+ * length-preserving, so a span found in one is the same span in the other — and
+ * a match can never land inside a comment.
+ *
+ * @param line - The line to rewrite.
+ * @param pattern - A global regex to search for.
+ * @param replacer - Builds the replacement, or returns `undefined` to leave a
+ * match untouched.
+ * @returns The line's text with every accepted match replaced.
+ */
+function replaceInCode(
+  line: ConfigLine,
+  pattern: RegExp,
+  replacer: (match: RegExpExecArray) => string | undefined,
+): string {
+  pattern.lastIndex = 0;
+  const parts: string[] = [];
+  let cursor = 0;
+  let match = pattern.exec(line.code);
+
+  while (match !== null) {
+    const replacement = replacer(match);
+    if (replacement !== undefined) {
+      parts.push(line.text.slice(cursor, match.index), replacement);
+      cursor = match.index + match[0].length;
+    }
+    // A zero-length match would otherwise spin forever on the same offset.
+    if (match[0].length === 0) {
+      pattern.lastIndex += 1;
+    }
+    match = pattern.exec(line.code);
+  }
+
+  parts.push(line.text.slice(cursor));
+  return parts.join("");
+}
+
+/**
  * Explains why no assignment could be rewritten.
  *
  * @param sawRuleKey - Whether the rule key appears in real code at all.
@@ -134,40 +176,32 @@ export function updateRuleSeverity(
 
   const content = readConfigLines(source)
     .map((line, index) => {
-      if (!line.isCode) {
-        return line.text;
-      }
-      if (RULE_KEY.test(line.text)) {
+      if (RULE_KEY.test(line.code)) {
         sawRuleKey = true;
       }
 
-      return line.text.replace(
-        ASSIGNMENT,
-        (
-          match: string,
-          prefix: string,
-          quote: string | undefined,
-          word: string | undefined,
-          numeric: string | undefined,
-        ): string => {
-          const from =
-            asSeverity(word) ??
-            (numeric === undefined ? undefined : FROM_NUMERIC[numeric]);
-          // The alternation guarantees one branch matched; a miss would be a
-          // regex bug, and leaving the line alone is the safe reaction.
-          if (from === undefined || from === "off") {
-            if (from === "off") {
-              disabledCount += 1;
-            }
-            return match;
-          }
+      return replaceInCode(line, ASSIGNMENT, (match) => {
+        const [, prefix, quote, word, numeric] = match;
+        const from =
+          asSeverity(word) ??
+          (numeric === undefined ? undefined : FROM_NUMERIC[numeric]);
 
-          occurrences.push({ line: index + 1, from });
-          return quote === undefined
-            ? `${prefix}${TO_NUMERIC[options.severity]}`
-            : `${prefix}${quote}${options.severity}${quote}`;
-        },
-      );
+        // The alternation guarantees one branch matched; a miss would be a
+        // regex bug, and leaving the match alone is the safe reaction.
+        if (from === undefined || prefix === undefined) {
+          return undefined;
+        }
+        // An explicit `off` is a deliberate opt-out, never something to enable.
+        if (from === "off") {
+          disabledCount += 1;
+          return undefined;
+        }
+
+        occurrences.push({ line: index + 1, from });
+        return quote === undefined
+          ? `${prefix}${TO_NUMERIC[options.severity]}`
+          : `${prefix}${quote}${options.severity}${quote}`;
+      });
     })
     .join("\n");
 
