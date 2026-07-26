@@ -37,11 +37,11 @@ init  →  convert  →  scaffold  →  escalate
 | `scan`    | **shipped**  | Read-only inventory of what `convert` would change. |
 | `convert` | **shipped**  | Transforms existing JSDoc comments into TSDoc syntax (10-rule pipeline). |
 | `scaffold`| **shipped**  | Generates TSDoc stubs for undocumented exports (the ~80% of real-world work). |
-| `escalate`| _planned_    | Bump `tsdoc-require-2/require` from `warn` → `error` with a preflight check. |
-| `check`   | _planned_    | Standalone CI validation (today `convert --check` / `scaffold --check` cover "would change"). |
+| `escalate`| **shipped**  | Bumps `tsdoc-require-2/require` from `warn` → `error`, gated on a preflight ESLint run. |
+| `check`   | _planned_    | Standalone CI validation (today `convert --check` / `scaffold --check` / `escalate --check` cover "would change"). |
 
 Domains present: `parser`, `scanner`, `transformer`, `scaffolder`, `generator`,
-`reporter`, `writer`, `commands`. See `PLAN.md` → _Implementation Status_ for the
+`escalator`, `reporter`, `writer`, `commands`. See `PLAN.md` → _Implementation Status_ for the
 running tally and `PLAN.md` → _Development Roadmap_ for phase order.
 
 ---
@@ -62,6 +62,7 @@ src/
 ├── transformer/         # the deterministic rule pipeline + rules/
 ├── scaffolder/          # name→prose inference + TSDoc stub rendering for undocumented exports
 ├── generator/           # init's building blocks: project detection, tag classification, tsdoc.json, eslint patcher
+├── escalator/           # escalate's building blocks: preflight ESLint run + rule-severity patch
 ├── reporter/            # colored diffs, tables, JSON/Markdown output, ANSI colors
 └── writer/              # async file writes
 ```
@@ -85,6 +86,14 @@ The shared orchestrator is [`src/commands/scaffold-file.ts`](./src/commands/scaf
 `generator.collectProjectTags` (classify tags) → `generator.generateTsdocJson`/
 `mergeTsdocJson` + `generator.patchEslintFlatConfig` → `reporter` diffs or
 `writer`. See [`src/commands/init.ts`](./src/commands/init.ts).
+
+**Data-flow of an `escalate`:** `generator.detectProject` (find the flat config)
+→ `escalator.updateRuleSeverity` (text patch of the presence rule's severity) →
+`escalator.runPreflight` (resolve and run the **project's own** ESLint with the
+**project's own** config; collect every `tsdoc-require-2/require` message
+regardless of severity) → `reporter` diff or `writer`. Both halves respect an
+explicit `off`: the patcher never enables it, and the preflight never overrides
+it. See [`src/commands/escalate.ts`](./src/commands/escalate.ts).
 
 ---
 
@@ -132,17 +141,20 @@ npx jsdoc-to-tsdoc init      # bootstrap: tsdoc.json + eslint rules + deps to in
 npx jsdoc-to-tsdoc scan      # read-only inventory
 npx jsdoc-to-tsdoc convert   # JSDoc → TSDoc
 npx jsdoc-to-tsdoc scaffold  # TSDoc stubs for undocumented exports
+npx jsdoc-to-tsdoc escalate  # warn → error, gated on a preflight ESLint run
 ```
 
 | Flag | Commands | Purpose |
 |------|----------|---------|
 | `--cwd <dir>` | all | Project directory (default `.`). |
-| `--dry-run` / `--preview` | `init`, `convert`, `scaffold` | Show a diff; write nothing. |
+| `--dry-run` / `--preview` | `init`, `convert`, `scaffold`, `escalate` | Show a diff; write nothing. |
 | `--strict` | `init` | Start the presence rule at `error` instead of `warn`. |
 | `--install` | `init` | Run the detected package manager to install missing dev deps. |
-| `--check` | `convert`, `scaffold` | CI mode — exit `3` if anything would change; never writes. |
+| `--check` | `convert`, `scaffold`, `escalate` | CI mode — exit `3` if anything would change; never writes. |
 | `--lite` | `scan`, `convert` | Only `@param`/`@returns` hygiene (`Rule.liteSafe`). |
-| `--only` / `--exclude <globs>` | all | Comma-separated include/exclude globs. |
+| `--severity <level>` | `escalate` | Target severity: `error` (default) or `warn`. |
+| `--skip-preflight` | `escalate` | Patch without running ESLint first. |
+| `--only` / `--exclude <globs>` | `scan`, `convert`, `scaffold` | Comma-separated include/exclude globs. |
 | `--report <fmt>` | all | `json` or `md` to stdout. |
 
 **Exit codes:** `0` OK · `1` logic error · `2` parse failure · `3` violations
@@ -252,6 +264,7 @@ npm run build          # unbuild → dist/  (+ CI asserts the <500 KB gzipped bo
 |------|-----------|
 | Add a JSDoc→TSDoc transform | `src/transformer/rules/` + register in `rules/index.ts` |
 | Add/adjust a stub template or summary inference | `src/scaffolder/stub-builder.ts`, `src/scaffolder/name-inference.ts` |
+| Change the preflight or the severity patch | `src/escalator/` |
 | Change how exports reach the module surface | `src/scanner/export-inventory.ts` |
 | Change how a declaration is classified (component/action/hook/…) | `src/scanner/declaration-classifier.ts` |
 | Change what a statement contributes (names, params, type params) | `src/scanner/declaration-shape.ts` |
@@ -260,6 +273,7 @@ npm run build          # unbuild → dist/  (+ CI asserts the <500 KB gzipped bo
 | Comment line traversal / fence handling | `src/parser/comment-lines.ts` |
 | Comment extraction / file discovery | `src/scanner/` |
 | `init` building blocks | `src/generator/` |
+| Comment-aware reading of flat-config text | `src/generator/config-source.ts` |
 | Which TSDoc tags are standard vs custom | `src/generator/tsdoc-tags.ts` |
 | Output formatting (diffs, tables, JSON/MD) | `src/reporter/` |
 | Roadmap / scope / phases | `PLAN.md` |

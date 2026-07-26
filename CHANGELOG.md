@@ -44,3 +44,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   suite runs those two rules over the scaffolded output of every supported
   export form, so the guarantee is checked against the real linter rather than
   against an assumption about it.
+- `escalator` domain: a preflight lint check and a severity patch for the
+  presence rule. The preflight resolves and runs the *project's own* ESLint with
+  the *project's own* config, collecting every `tsdoc-require-2/require` message
+  whatever severity it carries — reading the real config instead of forcing the
+  rule on through an override is what keeps the verdict equal to what CI will
+  report, `off` overrides included. The patch rewrites only enabled assignments,
+  so an explicit `off` (the `__tests__/` exemption `init` writes) is never
+  switched on and the `require-param` / `require-returns` siblings are never
+  touched.
+- `escalate` CLI subcommand: the fourth migration step, bumping
+  `tsdoc-require-2/require` from `warn` to `error` once the preflight is clean.
+  Refuses to escalate (exit `3`) while undocumented exports remain, listing
+  them; supports `--dry-run` / `--preview` diffs, `--check` (a cheap CI gate
+  that exits `3` when the repo is not locked in yet, without running ESLint),
+  `--severity` to walk an escalation back to `warn`, `--skip-preflight`, and
+  `--report` (`json` / `md`).

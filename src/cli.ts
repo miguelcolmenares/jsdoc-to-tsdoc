@@ -10,6 +10,7 @@ import { defineCommand, runMain } from "citty";
 
 import {
   convertCommand,
+  escalateCommand,
   initCommand,
   scaffoldCommand,
   scanCommand,
@@ -27,6 +28,7 @@ const main = defineCommand({
     scan: scanCommand,
     convert: convertCommand,
     scaffold: scaffoldCommand,
+    escalate: escalateCommand,
   },
 });
 

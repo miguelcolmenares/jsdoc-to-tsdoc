@@ -14,6 +14,8 @@ export {
   type TagUsage,
 } from "@/generator/custom-tag-detector";
 
+export { readConfigLines, type ConfigLine } from "@/generator/config-source";
+
 export {
   buildTsdocConfigSnippet,
   patchEslintFlatConfig,

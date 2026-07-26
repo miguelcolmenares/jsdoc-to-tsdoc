@@ -4,18 +4,17 @@
 > (`nextjs-boilerplate`, `homecare-nextjs`, `assistedliving-nextjs`; ~87 files
 > across 3 repos, July 2026).
 >
-> **Implementation status (v0.1.0-dev):** the deterministic `convert` engine, the
-> `scan` inventory command, the `init` bootstrap command (`tsdoc.json` +
-> ESLint flat-config patching), and the `scaffold` stub generator are
-> implemented, tested, and runnable. See
-> [Implementation Status](#implementation-status) below.
+> **Implementation status (v0.1.0-dev):** the whole
+> `init → convert → scaffold → escalate` workflow is implemented, tested, and
+> runnable. See [Implementation Status](#implementation-status) below.
 
 ## Implementation Status
 
-Third development increment — the project foundation, the `convert`/`scan`
-vertical slice, the `init` bootstrap command, and the `scaffold` stub generator
-(the ~80 % of real-world migration work identified in the learnings). All
-quality gates pass locally (typecheck, lint, tests, build, bundle size).
+Fourth development increment — the project foundation, the `convert`/`scan`
+vertical slice, the `init` bootstrap command, the `scaffold` stub generator
+(the ~80 % of real-world migration work identified in the learnings), and the
+`escalate` lock-in step that closes the workflow. All quality gates pass
+locally (typecheck, lint, tests, build, bundle size).
 
 ### Shipped
 
@@ -27,10 +26,11 @@ quality gates pass locally (typecheck, lint, tests, build, bundle size).
 | **`transformer`** | 10 pure, deterministic rules + an ordered pipeline with `--lite` (`@param` / `@returns` hygiene) mode |
 | **`scanner`** | comment extraction via the TypeScript Compiler API (`ts.getLeadingCommentRanges`), recursive source-file discovery, minimal glob matching for `--only` / `--exclude`, and `export-inventory` (classifies each export, records its stub insertion point, flags whether it is already documented, skips re-exports) |
 | **`scaffolder`** | deterministic summary inference from identifier names (verb conjugation, predicates, acronym/kebab/snake splitting) and TSDoc stub rendering per export kind; every stub carries a `TODO(tsdoc)` review marker |
-| **`generator`** | project-layout detection (ESLint flat config, `tsconfig`, package manager, installed deps), custom-tag classification against the TSDoc standard, `tsdoc.json` generation/merging, and idempotent ESLint flat-config patching |
+| **`generator`** | project-layout detection (ESLint flat config, `tsconfig`, package manager, installed deps), custom-tag classification against the TSDoc standard, `tsdoc.json` generation/merging, comment-aware reading of flat-config text, and idempotent ESLint flat-config patching |
+| **`escalator`** | preflight lint run (resolves and runs the *project's own* ESLint with the *project's own* config, collecting every presence-rule message whatever its severity) and a text patch of the rule's severity that only rewrites enabled assignments |
 | **`reporter`** | colored unified diffs, bordered summary tables, and machine-readable JSON / Markdown output |
 | **`writer`** | async file writes |
-| **`commands`** | `init` (`tsdoc.json` + ESLint patch, `--dry-run` / `--strict` / `--install` / `--report`), `scan` (read-only inventory), `convert` (`--dry-run` / `--preview` / `--check` / `--lite` / `--only` / `--exclude` / `--report`), and `scaffold` (`--dry-run` / `--preview` / `--check` / `--only` / `--exclude` / `--report`) wired through citty |
+| **`commands`** | `init` (`tsdoc.json` + ESLint patch, `--dry-run` / `--strict` / `--install` / `--report`), `scan` (read-only inventory), `convert` (`--dry-run` / `--preview` / `--check` / `--lite` / `--only` / `--exclude` / `--report`), `scaffold` (`--dry-run` / `--preview` / `--check` / `--only` / `--exclude` / `--report`), and `escalate` (`--dry-run` / `--preview` / `--check` / `--severity` / `--skip-preflight` / `--report`) wired through citty |
 
 Conversions implemented (from [Mechanical Transformations](#mechanical-transformations-still-core-to-the-tool)
 and the real-world learnings): `{Type}`-brace stripping, tag renames
@@ -49,14 +49,19 @@ TSDoc convention (summary, `@remarks`, `@typeParam`/`@param`, `@returns`), and
 the generated output is itself valid under `tsdoc/syntax` and satisfies
 `tsdoc-require-2/require`.
 
-Coverage: 362 tests, ~94 % overall (100 % on the transformer rules and the
-generator domain; ~98 % on the scaffolder).
+Escalation is gated on a preflight that runs the project's real ESLint against
+its real config, so the verdict matches what CI will do: every `off` the project
+configured (the `__tests__/` exemption `init` writes, most commonly) is honoured
+rather than overridden, and the patch itself never enables a disabled assignment
+nor touches the `require-param` / `require-returns` siblings.
+
+Coverage: 405 tests, ~95 % overall (100 % on the transformer rules and the
+generator domain; ~97 % on the escalator, ~98 % on the scaffolder).
 
 ### Deferred (next increments)
 
-- `escalate` — `warn` → `error` with preflight ESLint check.
-- `check` as a standalone TSDoc-validation command (today `convert --check`
-  gates on "would change").
+- `check` as a standalone TSDoc-validation command (today `convert --check`,
+  `scaffold --check`, and `escalate --check` gate on "would change").
 - Structural `@property` → inline interface-member docs (the redundant
   `@property` block is currently removed, which is the correct action; splitting
   it onto interface members is the remaining structural step).
@@ -882,13 +887,14 @@ Scaffolding (new TSDoc for undocumented exports):
 Enforcement progression:
 - [x] `init --progressive` (default) → starts at `warn`
 - [x] `init --strict` → starts at `error`
-- [ ] `escalate` command → warn → error with preflight check
+- [x] `escalate` command → warn → error with preflight check
 
 Reporting & CI:
 - [x] Dry-run mode with unified diff for every command
 - [x] `--report=<fmt>` (`json` / `md` / `table`) written to stdout for every command
 - [ ] `check` command → exit `3` on rule violations (per exit-code contract) —
-      `convert --check` and `scaffold --check` gate on "would change" today
+      `convert --check`, `scaffold --check`, and `escalate --check` gate on
+      "would change" today
 - [x] **`--preview` per-file diff mode** *(see [CLI UX](#cli-ux--distribution))*
 - [ ] **`--interactive` per-file review mode**
 - [x] **`--only` / `--exclude` glob filters** for targeted runs
@@ -953,10 +959,10 @@ without contacting the source projects.
 | 3 | Transformation rules (existing JSDoc → TSDoc) | **Done** |
 | 4 | `tsdoc.json` + ESLint config generator/patcher | **Done** — `generator` domain + `init` command |
 | 5 | **Scaffolder templates** (components, actions, hooks, interfaces) | **Done** — `scaffolder` domain + `scaffold` command |
-| 6 | CLI subcommand shell (`init`, `scan`, `convert`, `scaffold`, `escalate`, `check`) | **Partial** — `init` + `scan` + `convert` + `scaffold` done |
+| 6 | CLI subcommand shell (`init`, `scan`, `convert`, `scaffold`, `escalate`, `check`) | **Partial** — everything but `check` done |
 | 7 | Interactive wizard (`@clack/prompts`) | Not started |
-| 8 | **Escalator + preflight ESLint check** | Not started |
-| 9 | Fixture-based snapshot tests (3 real repos) | **Partial** — unit + integration tests done (205 tests, ~94 %); repo fixtures pending |
+| 8 | **Escalator + preflight ESLint check** | **Done** — `escalator` domain + `escalate` command |
+| 9 | Fixture-based snapshot tests (3 real repos) | **Partial** — unit + integration tests done (405 tests, ~95 %); repo fixtures pending |
 | 10 | Dogfood on a 4th real repo end-to-end | Not started |
 | 11 | npm publish as `jsdoc-to-tsdoc` v0.1.0 | Not started |
 
