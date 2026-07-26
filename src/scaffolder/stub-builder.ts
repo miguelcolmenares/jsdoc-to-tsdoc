@@ -161,8 +161,14 @@ function renderComment(
  *
  * @example
  * ```typescript
- * buildStub(declaration);
- * // "/**\n * Submits the contact form.\n *\n * @param formData - ...\n *\/\n"
+ * buildStub(submitContactForm);
+ * // "/**\n"
+ * // " * Server Action. Submits the contact form.\n"
+ * // " *\n"
+ * // " * @remarks TODO(tsdoc): verify this generated summary.\n"
+ * // " *\n"
+ * // " * @param formData - TODO(tsdoc): describe formData.\n"
+ * // " *\/\n"
  * ```
  */
 export function buildStub(declaration: ExportedDeclaration): string {
@@ -172,8 +178,13 @@ export function buildStub(declaration: ExportedDeclaration): string {
     declaration.indent,
   );
 
-  // A comment that opens on the same line as preceding code is parsed as that
-  // statement's trailing comment, so this declaration would still read as
-  // undocumented and collect another stub on every run.
-  return declaration.ownsLine ? comment : `\n${comment}`;
+  if (declaration.ownsLine) {
+    return comment;
+  }
+
+  // The declaration shares its line with earlier code. A comment that opens on
+  // that same line is parsed as the earlier statement's trailing comment, so the
+  // stub starts a fresh line; the trailing indent then carries the declaration
+  // itself over at the surrounding indentation instead of column 0.
+  return `\n${comment}${declaration.indent}`;
 }

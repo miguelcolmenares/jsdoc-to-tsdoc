@@ -169,6 +169,17 @@ describe("scaffoldSourceText", () => {
     expect(scaffoldSourceText(result.output, "a.ts").changed).toBe(false);
   });
 
+  it("keeps surrounding indentation when the declaration shares its line", () => {
+    const result = scaffoldSourceText("  const a = 1; export const b = 2;", "a.ts");
+
+    // Both the stub and the declaration it carries over must stay aligned.
+    for (const line of result.output.split("\n").slice(1)) {
+      expect(line.startsWith("  ")).toBe(true);
+    }
+    expect(result.output).toContain("  export const b = 2;");
+    expect(scaffoldSourceText(result.output, "a.ts").changed).toBe(false);
+  });
+
   it("tallies stubs by export kind", () => {
     const source = [
       "export function submitForm(prevState: S, formData: FormData) { return prevState; }",

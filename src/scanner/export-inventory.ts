@@ -299,12 +299,15 @@ function locateInsertion(
   const prefix = sourceFile.text.slice(lineStart, start);
 
   // Only leading whitespace may separate the line start from the declaration;
-  // anything else means the line already holds other code.
+  // anything else means the line already holds other code. The line's own
+  // indentation is still what the stub must align to, so it is reported either
+  // way.
+  const indent = /^[ \t]*/.exec(prefix)?.[0] ?? "";
   if (!/^[ \t]*$/.test(prefix)) {
-    return { insertPos: start, indent: "", line: line + 1, ownsLine: false };
+    return { insertPos: start, indent, line: line + 1, ownsLine: false };
   }
 
-  return { insertPos: lineStart, indent: prefix, line: line + 1, ownsLine: true };
+  return { insertPos: lineStart, indent, line: line + 1, ownsLine: true };
 }
 
 /**

@@ -49,7 +49,7 @@ TSDoc convention (summary, `@remarks`, `@typeParam`/`@param`, `@returns`), and
 the generated output is itself valid under `tsdoc/syntax` and satisfies
 `tsdoc-require-2/require`.
 
-Coverage: 205 tests, ~94 % overall (100 % on the transformer rules and the
+Coverage: 236 tests, ~94 % overall (100 % on the transformer rules and the
 generator domain; ~98 % on the scaffolder).
 
 ### Deferred (next increments)
@@ -849,6 +849,12 @@ on every OS so the shell-based bundle-size gate is portable.
 
 ### In Scope (v0.1.0)
 
+Everything in this section is in scope for v0.1.0. The marks track delivery, not
+scope: `[x]` is implemented and tested on `main`, `[ ]` is still outstanding and
+mirrors the [Deferred](#deferred-next-increments) list above. Keeping the two in
+step matters — an advertised-but-missing flag is a documented past mistake (see
+`AGENTS.md` -> Lessons learned).
+
 Bootstrapping & config:
 - [x] Detect project layout (tsconfig, eslint flat config, package manager)
 - [x] **Auto-install `eslint-plugin-tsdoc` + `eslint-plugin-tsdoc-require-2`** *(promoted from Out of Scope)*
@@ -862,31 +868,35 @@ Conversion (existing JSDoc → TSDoc):
 - [x] Remove JSDoc-only tags (`@typedef`, `@callback`, `@type`)
 - [x] Convert `@fileoverview`/`@module` → `@packageDocumentation`
 - [x] Convert `@access private` → `@internal`
-- [x] **Restructure `@property` → inline interface field docs** *(promoted from Out of Scope)*
+- [ ] **Restructure `@property` → inline interface field docs** — the redundant
+      `@property` block is removed today; splitting it onto interface members is
+      the remaining structural step
 
 Scaffolding (new TSDoc for undocumented exports):
 - [x] Enumerate exports lacking TSDoc via TS Compiler API
 - [x] Template-based stubs for React components, Server Actions, hooks,
       interfaces, type aliases, generic exports *(promoted from Out of Scope)*
 - [x] Name-based summary inference (kebab-case → prose)
-- [x] Interactive mode to confirm/edit generated summaries
+- [ ] Interactive mode to confirm/edit generated summaries
 
 Enforcement progression:
 - [x] `init --progressive` (default) → starts at `warn`
 - [x] `init --strict` → starts at `error`
-- [x] `escalate` command → warn → error with preflight check
+- [ ] `escalate` command → warn → error with preflight check
 
 Reporting & CI:
 - [x] Dry-run mode with unified diff for every command
 - [x] `--report=<fmt>` (`json` / `md` / `table`) written to stdout for every command
-- [x] `check` command → exit `3` on rule violations (per exit-code contract)
-- [x] **`--preview` and `--interactive` per-file review modes** *(see [CLI UX](#cli-ux--distribution))*
+- [ ] `check` command → exit `3` on rule violations (per exit-code contract) —
+      `convert --check` and `scaffold --check` gate on "would change" today
+- [x] **`--preview` per-file diff mode** *(see [CLI UX](#cli-ux--distribution))*
+- [ ] **`--interactive` per-file review mode**
 - [x] **`--only` / `--exclude` glob filters** for targeted runs
 - [x] **`--lite` mode** — only `@param` / `@returns` hygiene, leave prose untouched
-- [x] **`--commit-per-file`** for reviewable PRs
-- [x] **`--fail-on-missing` / `--fail-on-stale`** confidence gates
-- [x] **`scan --classify`** — topology report (VALID / PARTIAL / LINE_COMMENTS / NO_DOCS / STALE)
-- [x] **`convert --promote-line-comments`** — wrap `//` prose into `/** */`
+- [ ] **`--commit-per-file`** for reviewable PRs
+- [ ] **`--fail-on-missing` / `--fail-on-stale`** confidence gates
+- [ ] **`scan --classify`** — topology report (VALID / PARTIAL / LINE_COMMENTS / NO_DOCS / STALE)
+- [ ] **`convert --promote-line-comments`** — wrap `//` prose into `/** */`
 
 Distribution:
 - [x] **Runnable via `npx jsdoc-to-tsdoc` with zero global install** *(see [Distribution](#distribution-via-npx))*
@@ -896,7 +906,9 @@ Distribution:
       Node 20.12; ESLint 10 requires `^20.19`), well-defined exit codes (0/1/2/3)
 
 Codebase discipline:
-- [x] **CLI is TSDoc-strict from day one** — dogfoods its own `check` command in CI *(see [Code Architecture & Standards](#code-architecture--standards))*
+- [x] **CLI is TSDoc-strict from day one** — `tsdoc/syntax` and
+      `tsdoc-require-2/require` run at `error` over its own source in CI; once
+      `check` ships it dogfoods that too *(see [Code Architecture & Standards](#code-architecture--standards))*
 - [x] **Kebab-case files, barrel exports, DDD folder layout, no `any`**
 - [x] **Vitest colocated in `__tests__/`, ≥ 80% coverage, 100% on transformer rules**
 
