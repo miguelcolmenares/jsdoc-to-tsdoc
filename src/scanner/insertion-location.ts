@@ -22,10 +22,12 @@ import * as ts from "typescript";
  * `tsdoc-require-2/require` still reports as undocumented, so `--check` would
  * pass while lint failed.
  *
- * Only the doc comment nearest the declaration is considered, and only when no
- * blank line separates the two. That matches where the presence rule itself
- * draws the line: a header followed by a blank line does not document the
- * export below it, while an adjacent comment does.
+ * A doc comment therefore counts only when it is the comment closest to the
+ * declaration — a `//` or plain `/* … *\/` comment in between detaches it — and
+ * only when no blank line separates the two. Both boundaries are where the
+ * presence rule itself draws them: it reports the declaration below a detached
+ * header, or below `/** … *\/` followed by an `// eslint-disable` line, as
+ * undocumented, while an adjacent doc comment satisfies it.
  *
  * @param sourceFile - The parsed source file the node belongs to.
  * @param node - The declaration to inspect.
@@ -35,19 +37,19 @@ export function hasLeadingDocComment(sourceFile: ts.SourceFile, node: ts.Node): 
   const sourceText = sourceFile.text;
   const ranges = ts.getLeadingCommentRanges(sourceText, node.getFullStart()) ?? [];
 
-  let nearest: ts.CommentRange | undefined;
-  for (const range of ranges) {
-    const text = sourceText.slice(range.pos, range.end);
-    if (
-      range.kind === ts.SyntaxKind.MultiLineCommentTrivia &&
-      text.startsWith("/**") &&
-      text !== "/**/"
-    ) {
-      nearest = range;
-    }
+  // Only the last comment can document the declaration; anything earlier is
+  // separated from it by another comment.
+  const nearest = ranges[ranges.length - 1];
+  if (nearest === undefined) {
+    return false;
   }
 
-  if (nearest === undefined) {
+  const text = sourceText.slice(nearest.pos, nearest.end);
+  const isDocComment =
+    nearest.kind === ts.SyntaxKind.MultiLineCommentTrivia &&
+    text.startsWith("/**") &&
+    text !== "/**/";
+  if (!isDocComment) {
     return false;
   }
 

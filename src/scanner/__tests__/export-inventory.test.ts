@@ -212,6 +212,48 @@ describe("collectExportedDeclarations", () => {
     expect(findByName(source, "a.ts", "bar").hasDocComment).toBe(false);
   });
 
+  it("does not count a doc comment separated by another comment", () => {
+    // The presence rule reports these as undocumented, so counting the doc
+    // block would let scaffold --check pass while lint failed.
+    const lineComment = [
+      "/** Documented. */",
+      "// eslint-disable-next-line no-console",
+      "export function withLineComment(): void {}",
+    ].join("\n");
+    expect(findByName(lineComment, "a.ts", "withLineComment").hasDocComment).toBe(
+      false,
+    );
+
+    const blockComment = [
+      "/** Documented. */",
+      "/* plain block */",
+      "export function withBlockComment(): void {}",
+    ].join("\n");
+    expect(
+      findByName(blockComment, "a.ts", "withBlockComment").hasDocComment,
+    ).toBe(false);
+  });
+
+  it("documents an anonymous default-exported function", () => {
+    // There is no local declaration to hang the docs on, so the export
+    // statement itself carries them.
+    const arrow = "export default () => <div />;";
+    const [component] = collectExportedDeclarations(arrow, "page.tsx");
+    expect(component?.name).toBe("default");
+    expect(component?.kind).toBe("react-component");
+
+    const plain = "export default function () { return 1; }";
+    expect(collectExportedDeclarations(plain, "a.ts")[0]?.kind).toBe("function");
+  });
+
+  it("leaves a non-function default export alone", () => {
+    // `tsdoc-require-2/require` does not ask for a comment here, so neither
+    // does scaffold.
+    expect(
+      collectExportedDeclarations("export default createStore();", "a.ts"),
+    ).toHaveLength(0);
+  });
+
   it("counts an adjacent header, matching where the presence rule draws the line", () => {
     // No blank line: the comment documents the declaration below it.
     const source = [

@@ -19,7 +19,11 @@
 import * as ts from "typescript";
 
 import { isExported, type ExportKind, type ExportParameter } from "@/scanner/declaration-classifier";
-import { describeStatement, type DeclarationShape } from "@/scanner/declaration-shape";
+import {
+  describeDefaultExport,
+  describeStatement,
+  type DeclarationShape,
+} from "@/scanner/declaration-shape";
 import {
   hasLeadingDocComment,
   locateInsertion,
@@ -74,11 +78,13 @@ export interface ExportedDeclaration {
  * or a block is not part of the module's public surface for scaffolding
  * purposes.
  *
- * Three export forms are recognized: a declaration carrying the `export`
- * modifier, a local declaration named by a later `export { … }` list, and a
- * local declaration named by `export default …`. In the latter two cases the
- * stub is attached to the local declaration, which is where the documentation
- * belongs and which keeps a second run idempotent.
+ * Four export forms are recognized: a declaration carrying the `export`
+ * modifier, a local declaration named by a later `export { … }` list, a local
+ * declaration named by `export default …`, and an anonymous function or arrow
+ * exported directly as the default. For the two that name a local declaration
+ * the stub is attached to that declaration, which is where the documentation
+ * belongs and which keeps a second run idempotent; the anonymous default has no
+ * such home, so the export statement itself carries it.
  *
  * Re-exports that name another module (`export { x } from …`, `export * from …`)
  * are skipped because the symbol is documented where it is defined; the same
@@ -187,8 +193,17 @@ export function collectExportedDeclarations(
       continue;
     }
 
-    if (ts.isExportAssignment(statement) && ts.isIdentifier(statement.expression)) {
-      noteExported(statement.expression.text);
+    if (ts.isExportAssignment(statement)) {
+      if (ts.isIdentifier(statement.expression)) {
+        noteExported(statement.expression.text);
+        continue;
+      }
+      // An anonymous default-exported function has no local declaration to
+      // carry its docs, so the export statement itself is documented.
+      const shape = describeDefaultExport(statement);
+      if (shape !== undefined) {
+        record(statement, shape);
+      }
     }
   }
 

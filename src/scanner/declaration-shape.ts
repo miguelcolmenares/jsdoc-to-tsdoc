@@ -17,6 +17,7 @@ import {
   isHookName,
   mayHoldFunction,
   readParameters,
+  returnsJsx,
   type ExportKind,
   type ExportParameter,
 } from "@/scanner/declaration-classifier";
@@ -201,4 +202,45 @@ export function describeStatement(
   }
 
   return undefined;
+}
+
+/**
+ * Describes an `export default <expression>` statement whose expression is
+ * function-like.
+ *
+ * @remarks
+ * `export default foo;` names a local declaration and is documented there, and
+ * `export default function () {}` is already a function declaration carrying the
+ * modifiers. What is left is a default export of an anonymous function or arrow,
+ * which has no other home for its documentation, so the statement itself becomes
+ * the documentable declaration.
+ *
+ * The scope stops where the presence rule stops: `tsdoc-require-2/require`
+ * reports a missing comment for a default-exported arrow or function expression,
+ * but not for other default-exported expressions such as
+ * `export default createStore();`, so those are deliberately left alone rather
+ * than given a stub nothing asks for.
+ *
+ * @param statement - The export assignment to inspect.
+ * @returns Its shape, or `undefined` when the expression is not function-like.
+ */
+export function describeDefaultExport(
+  statement: ts.ExportAssignment,
+): DeclarationShape | undefined {
+  const { expression } = statement;
+  if (!ts.isArrowFunction(expression) && !ts.isFunctionExpression(expression)) {
+    return undefined;
+  }
+
+  const parameters = readParameters(expression);
+  return {
+    name: "default",
+    names: ["default"],
+    // The PascalCase convention cannot apply to an anonymous default export, so
+    // returning JSX is the only signal that this is a component.
+    kind: returnsJsx(expression) ? "react-component" : "function",
+    parameters,
+    typeParameters: (expression.typeParameters ?? []).map((p) => p.name.text),
+    hasReturnValue: hasReturnValue(expression),
+  };
 }

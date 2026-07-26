@@ -90,7 +90,7 @@ export function isComponentName(name: string): boolean {
  * @param node - The function-like declaration.
  * @returns `true` when JSX is returned or the return type names a JSX element.
  */
-function returnsJsx(node: ts.SignatureDeclaration): boolean {
+export function returnsJsx(node: ts.SignatureDeclaration): boolean {
   const typeText = node.type ? node.type.getText() : "";
   if (/\b(?:JSX\.Element|ReactElement|ReactNode)\b/.test(typeText)) {
     return true;

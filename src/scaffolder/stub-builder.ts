@@ -72,6 +72,13 @@ function summaryFor(declaration: ExportedDeclaration): string {
     return inferGroupSummary(names);
   }
 
+  // An anonymous default export has no identifier to infer prose from.
+  if (name === "default") {
+    return kind === "react-component"
+      ? "Renders the default export."
+      : "Default export.";
+  }
+
   switch (kind) {
     case "react-component":
       return inferComponentSummary(name);
