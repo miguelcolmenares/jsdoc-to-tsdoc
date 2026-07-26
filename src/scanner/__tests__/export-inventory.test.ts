@@ -186,6 +186,54 @@ describe("collectExportedDeclarations", () => {
     ]);
   });
 
+  it("does not count a file header as documenting the first export", () => {
+    // `tsdoc-require-2/require` still reports the export below a
+    // `@packageDocumentation` header as undocumented, so counting the header
+    // would make scaffold --check pass while lint failed.
+    const source = [
+      "/**",
+      " * @packageDocumentation",
+      " * Module header.",
+      " */",
+      "",
+      "export function foo(): void {}",
+    ].join("\n");
+
+    expect(findByName(source, "a.ts", "foo").hasDocComment).toBe(false);
+  });
+
+  it("does not count a comment separated by a blank line", () => {
+    const source = [
+      "/** An unrelated note. */",
+      "",
+      "export function bar(): void {}",
+    ].join("\n");
+
+    expect(findByName(source, "a.ts", "bar").hasDocComment).toBe(false);
+  });
+
+  it("counts an adjacent header, matching where the presence rule draws the line", () => {
+    // No blank line: the comment documents the declaration below it.
+    const source = [
+      "/**",
+      " * @packageDocumentation",
+      " */",
+      "export function foo(): void {}",
+    ].join("\n");
+
+    expect(findByName(source, "a.ts", "foo").hasDocComment).toBe(true);
+  });
+
+  it("uses the nearest doc comment when several precede a declaration", () => {
+    const source = [
+      "/** First. */",
+      "/** Second, adjacent. */",
+      "export function baz(): void {}",
+    ].join("\n");
+
+    expect(findByName(source, "a.ts", "baz").hasDocComment).toBe(true);
+  });
+
   it("does not treat a line comment as documentation", () => {
     const source = ["// Fetches the user.", "export function getUser() {}"].join(
       "\n",

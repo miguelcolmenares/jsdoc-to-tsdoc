@@ -252,7 +252,10 @@ npm run build          # unbuild → dist/  (+ CI asserts the <500 KB gzipped bo
 |------|-----------|
 | Add a JSDoc→TSDoc transform | `src/transformer/rules/` + register in `rules/index.ts` |
 | Add/adjust a stub template or summary inference | `src/scaffolder/stub-builder.ts`, `src/scaffolder/name-inference.ts` |
-| Change how exports are detected or classified | `src/scanner/export-inventory.ts` |
+| Change how exports reach the module surface | `src/scanner/export-inventory.ts` |
+| Change how a declaration is classified (component/action/hook/…) | `src/scanner/declaration-classifier.ts` |
+| Change what a statement contributes (names, params, type params) | `src/scanner/declaration-shape.ts` |
+| Change stub placement or existing-doc detection | `src/scanner/insertion-location.ts` |
 | Tag mapping tables | `src/parser/tag-registry.ts` |
 | Comment line traversal / fence handling | `src/parser/comment-lines.ts` |
 | Comment extraction / file discovery | `src/scanner/` |
