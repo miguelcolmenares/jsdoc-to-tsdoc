@@ -17,6 +17,7 @@ import { join, relative, resolve } from "node:path";
 
 import { defineCommand } from "citty";
 
+import { reportCommandFailure } from "@/commands/command-failure";
 import { parseReportFormat } from "@/commands/options";
 import {
   collectProjectTags,
@@ -174,10 +175,7 @@ export default defineCommand({
         colors,
       );
     } catch (error) {
-      process.stderr.write(
-        `jsdoc-to-tsdoc: init failed — ${(error as Error).message}\n`,
-      );
-      process.exitCode = 1;
+      reportCommandFailure("init", error);
     }
   },
 });

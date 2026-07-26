@@ -84,22 +84,52 @@ export function extractJsDocComments(
  * Applies a set of span replacements to source text.
  *
  * @remarks
- * Edits are applied from the highest offset down so that each splice leaves
- * earlier offsets valid. Overlapping edits are the caller's responsibility to
- * avoid.
+ * Edits are collected left to right into a single buffer that is joined once,
+ * so applying `m` edits to an `n`-character file costs O(n + m log m) rather
+ * than rebuilding the whole string per edit. Because every offset is read from
+ * the original text and never re-derived, no edit can drift.
+ *
+ * Sorting is stable, so several zero-width insertions sharing one offset keep
+ * the order they were supplied in.
+ *
+ * Overlapping or inverted spans are a caller bug that would otherwise corrupt
+ * the output in ways that are hard to trace back, so they fail fast rather than
+ * being silently absorbed. This is the invariant case the project reserves
+ * `throw` for; expected conditions still return values.
  *
  * @param sourceText - The original source file contents.
  * @param edits - The replacements to apply.
  * @returns The source text with every edit applied.
+ *
+ * @throws Error When an edit's `end` precedes its `pos`, or when two edits
+ * cover overlapping spans.
  */
 export function applyEdits(
   sourceText: string,
   edits: readonly SourceEdit[],
 ): string {
-  const ordered = [...edits].sort((a, b) => b.pos - a.pos);
-  let output = sourceText;
+  const ordered = [...edits].sort((a, b) => a.pos - b.pos);
+  const parts: string[] = [];
+  let cursor = 0;
+
   for (const edit of ordered) {
-    output = output.slice(0, edit.pos) + edit.text + output.slice(edit.end);
+    if (edit.end < edit.pos) {
+      throw new Error(
+        `applyEdits: inverted edit span [${String(edit.pos)}, ${String(edit.end)}).`,
+      );
+    }
+    if (edit.pos < cursor) {
+      throw new Error(
+        `applyEdits: overlapping edit at ${String(edit.pos)}; the previous edit ended at ${String(cursor)}.`,
+      );
+    }
+    if (edit.pos > cursor) {
+      parts.push(sourceText.slice(cursor, edit.pos));
+    }
+    parts.push(edit.text);
+    cursor = edit.end;
   }
-  return output;
+  parts.push(sourceText.slice(cursor));
+
+  return parts.join("");
 }

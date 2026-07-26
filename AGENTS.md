@@ -36,13 +36,13 @@ init  →  convert  →  scaffold  →  escalate
 | `init`    | **shipped**  | Generates/merges `tsdoc.json`, patches the ESLint flat config, reports deps to install. |
 | `scan`    | **shipped**  | Read-only inventory of what `convert` would change. |
 | `convert` | **shipped**  | Transforms existing JSDoc comments into TSDoc syntax (10-rule pipeline). |
-| `scaffold`| _planned_    | Generate TSDoc stubs for undocumented exports (the ~80% of real-world work). |
+| `scaffold`| **shipped**  | Generates TSDoc stubs for undocumented exports (the ~80% of real-world work). |
 | `escalate`| _planned_    | Bump `tsdoc-require-2/require` from `warn` → `error` with a preflight check. |
-| `check`   | _planned_    | Standalone CI validation (today `convert --check` covers "would change"). |
+| `check`   | _planned_    | Standalone CI validation (today `convert --check` / `scaffold --check` cover "would change"). |
 
-Domains present: `parser`, `scanner`, `transformer`, `generator`, `reporter`,
-`writer`, `commands`. See `PLAN.md` → _Implementation Status_ for the running
-tally and `PLAN.md` → _Development Roadmap_ for phase order.
+Domains present: `parser`, `scanner`, `transformer`, `scaffolder`, `generator`,
+`reporter`, `writer`, `commands`. See `PLAN.md` → _Implementation Status_ for the
+running tally and `PLAN.md` → _Development Roadmap_ for phase order.
 
 ---
 
@@ -60,6 +60,7 @@ src/
 ├── parser/              # comment-line traversal, JSDoc→TSDoc tag registry, comment inspection
 ├── scanner/             # TS-compiler-API comment extraction, file discovery, glob path filter
 ├── transformer/         # the deterministic rule pipeline + rules/
+├── scaffolder/          # name→prose inference + TSDoc stub rendering for undocumented exports
 ├── generator/           # init's building blocks: project detection, tag classification, tsdoc.json, eslint patcher
 ├── reporter/            # colored diffs, tables, JSON/Markdown output, ANSI colors
 └── writer/              # async file writes
@@ -67,10 +68,18 @@ src/
 
 **Data-flow of a `convert`:** `scanner.extractJsDocComments` (via
 `ts.getLeadingCommentRanges`) → for each comment `transformer.runPipeline`
-(ordered rules over the comment text) → `scanner.applyEdits` (splices replacements
-from highest offset down) → `writer` or `reporter`. The shared orchestrator is
+(ordered rules over the comment text) → `scanner.applyEdits` (one left-to-right
+pass over the original text, joined once) → `writer` or `reporter`. The shared orchestrator is
 [`src/commands/convert-file.ts`](./src/commands/convert-file.ts) (pure, no I/O),
 reused by both `scan` (counting) and `convert` (writing).
+
+**Data-flow of a `scaffold`:** `scanner.collectExportedDeclarations` (via the TS
+compiler API — classifies each export, records its insertion offset and indent,
+flags existing docs) → `scanner.undocumentedDeclarations` → for each,
+`scaffolder.buildStub` (name inference + per-kind template) → `scanner.applyEdits`
+(zero-width insertions, applied in one left-to-right pass) → `writer` or `reporter`.
+The shared orchestrator is [`src/commands/scaffold-file.ts`](./src/commands/scaffold-file.ts)
+(pure, no I/O). Re-exports are skipped; a second run is a no-op (idempotent).
 
 **Data-flow of an `init`:** `generator.detectProject` (layout) +
 `generator.collectProjectTags` (classify tags) → `generator.generateTsdocJson`/
@@ -122,15 +131,16 @@ reused by both `scan` (counting) and `convert` (writing).
 npx jsdoc-to-tsdoc init      # bootstrap: tsdoc.json + eslint rules + deps to install
 npx jsdoc-to-tsdoc scan      # read-only inventory
 npx jsdoc-to-tsdoc convert   # JSDoc → TSDoc
+npx jsdoc-to-tsdoc scaffold  # TSDoc stubs for undocumented exports
 ```
 
 | Flag | Commands | Purpose |
 |------|----------|---------|
 | `--cwd <dir>` | all | Project directory (default `.`). |
-| `--dry-run` / `--preview` | `init`, `convert` | Show a diff; write nothing. |
+| `--dry-run` / `--preview` | `init`, `convert`, `scaffold` | Show a diff; write nothing. |
 | `--strict` | `init` | Start the presence rule at `error` instead of `warn`. |
 | `--install` | `init` | Run the detected package manager to install missing dev deps. |
-| `--check` | `convert` | CI mode — exit `3` if anything would change; never writes. |
+| `--check` | `convert`, `scaffold` | CI mode — exit `3` if anything would change; never writes. |
 | `--lite` | `scan`, `convert` | Only `@param`/`@returns` hygiene (`Rule.liteSafe`). |
 | `--only` / `--exclude <globs>` | all | Comma-separated include/exclude globs. |
 | `--report <fmt>` | all | `json` or `md` to stdout. |
@@ -241,6 +251,11 @@ npm run build          # unbuild → dist/  (+ CI asserts the <500 KB gzipped bo
 | Need | Start here |
 |------|-----------|
 | Add a JSDoc→TSDoc transform | `src/transformer/rules/` + register in `rules/index.ts` |
+| Add/adjust a stub template or summary inference | `src/scaffolder/stub-builder.ts`, `src/scaffolder/name-inference.ts` |
+| Change how exports reach the module surface | `src/scanner/export-inventory.ts` |
+| Change how a declaration is classified (component/action/hook/…) | `src/scanner/declaration-classifier.ts` |
+| Change what a statement contributes (names, params, type params) | `src/scanner/declaration-shape.ts` |
+| Change stub placement or existing-doc detection | `src/scanner/insertion-location.ts` |
 | Tag mapping tables | `src/parser/tag-registry.ts` |
 | Comment line traversal / fence handling | `src/parser/comment-lines.ts` |
 | Comment extraction / file discovery | `src/scanner/` |

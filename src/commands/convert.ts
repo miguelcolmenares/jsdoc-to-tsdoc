@@ -11,6 +11,7 @@ import { relative, resolve } from "node:path";
 import { defineCommand } from "citty";
 
 import { convertSourceText } from "@/commands/convert-file";
+import { reportCommandFailure } from "@/commands/command-failure";
 import { parseReportFormat, splitGlobs } from "@/commands/options";
 import {
   createColors,
@@ -18,6 +19,8 @@ import {
   formatFileDiff,
   shouldUseColor,
   toJsonReport,
+  toMarkdownTable,
+  type SummaryRow,
 } from "@/reporter";
 import { findSourceFiles } from "@/scanner";
 import { writeFileText } from "@/writer";
@@ -129,11 +132,12 @@ export default defineCommand({
           })}\n`,
         );
       } else if (reportFormat === "md") {
-        const rows = changedFiles
-          .map((file) => `| ${file.path} | ${file.commentsChanged} |`)
-          .join("\n");
+        const rows: SummaryRow[] = changedFiles.map((file) => ({
+          label: file.path,
+          value: file.commentsChanged,
+        }));
         process.stdout.write(
-          `| File | Comments changed |\n| --- | ---: |\n${rows}\n`,
+          `${toMarkdownTable("File", rows, "Comments changed")}\n`,
         );
       } else {
         for (const diff of diffs) {
@@ -161,10 +165,7 @@ export default defineCommand({
         process.exitCode = 3;
       }
     } catch (error) {
-      process.stderr.write(
-        `jsdoc-to-tsdoc: convert failed — ${(error as Error).message}\n`,
-      );
-      process.exitCode = 1;
+      reportCommandFailure("convert", error);
     }
   },
 });

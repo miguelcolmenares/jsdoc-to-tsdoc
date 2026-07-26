@@ -11,6 +11,7 @@ import { resolve } from "node:path";
 import { defineCommand } from "citty";
 
 import { convertSourceText } from "@/commands/convert-file";
+import { reportCommandFailure } from "@/commands/command-failure";
 import { parseReportFormat, splitGlobs } from "@/commands/options";
 import {
   createColors,
@@ -125,10 +126,7 @@ export default defineCommand({
         );
       }
     } catch (error) {
-      process.stderr.write(
-        `jsdoc-to-tsdoc: scan failed — ${(error as Error).message}\n`,
-      );
-      process.exitCode = 1;
+      reportCommandFailure("scan", error);
     }
   },
 });

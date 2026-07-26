@@ -13,6 +13,11 @@ export const VERSION = "0.1.0";
 
 export { convertSourceText, type FileConversion } from "@/commands/convert-file";
 export {
+  scaffoldSourceText,
+  type FileScaffold,
+  type StubCounts,
+} from "@/commands/scaffold-file";
+export {
   aggregateCommentTags,
   collectProjectTags,
   detectProject,
@@ -34,8 +39,20 @@ export {
   type CommentLineMapper,
 } from "@/parser";
 export {
+  buildStub,
+  inferComponentSummary,
+  inferFunctionSummary,
+  inferHookSummary,
+  inferNounSummary,
+  TODO_MARKER,
+} from "@/scaffolder";
+export {
+  collectExportedDeclarations,
   extractJsDocComments,
   findSourceFiles,
+  undocumentedDeclarations,
+  type ExportedDeclaration,
+  type ExportKind,
   type SourceComment,
 } from "@/scanner";
 export {
