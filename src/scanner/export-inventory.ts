@@ -127,6 +127,10 @@ function isComponentName(name: string): boolean {
  * expression. A component whose JSX is produced indirectly is still caught by
  * the PascalCase naming convention.
  *
+ * The body is walked whether it is a block or a bare expression, so the
+ * concise arrow form (`const Hero = () =&gt; &lt;div /&gt;`) is recognized as
+ * readily as a block that returns JSX.
+ *
  * @param node - The function-like declaration.
  * @returns `true` when JSX is returned or the return type names a JSX element.
  */
@@ -137,7 +141,7 @@ function returnsJsx(node: ts.SignatureDeclaration): boolean {
   }
 
   const body = "body" in node ? node.body : undefined;
-  if (!body || !ts.isBlock(body)) {
+  if (!body) {
     return false;
   }
 

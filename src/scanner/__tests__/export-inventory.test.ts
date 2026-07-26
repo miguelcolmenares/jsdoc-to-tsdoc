@@ -221,6 +221,32 @@ describe("collectExportedDeclarations", () => {
     expect(declaration.parameters.map((p) => p.name)).toEqual(["props"]);
   });
 
+  it("classifies a concise arrow component as a component", () => {
+    // The common React idiom has an expression body, not a block, so the JSX
+    // check has to walk the body in either form.
+    const concise = "export const Hero = () => <div />;";
+    expect(findByName(concise, "hero.tsx", "Hero").kind).toBe("react-component");
+
+    const parenthesized = "export const Hero = () => (\n  <div />\n);";
+    expect(findByName(parenthesized, "hero.tsx", "Hero").kind).toBe(
+      "react-component",
+    );
+
+    const fragment = "export const Hero = () => <></>;";
+    expect(findByName(fragment, "hero.tsx", "Hero").kind).toBe(
+      "react-component",
+    );
+  });
+
+  it("does not call a non-JSX arrow or a camelCase one a component", () => {
+    const value = "export const Hero = () => 1;";
+    expect(findByName(value, "a.tsx", "Hero").kind).toBe("function");
+
+    // PascalCase is part of the convention, so a lowercase name stays a function.
+    const lowercase = "export const helper = () => <div />;";
+    expect(findByName(lowercase, "a.tsx", "helper").kind).toBe("function");
+  });
+
   it("classifies a useX export as a hook, arrow or function", () => {
     const arrow = "export const useHash = (): string => { return ''; };";
     expect(findByName(arrow, "use-hash.ts", "useHash").kind).toBe("hook");

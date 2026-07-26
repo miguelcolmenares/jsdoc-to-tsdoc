@@ -180,6 +180,23 @@ describe("scaffoldSourceText", () => {
     expect(scaffoldSourceText(result.output, "a.ts").changed).toBe(false);
   });
 
+  it("documents every signature of an overload set", () => {
+    // `tsdoc-require-2/require` reports "Missing TSDoc" for each overload
+    // signature and for the implementation, so one stub per declaration is what
+    // makes the scaffolded file pass the rule this tool installs. Collapsing an
+    // overload set into a single stub would leave the file failing lint while
+    // `scaffold --check` reported success.
+    const source = [
+      "export function f(a: string): string;",
+      "export function f(a: number): string;",
+      "export function f(a: unknown): string { return String(a); }",
+    ].join("\n");
+
+    const result = scaffoldSourceText(source, "a.ts");
+    expect(result.stubsAdded).toBe(3);
+    expect(scaffoldSourceText(result.output, "a.ts").changed).toBe(false);
+  });
+
   it("tallies stubs by export kind", () => {
     const source = [
       "export function submitForm(prevState: S, formData: FormData) { return prevState; }",
