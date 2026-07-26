@@ -1,7 +1,8 @@
 /**
  * @packageDocumentation
  * Public API of the scanner domain: source-file discovery, doc-comment
- * extraction via the TypeScript compiler API, and path filtering.
+ * extraction via the TypeScript compiler API, export inventory, and path
+ * filtering.
  *
  * @since 0.1.0
  */
@@ -12,6 +13,14 @@ export {
   type SourceComment,
   type SourceEdit,
 } from "@/scanner/comment-extractor";
+
+export {
+  collectExportedDeclarations,
+  undocumentedDeclarations,
+  type ExportedDeclaration,
+  type ExportKind,
+  type ExportParameter,
+} from "@/scanner/export-inventory";
 
 export {
   createPathFilter,

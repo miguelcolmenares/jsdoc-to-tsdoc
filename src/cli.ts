@@ -8,7 +8,12 @@
 
 import { defineCommand, runMain } from "citty";
 
-import { convertCommand, initCommand, scanCommand } from "@/commands";
+import {
+  convertCommand,
+  initCommand,
+  scaffoldCommand,
+  scanCommand,
+} from "@/commands";
 import { VERSION } from "@/index";
 
 const main = defineCommand({
@@ -21,6 +26,7 @@ const main = defineCommand({
     init: initCommand,
     scan: scanCommand,
     convert: convertCommand,
+    scaffold: scaffoldCommand,
   },
 });
 

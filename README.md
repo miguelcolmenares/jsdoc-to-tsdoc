@@ -2,7 +2,7 @@
 
 CLI tool to migrate JSDoc comments to the [TSDoc](https://tsdoc.org/) standard in TypeScript projects.
 
-> **Status: Alpha (v0.1.0, in development).** The `init`, `scan`, and `convert` commands are implemented and tested. `scaffold`, `escalate`, and `check` are on the roadmap — see [PLAN.md](./PLAN.md).
+> **Status: Alpha (v0.1.0, in development).** The `init`, `scan`, `convert`, and `scaffold` commands are implemented and tested. `escalate` and `check` are on the roadmap — see [PLAN.md](./PLAN.md).
 
 ## The Problem
 
@@ -25,8 +25,13 @@ npx jsdoc-to-tsdoc convert --dry-run
 # Apply the conversion
 npx jsdoc-to-tsdoc convert
 
-# CI gate — exit code 3 if any file would change
+# Generate TSDoc stubs for exports that have no documentation
+npx jsdoc-to-tsdoc scaffold --dry-run
+npx jsdoc-to-tsdoc scaffold
+
+# CI gate — exit code 3 if any file would change / any export lacks TSDoc
 npx jsdoc-to-tsdoc convert --check
+npx jsdoc-to-tsdoc scaffold --check
 ```
 
 ### Options
@@ -34,10 +39,10 @@ npx jsdoc-to-tsdoc convert --check
 | Flag | Commands | Purpose |
 |------|----------|---------|
 | `--cwd <dir>` | all | Project directory to scan (default `.`). |
-| `--dry-run` / `--preview` | `init`, `convert` | Show a diff without writing. |
+| `--dry-run` / `--preview` | `init`, `convert`, `scaffold` | Show a diff without writing. |
 | `--strict` | `init` | Start `tsdoc-require-2/require` at `error` instead of `warn`. |
 | `--install` | `init` | Run the detected package manager to install missing dev dependencies. |
-| `--check` | `convert` | CI mode — exit `3` if anything would change; never writes. |
+| `--check` | `convert`, `scaffold` | CI mode — exit `3` if anything would change; never writes. |
 | `--lite` | `scan`, `convert` | Only `@param` / `@returns` hygiene; leave prose and structural tags. |
 | `--only <globs>` | all | Comma-separated globs to include (e.g. `"src/lib/**"`). |
 | `--exclude <globs>` | all | Comma-separated globs to exclude (e.g. `"**/*.test.ts"`). |
@@ -67,6 +72,30 @@ Deterministic, formatting-preserving transformations derived from real-world mig
 - Deletes TypeScript-redundant tags (`@function`, `@async`, `@class`, `@enum`, …) and JSDoc-only tags (`@typedef`, `@callback`, `@type`, `@property`).
 
 Content inside fenced code blocks (```` ```…``` ````) is never modified, so `@example` code is preserved verbatim.
+
+## What `scaffold` does
+
+Generates a TSDoc stub for every exported declaration that has **no** documentation — in the real migrations this was ~80% of the work. Exports that already have a doc comment are never touched, and re-export statements (`export { x } from "./x"`) are skipped because the symbol is documented at its definition site.
+
+Exports are found and classified through the TypeScript compiler API, so an `export` keyword inside a string or a nested scope is never mistaken for a declaration:
+
+| Export shape | Generated stub |
+|------|------|
+| `export default function HeroSection({…}: HeroSectionProps)` | "Renders the hero section." + `@param props` + `@returns` |
+| `export async function submitContactForm(prevState, formData)` | "Server Action. Submits the contact form." + one `@param` each + `@returns` |
+| `export const useHash = () => …` | "React hook for the hash." + `@returns` |
+| `export interface HeroSectionProps` | "Hero section props." |
+| `export type LeadStatus = …` | "Lead status." |
+| `export function identity<T>(value: T): T` | `@typeParam T` + `@param value` + `@returns` |
+| `export function logOnly(msg: string): void` | `@param msg`, and **no** `@returns` |
+
+Summaries are inferred deterministically from the identifier (no LLM): the leading verb is conjugated (`submit` → "Submits"), predicates read as "Reports whether …", and acronym/kebab/snake names are split correctly. Because inference is a guess, **every stub carries a `TODO(tsdoc)` marker**:
+
+```bash
+grep -rn "TODO(tsdoc)" src
+```
+
+Stub tag order follows the TSDoc convention — summary, `@remarks`, `@typeParam`/`@param`, `@returns` — and the generated output is valid under `tsdoc/syntax` and satisfies `tsdoc-require-2/require`. Running `scaffold` twice is a no-op.
 
 ## Development
 
