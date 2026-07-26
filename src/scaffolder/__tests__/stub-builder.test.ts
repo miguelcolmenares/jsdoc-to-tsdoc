@@ -142,6 +142,37 @@ describe("buildStub", () => {
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
   });
 
+  it("matches the output documented in the buildStub @example", () => {
+    // The @example on buildStub has drifted from the real shape twice. Pinning
+    // it here keeps the public docs and the behaviour in step.
+    const stub = buildStub(
+      declaration({
+        name: "submitContactForm",
+        kind: "server-action",
+        parameters: [
+          { name: "prevState", isOptional: false },
+          { name: "formData", isOptional: false },
+        ],
+        hasReturnValue: true,
+      }),
+    );
+
+    expect(stub).toBe(
+      [
+        "/**",
+        " * Server Action. Submits the contact form.",
+        " *",
+        ` * @remarks ${TODO_MARKER}`,
+        " *",
+        " * @param prevState - TODO(tsdoc): describe prevState.",
+        " * @param formData - TODO(tsdoc): describe formData.",
+        " * @returns TODO(tsdoc): describe the return value.",
+        " */",
+        "",
+      ].join("\n"),
+    );
+  });
+
   it("indents every line to match the declaration", () => {
     const stub = buildStub(
       declaration({

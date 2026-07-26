@@ -167,6 +167,10 @@ function renderComment(
  * at the declaration's {@link ExportedDeclaration.insertPos}.
  *
  * @example
+ * The stub for `submitContactForm(prevState, formData): Promise<State>` — one
+ * `@param` per declared parameter, and `@returns` because the action resolves
+ * to a value:
+ *
  * ```typescript
  * buildStub(submitContactForm);
  * // "/**\n"
@@ -174,7 +178,9 @@ function renderComment(
  * // " *\n"
  * // " * @remarks TODO(tsdoc): verify this generated summary.\n"
  * // " *\n"
+ * // " * @param prevState - TODO(tsdoc): describe prevState.\n"
  * // " * @param formData - TODO(tsdoc): describe formData.\n"
+ * // " * @returns TODO(tsdoc): describe the return value.\n"
  * // " *\/\n"
  * ```
  */
