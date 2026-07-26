@@ -11,6 +11,7 @@ import { relative, resolve } from "node:path";
 import { defineCommand } from "citty";
 
 import { convertSourceText } from "@/commands/convert-file";
+import { reportCommandFailure } from "@/commands/command-failure";
 import { parseReportFormat, splitGlobs } from "@/commands/options";
 import {
   createColors,
@@ -164,10 +165,7 @@ export default defineCommand({
         process.exitCode = 3;
       }
     } catch (error) {
-      process.stderr.write(
-        `jsdoc-to-tsdoc: convert failed — ${(error as Error).message}\n`,
-      );
-      process.exitCode = 1;
+      reportCommandFailure("convert", error);
     }
   },
 });

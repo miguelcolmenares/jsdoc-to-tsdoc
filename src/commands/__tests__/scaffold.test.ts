@@ -137,6 +137,18 @@ describe("scaffold command", () => {
     expect(report.stubsAdded).toBe(0);
   });
 
+  it("labels the variable kind neutrally, since let and var also land there", async () => {
+    await writeFile(file, "export let counter = 0;\nexport var legacy = 1;\n");
+
+    const output = await captureStdout(() =>
+      runHandler(scaffoldCommand, { cwd: root, "dry-run": true }),
+    );
+
+    // "Constants" would misdescribe `export let` / `export var`.
+    expect(output).toContain("Variables");
+    expect(output).not.toContain("Constants");
+  });
+
   it("renders a per-kind breakdown in the default table output", async () => {
     const output = await captureStdout(() =>
       runHandler(scaffoldCommand, { cwd: root, "dry-run": true }),

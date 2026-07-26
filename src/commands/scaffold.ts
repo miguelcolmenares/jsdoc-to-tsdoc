@@ -10,6 +10,7 @@ import { relative, resolve } from "node:path";
 
 import { defineCommand } from "citty";
 
+import { reportCommandFailure } from "@/commands/command-failure";
 import { parseReportFormat, splitGlobs } from "@/commands/options";
 import { scaffoldSourceText } from "@/commands/scaffold-file";
 import {
@@ -37,7 +38,7 @@ const KIND_LABELS: Readonly<Record<ExportKind, string>> = Object.freeze({
   interface: "Interfaces",
   "type-alias": "Type aliases",
   function: "Functions",
-  variable: "Constants",
+  variable: "Variables",
   class: "Classes",
   enum: "Enums",
 });
@@ -209,10 +210,7 @@ export default defineCommand({
         process.exitCode = 3;
       }
     } catch (error) {
-      process.stderr.write(
-        `jsdoc-to-tsdoc: scaffold failed — ${(error as Error).message}\n`,
-      );
-      process.exitCode = 1;
+      reportCommandFailure("scaffold", error);
     }
   },
 });
