@@ -64,4 +64,26 @@ describe("applyEdits", () => {
     ]);
     expect(result).toBe("a BBBB ccc");
   });
+
+  it("applies edits supplied out of order", () => {
+    const source = "AAAA BBBB CCCC";
+    const result = applyEdits(source, [
+      { pos: 10, end: 14, text: "ccc" },
+      { pos: 0, end: 4, text: "a" },
+    ]);
+    expect(result).toBe("a BBBB ccc");
+  });
+
+  it("inserts zero-width edits in the order supplied", () => {
+    const source = "line";
+    const result = applyEdits(source, [
+      { pos: 0, end: 0, text: "one " },
+      { pos: 0, end: 0, text: "two " },
+    ]);
+    expect(result).toBe("one two line");
+  });
+
+  it("returns the source unchanged when there are no edits", () => {
+    expect(applyEdits("unchanged", [])).toBe("unchanged");
+  });
 });

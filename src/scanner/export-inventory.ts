@@ -48,6 +48,13 @@ export interface ExportParameter {
 export interface ExportedDeclaration {
   /** The exported symbol name (`"default"` for an anonymous default export). */
   readonly name: string;
+  /**
+   * Every name the declaration exports. Longer than one entry only for a
+   * variable statement that binds several names (`export const A = 1, B = 2;`
+   * or `export const { a, b } = source;`), which has a single comment position
+   * and is therefore documented as one unit.
+   */
+  readonly names: readonly string[];
   /** The declaration shape, used to pick a template. */
   readonly kind: ExportKind;
   /** Whether a `/** *\/` doc comment is already attached. */
@@ -258,22 +265,179 @@ function hasLeadingDocComment(sourceText: string, node: ts.Node): boolean {
  * @remarks
  * The insertion point is the start of the declaration's own line — not
  * `node.getStart()` — so the stub lands above any `export` keyword and aligns
- * with the code it documents. Leading decorators are respected by starting from
- * the node's first token.
+ * with the code it documents.
  *
- * @param sourceText - The full source file contents.
+ * Positions come from the source file's line map (a binary search over
+ * precomputed line starts) rather than from slicing and splitting the source
+ * text, which would cost O(n) time and memory per declaration and make a file
+ * with many exports quadratic.
+ *
+ * @param sourceFile - The parsed source file, used for its line map.
  * @param node - The declaration to document.
  * @returns The insertion offset, the line's indentation, and its 1-based line number.
  */
 function locateInsertion(
-  sourceText: string,
+  sourceFile: ts.SourceFile,
   node: ts.Node,
 ): { insertPos: number; indent: string; line: number } {
-  const start = node.getStart(node.getSourceFile(), /* includeJsDocComment */ false);
-  const lineStart = sourceText.lastIndexOf("\n", start - 1) + 1;
-  const indent = /^[ \t]*/.exec(sourceText.slice(lineStart, start))?.[0] ?? "";
-  const line = sourceText.slice(0, lineStart).split("\n").length;
-  return { insertPos: lineStart, indent, line };
+  const start = node.getStart(sourceFile, /* includeJsDocComment */ false);
+  const { line } = sourceFile.getLineAndCharacterOfPosition(start);
+  const lineStart = sourceFile.getPositionOfLineAndCharacter(line, 0);
+  const indent =
+    /^[ \t]*/.exec(sourceFile.text.slice(lineStart, start))?.[0] ?? "";
+  return { insertPos: lineStart, indent, line: line + 1 };
+}
+
+/**
+ * Every name bound by a declaration name, flattening destructuring patterns.
+ *
+ * @param name - The binding name or pattern to walk.
+ * @returns The bound identifiers in source order.
+ */
+function bindingNames(name: ts.BindingName): readonly string[] {
+  if (ts.isIdentifier(name)) {
+    return [name.text];
+  }
+  const collected: string[] = [];
+  for (const element of name.elements) {
+    if (ts.isBindingElement(element)) {
+      collected.push(...bindingNames(element.name));
+    }
+  }
+  return collected;
+}
+
+/**
+ * The documentation-relevant shape of a statement, independent of whether the
+ * statement is exported directly or through a later `export { … }` list.
+ */
+interface DeclarationShape {
+  readonly name: string;
+  readonly names: readonly string[];
+  readonly kind: ExportKind;
+  readonly parameters: readonly ExportParameter[];
+  readonly typeParameters: readonly string[];
+  readonly hasReturnValue: boolean;
+}
+
+/**
+ * Describes a top-level statement as a documentable declaration.
+ *
+ * @param statement - The statement to inspect.
+ * @returns Its shape, or `undefined` when the statement is not a declaration
+ * that can carry documentation.
+ */
+function describeStatement(
+  statement: ts.Statement,
+): DeclarationShape | undefined {
+  const base = {
+    parameters: [] as readonly ExportParameter[],
+    typeParameters: [] as readonly string[],
+    hasReturnValue: false,
+  };
+
+  const readTypeParameters = (
+    node: ts.DeclarationWithTypeParameterChildren,
+  ): readonly string[] =>
+    (node.typeParameters ?? []).map((parameter) => parameter.name.text);
+
+  if (ts.isFunctionDeclaration(statement)) {
+    const name = statement.name?.text ?? "default";
+    const parameters = readParameters(statement);
+    return {
+      name,
+      names: [name],
+      kind: classifyFunction(name, statement, parameters),
+      parameters,
+      typeParameters: readTypeParameters(statement),
+      hasReturnValue: hasReturnValue(statement),
+    };
+  }
+
+  if (ts.isInterfaceDeclaration(statement)) {
+    // Only the interface header is described. Splitting docs onto each member
+    // is a separate structural step (see PLAN.md → Deferred).
+    return {
+      ...base,
+      name: statement.name.text,
+      names: [statement.name.text],
+      kind: "interface",
+      typeParameters: readTypeParameters(statement),
+    };
+  }
+
+  if (ts.isTypeAliasDeclaration(statement)) {
+    return {
+      ...base,
+      name: statement.name.text,
+      names: [statement.name.text],
+      kind: "type-alias",
+      typeParameters: readTypeParameters(statement),
+    };
+  }
+
+  if (ts.isClassDeclaration(statement)) {
+    const name = statement.name?.text ?? "default";
+    return {
+      ...base,
+      name,
+      names: [name],
+      kind: "class",
+      typeParameters: readTypeParameters(statement),
+    };
+  }
+
+  if (ts.isEnumDeclaration(statement)) {
+    return {
+      ...base,
+      name: statement.name.text,
+      names: [statement.name.text],
+      kind: "enum",
+    };
+  }
+
+  if (ts.isVariableStatement(statement)) {
+    const { declarations } = statement.declarationList;
+    const names = declarations.flatMap((declaration) =>
+      bindingNames(declaration.name),
+    );
+    const primary = names[0];
+    if (primary === undefined) {
+      return undefined;
+    }
+
+    // A single identifier bound to a function expression is function-like; a
+    // multi-binding or destructuring statement never is.
+    const [only] = declarations;
+    const initializer =
+      declarations.length === 1 && only && ts.isIdentifier(only.name)
+        ? only.initializer
+        : undefined;
+
+    if (
+      initializer &&
+      (ts.isArrowFunction(initializer) || ts.isFunctionExpression(initializer))
+    ) {
+      const parameters = readParameters(initializer);
+      return {
+        name: primary,
+        names,
+        kind: classifyFunction(primary, initializer, parameters),
+        parameters,
+        typeParameters: readTypeParameters(initializer),
+        hasReturnValue: hasReturnValue(initializer),
+      };
+    }
+
+    return {
+      ...base,
+      name: primary,
+      names,
+      kind: isHookName(primary) ? "hook" : "variable",
+    };
+  }
+
+  return undefined;
 }
 
 /**
@@ -282,8 +446,18 @@ function locateInsertion(
  * @remarks
  * Only top-level statements are considered — an export nested inside a namespace
  * or a block is not part of the module's public surface for scaffolding
- * purposes. Re-exports (`export { x } from …`, `export * from …`) are skipped
- * because the symbol is documented where it is defined.
+ * purposes.
+ *
+ * Three export forms are recognized: a declaration carrying the `export`
+ * modifier, a local declaration named by a later `export { … }` list, and a
+ * local declaration named by `export default …`. In the latter two cases the
+ * stub is attached to the local declaration, which is where the documentation
+ * belongs and which keeps a second run idempotent.
+ *
+ * Re-exports that name another module (`export { x } from …`, `export * from …`)
+ * are skipped because the symbol is documented where it is defined; the same
+ * applies to an `export { x }` whose `x` is an imported binding rather than a
+ * local declaration.
  *
  * @param sourceText - The full source file contents.
  * @param fileName - The file name, used to pick the TS/TSX dialect.
@@ -305,111 +479,83 @@ export function collectExportedDeclarations(
   );
 
   const results: ExportedDeclaration[] = [];
+  const localsByName = new Map<string, ts.Statement>();
+  const recorded = new Set<ts.Statement>();
 
-  const push = (
-    node: ts.Node,
-    name: string,
-    kind: ExportKind,
-    extras: {
-      parameters?: readonly ExportParameter[];
-      typeParameters?: readonly string[];
-      hasReturnValue?: boolean;
-    } = {},
-  ): void => {
-    const { insertPos, indent, line } = locateInsertion(sourceText, node);
+  const record = (statement: ts.Statement, shape: DeclarationShape): void => {
+    if (recorded.has(statement)) {
+      return;
+    }
+    recorded.add(statement);
+    const { insertPos, indent, line } = locateInsertion(sourceFile, statement);
     results.push({
-      name,
-      kind,
-      hasDocComment: hasLeadingDocComment(sourceText, node),
+      name: shape.name,
+      names: shape.names,
+      kind: shape.kind,
+      hasDocComment: hasLeadingDocComment(sourceText, statement),
       insertPos,
       indent,
       line,
-      parameters: extras.parameters ?? [],
-      typeParameters: extras.typeParameters ?? [],
-      hasReturnValue: extras.hasReturnValue ?? false,
+      parameters: shape.parameters,
+      typeParameters: shape.typeParameters,
+      hasReturnValue: shape.hasReturnValue,
     });
   };
 
-  const readTypeParameters = (
-    node: ts.DeclarationWithTypeParameterChildren,
-  ): readonly string[] =>
-    (node.typeParameters ?? []).map((parameter) => parameter.name.text);
-
+  // Pass 1 — declarations carrying the `export` modifier. Everything else that
+  // could be documented is indexed by name so a later `export { … }` list or
+  // `export default …` can resolve back to it.
   for (const statement of sourceFile.statements) {
-    if (!isExported(statement)) {
+    const shape = describeStatement(statement);
+    if (shape === undefined) {
       continue;
     }
-
-    if (ts.isFunctionDeclaration(statement)) {
-      const name = statement.name?.text ?? "default";
-      const parameters = readParameters(statement);
-      push(statement, name, classifyFunction(name, statement, parameters), {
-        parameters,
-        typeParameters: readTypeParameters(statement),
-        hasReturnValue: hasReturnValue(statement),
-      });
+    if (isExported(statement)) {
+      record(statement, shape);
       continue;
     }
-
-    if (ts.isInterfaceDeclaration(statement)) {
-      // Only the interface header is scaffolded. Splitting docs onto each member
-      // is a separate structural step (see PLAN.md → Deferred).
-      push(statement, statement.name.text, "interface", {
-        typeParameters: readTypeParameters(statement),
-      });
-      continue;
-    }
-
-    if (ts.isTypeAliasDeclaration(statement)) {
-      push(statement, statement.name.text, "type-alias", {
-        typeParameters: readTypeParameters(statement),
-      });
-      continue;
-    }
-
-    if (ts.isClassDeclaration(statement)) {
-      push(statement, statement.name?.text ?? "default", "class", {
-        typeParameters: readTypeParameters(statement),
-      });
-      continue;
-    }
-
-    if (ts.isEnumDeclaration(statement)) {
-      push(statement, statement.name.text, "enum");
-      continue;
-    }
-
-    if (ts.isVariableStatement(statement)) {
-      // A variable statement can declare several bindings, but only the
-      // statement itself carries the `export` keyword and the comment position.
-      // Document it under the first named binding.
-      const [declaration] = statement.declarationList.declarations;
-      if (!declaration || !ts.isIdentifier(declaration.name)) {
-        continue;
+    for (const name of shape.names) {
+      if (!localsByName.has(name)) {
+        localsByName.set(name, statement);
       }
-      const name = declaration.name.text;
-      const initializer = declaration.initializer;
-
-      if (
-        initializer &&
-        (ts.isArrowFunction(initializer) ||
-          ts.isFunctionExpression(initializer))
-      ) {
-        const parameters = readParameters(initializer);
-        push(statement, name, classifyFunction(name, initializer, parameters), {
-          parameters,
-          typeParameters: readTypeParameters(initializer),
-          hasReturnValue: hasReturnValue(initializer),
-        });
-        continue;
-      }
-
-      push(statement, name, isHookName(name) ? "hook" : "variable");
-      continue;
     }
   }
 
-  return results;
+  // Pass 2 — exports expressed as statements over local declarations.
+  const recordLocal = (name: string): void => {
+    const target = localsByName.get(name);
+    if (target === undefined) {
+      return;
+    }
+    const shape = describeStatement(target);
+    if (shape !== undefined) {
+      record(target, shape);
+    }
+  };
+
+  for (const statement of sourceFile.statements) {
+    if (ts.isExportDeclaration(statement)) {
+      // `export … from "./x"` re-exports another module: documented there.
+      if (statement.moduleSpecifier !== undefined) {
+        continue;
+      }
+      const clause = statement.exportClause;
+      if (clause === undefined || !ts.isNamedExports(clause)) {
+        continue;
+      }
+      for (const specifier of clause.elements) {
+        // `export { local as public }` documents `local`.
+        recordLocal((specifier.propertyName ?? specifier.name).text);
+      }
+      continue;
+    }
+
+    if (ts.isExportAssignment(statement) && ts.isIdentifier(statement.expression)) {
+      recordLocal(statement.expression.text);
+    }
+  }
+
+  return results.sort((a, b) => a.insertPos - b.insertPos);
 }
 
 /**

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   inferComponentSummary,
   inferFunctionSummary,
+  inferGroupSummary,
   inferHookSummary,
   inferNounSummary,
   splitIdentifier,
@@ -106,5 +107,28 @@ describe("inferNounSummary", () => {
 
   it("returns a TODO for an empty name", () => {
     expect(inferNounSummary("")).toBe("TODO(tsdoc): describe this export.");
+  });
+});
+
+describe("inferGroupSummary", () => {
+  it("joins two names with and", () => {
+    expect(inferGroupSummary(["MAX_RETRIES", "MIN_RETRIES"])).toBe(
+      "Max retries and min retries.",
+    );
+  });
+
+  it("comma-separates three or more names", () => {
+    expect(inferGroupSummary(["alpha", "beta", "gamma"])).toBe(
+      "Alpha, beta and gamma.",
+    );
+  });
+
+  it("degrades to a single noun phrase for one name", () => {
+    expect(inferGroupSummary(["leadStatus"])).toBe("Lead status.");
+  });
+
+  it("returns a TODO when no usable name is present", () => {
+    expect(inferGroupSummary([])).toBe("TODO(tsdoc): describe this export.");
+    expect(inferGroupSummary([""])).toBe("TODO(tsdoc): describe this export.");
   });
 });

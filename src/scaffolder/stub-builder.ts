@@ -16,6 +16,7 @@
 import {
   inferComponentSummary,
   inferFunctionSummary,
+  inferGroupSummary,
   inferHookSummary,
   inferNounSummary,
 } from "@/scaffolder/name-inference";
@@ -63,7 +64,14 @@ function typeParamLines(
  * @returns The inferred one-line summary.
  */
 function summaryFor(declaration: ExportedDeclaration): string {
-  const { kind, name } = declaration;
+  const { kind, name, names } = declaration;
+
+  // A statement binding several names has one comment position, so the summary
+  // must name every binding instead of only the first.
+  if (names.length > 1) {
+    return inferGroupSummary(names);
+  }
+
   switch (kind) {
     case "react-component":
       return inferComponentSummary(name);

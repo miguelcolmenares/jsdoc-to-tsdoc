@@ -247,3 +247,38 @@ export function inferNounSummary(name: string): string {
   }
   return `${capitalize(words.join(" "))}.`;
 }
+
+/**
+ * Infers a summary for a declaration that binds several names at once.
+ *
+ * @remarks
+ * A variable statement such as `export const A = 1, B = 2;` has a single
+ * comment position, so one stub must describe every binding rather than only
+ * the first.
+ *
+ * @param names - The exported binding names, in source order.
+ * @returns A noun-phrase sentence naming each binding.
+ *
+ * @example
+ * ```typescript
+ * inferGroupSummary(["MAX_RETRIES", "MIN_RETRIES"]);
+ * // "Max retries and min retries."
+ * ```
+ */
+export function inferGroupSummary(names: readonly string[]): string {
+  const phrases = names
+    .map((name) => splitIdentifier(name).join(" "))
+    .filter((phrase) => phrase.length > 0);
+
+  const [first] = phrases;
+  if (first === undefined) {
+    return "TODO(tsdoc): describe this export.";
+  }
+  if (phrases.length === 1) {
+    return `${capitalize(first)}.`;
+  }
+
+  const last = phrases[phrases.length - 1] ?? "";
+  const leading = phrases.slice(0, -1).join(", ");
+  return `${capitalize(leading)} and ${last}.`;
+}

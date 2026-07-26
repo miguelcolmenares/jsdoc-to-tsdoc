@@ -33,7 +33,7 @@ describe("collectExportedDeclarations", () => {
     ]);
   });
 
-  it("skips re-export statements", () => {
+  it("skips re-export statements that name another module", () => {
     const source = [
       'export { Button } from "./button";',
       'export * from "./card";',
@@ -41,6 +41,76 @@ describe("collectExportedDeclarations", () => {
     ].join("\n");
 
     expect(collectExportedDeclarations(source, "index.ts")).toHaveLength(0);
+  });
+
+  it("documents a local declaration exported through an export list", () => {
+    const source = [
+      "const foo = 1;",
+      "function bar() {}",
+      "export { foo, bar };",
+    ].join("\n");
+
+    const declarations = collectExportedDeclarations(source, "a.ts");
+    expect(declarations.map((d) => d.name)).toEqual(["foo", "bar"]);
+    // The stub belongs on the local declaration, not the export statement.
+    expect(source.slice(declarations[0]?.insertPos ?? 0)).toMatch(/^const foo/);
+  });
+
+  it("resolves the local name behind an export alias", () => {
+    const source = ["const local = 1;", "export { local as publicName };"].join(
+      "\n",
+    );
+    expect(collectExportedDeclarations(source, "a.ts").map((d) => d.name)).toEqual(
+      ["local"],
+    );
+  });
+
+  it("documents a local declaration exported as default", () => {
+    const source = ["function bar() {}", "export default bar;"].join("\n");
+    expect(collectExportedDeclarations(source, "a.ts").map((d) => d.name)).toEqual(
+      ["bar"],
+    );
+  });
+
+  it("does not document an imported binding that is only re-exported", () => {
+    const source = ['import { x } from "./x";', "export { x };"].join("\n");
+    expect(collectExportedDeclarations(source, "a.ts")).toHaveLength(0);
+  });
+
+  it("never records the same declaration twice", () => {
+    const source = ["export const foo = 1;", "export { foo };"].join("\n");
+    expect(collectExportedDeclarations(source, "a.ts")).toHaveLength(1);
+  });
+
+  it("covers every binding of a multi-binding variable statement", () => {
+    const source = "export const A = 1, B = 2;";
+    const declarations = collectExportedDeclarations(source, "a.ts");
+
+    // One comment position exists, so one record covers both names.
+    expect(declarations).toHaveLength(1);
+    expect(declarations[0]?.names).toEqual(["A", "B"]);
+  });
+
+  it("covers a destructuring export instead of skipping it", () => {
+    const source = "export const { a, b } = source;";
+    const declarations = collectExportedDeclarations(source, "a.ts");
+
+    expect(declarations).toHaveLength(1);
+    expect(declarations[0]?.names).toEqual(["a", "b"]);
+  });
+
+  it("returns declarations in source order", () => {
+    const source = [
+      "const late = 1;",
+      "export function first() {}",
+      "export { late };",
+    ].join("\n");
+
+    const declarations = collectExportedDeclarations(source, "a.ts");
+    expect(declarations.map((d) => d.name)).toEqual(["late", "first"]);
+    expect(declarations[0]?.insertPos).toBeLessThan(
+      declarations[1]?.insertPos ?? 0,
+    );
   });
 
   it("detects an existing doc comment", () => {

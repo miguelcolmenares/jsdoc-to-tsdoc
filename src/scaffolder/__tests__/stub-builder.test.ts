@@ -13,6 +13,7 @@ const declaration = (
   parameters: [],
   typeParameters: [],
   hasReturnValue: false,
+  names: [overrides.name],
   ...overrides,
 });
 

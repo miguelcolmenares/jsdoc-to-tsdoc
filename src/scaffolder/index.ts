@@ -9,6 +9,7 @@
 export {
   inferComponentSummary,
   inferFunctionSummary,
+  inferGroupSummary,
   inferHookSummary,
   inferNounSummary,
   splitIdentifier,

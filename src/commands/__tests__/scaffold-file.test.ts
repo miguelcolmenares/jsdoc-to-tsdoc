@@ -104,6 +104,49 @@ describe("scaffoldSourceText", () => {
     expect(scaffoldSourceText(output, "a.ts").changed).toBe(false);
   });
 
+  it("documents exports declared through an export list, idempotently", () => {
+    const source = [
+      "const alpha = 1;",
+      "function beta() {}",
+      "export { alpha, beta };",
+    ].join("\n");
+
+    const result = scaffoldSourceText(source, "a.ts");
+    expect(result.stubsAdded).toBe(2);
+    // The stubs attach to the local declarations, not the export statement.
+    expect(result.output).toContain(" * Alpha.");
+    expect(result.output).toContain(" * Beta.");
+    expect(result.output.split("\n").at(-1)).toBe("export { alpha, beta };");
+    // A second run finds nothing left to do.
+    expect(scaffoldSourceText(result.output, "a.ts").changed).toBe(false);
+  });
+
+  it("documents a default-exported local declaration", () => {
+    const source = ["function beta() {}", "export default beta;"].join("\n");
+
+    const result = scaffoldSourceText(source, "a.ts");
+    expect(result.stubsAdded).toBe(1);
+    expect(scaffoldSourceText(result.output, "a.ts").changed).toBe(false);
+  });
+
+  it("names every binding of a multi-binding export in one stub", () => {
+    const source = "export const MAX_RETRIES = 1, MIN_RETRIES = 2;";
+
+    const result = scaffoldSourceText(source, "a.ts");
+    expect(result.stubsAdded).toBe(1);
+    expect(result.output).toContain(" * Max retries and min retries.");
+    expect(scaffoldSourceText(result.output, "a.ts").changed).toBe(false);
+  });
+
+  it("does not skip a destructuring export", () => {
+    const result = scaffoldSourceText(
+      "export const { alpha, beta } = source;",
+      "a.ts",
+    );
+    expect(result.stubsAdded).toBe(1);
+    expect(result.output).toContain(" * Alpha and beta.");
+  });
+
   it("tallies stubs by export kind", () => {
     const source = [
       "export function submitForm(prevState: S, formData: FormData) { return prevState; }",
