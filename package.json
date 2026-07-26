@@ -45,7 +45,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "check": "npm run typecheck && npm run lint && npm run test"
+    "check": "npm run typecheck && npm run lint && npm run test && npm run check:tsdoc",
+    "check:tsdoc": "npm run build && node dist/cli.mjs check"
   },
   "peerDependencies": {
     "typescript": ">=5.0"

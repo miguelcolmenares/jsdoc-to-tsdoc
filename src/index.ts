@@ -11,6 +11,12 @@
 /** The current package version. */
 export const VERSION = "0.1.0";
 
+export {
+  checkSourceText,
+  type CheckProblem,
+  type FileCheck,
+  type ProblemKind,
+} from "@/commands/check-file";
 export { convertSourceText, type FileConversion } from "@/commands/convert-file";
 export {
   scaffoldSourceText,
@@ -64,6 +70,11 @@ export {
   type ExportKind,
   type SourceComment,
 } from "@/scanner";
+export {
+  createTsdocValidator,
+  type TsdocValidator,
+  type TsdocViolation,
+} from "@/validator";
 export {
   runPipeline,
   RULES,

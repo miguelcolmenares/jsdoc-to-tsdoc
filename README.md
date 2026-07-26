@@ -2,7 +2,7 @@
 
 CLI tool to migrate JSDoc comments to the [TSDoc](https://tsdoc.org/) standard in TypeScript projects.
 
-> **Status: Alpha (v0.1.0, in development).** The full `init → convert → scaffold → escalate` workflow is implemented and tested. A standalone `check` command is on the roadmap — see [PLAN.md](./PLAN.md).
+> **Status: Alpha (v0.1.0, in development).** Every command in the CLI contract ships: the full `init → convert → scaffold → escalate` workflow plus the `check` CI gate. See [PLAN.md](./PLAN.md) for what is still deferred.
 
 ## The Problem
 
@@ -33,7 +33,10 @@ npx jsdoc-to-tsdoc scaffold
 npx jsdoc-to-tsdoc escalate --dry-run
 npx jsdoc-to-tsdoc escalate
 
-# CI gate — exit code 3 if any file would change / any export lacks TSDoc
+# CI gate — validate TSDoc, report undocumented exports, exit 3 on problems
+npx jsdoc-to-tsdoc check
+
+# Narrower gates — exit code 3 if a given command would change anything
 npx jsdoc-to-tsdoc convert --check
 npx jsdoc-to-tsdoc scaffold --check
 npx jsdoc-to-tsdoc escalate --check
@@ -51,8 +54,10 @@ npx jsdoc-to-tsdoc escalate --check
 | `--lite` | `scan`, `convert` | Only `@param` / `@returns` hygiene; leave prose and structural tags. |
 | `--severity <level>` | `escalate` | Target severity: `error` (default) or `warn` to walk it back. |
 | `--skip-preflight` | `escalate` | Patch the config without running ESLint first. |
-| `--only <globs>` | `scan`, `convert`, `scaffold` | Comma-separated globs to include (e.g. `"src/lib/**"`). |
-| `--exclude <globs>` | `scan`, `convert`, `scaffold` | Comma-separated globs to exclude (e.g. `"**/*.test.ts"`). |
+| `--syntax-only` | `check` | Only validate comment syntax; ignore undocumented exports and legacy JSDoc. |
+| `--include-tests` | `check` | Also check the test paths `init` exempts from the TSDoc rules. |
+| `--only <globs>` | `scan`, `convert`, `scaffold`, `check` | Comma-separated globs to include (e.g. `"src/lib/**"`). |
+| `--exclude <globs>` | `scan`, `convert`, `scaffold`, `check` | Comma-separated globs to exclude (e.g. `"**/*.test.ts"`). |
 | `--report <fmt>` | all | Machine-readable output: `json` or `md` (written to stdout). |
 
 ## What `init` does
@@ -129,15 +134,49 @@ The result is a one-line diff — the only line that ever conflicts when a long-
 
 Use `--check` as a cheap CI gate that asks "is this repo locked in yet?" (exit `3` if not, no lint run), `--dry-run` to preview the diff, and `--severity warn` to walk an escalation back.
 
+## What `check` does
+
+The CI gate, and the only command that validates rather than transforms. It never writes.
+
+Comments are parsed with **`@microsoft/tsdoc` itself** — the same parser `eslint-plugin-tsdoc` runs — so a clean `check` predicts a clean lint. Three categories are reported:
+
+| Category | Meaning |
+|------|------|
+| `syntax` | The official parser rejected the comment. |
+| `missing` | An export carries no doc comment. |
+| `legacy` | The comment still holds JSDoc that `convert` would rewrite. |
+
+```bash
+$ npx jsdoc-to-tsdoc check
+src/lib/api.ts
+  12:11   syntax  The @param block should not include a JSDoc-style '{type}' (tsdoc-param-tag-with-invalid-type)
+  40:1    missing Missing TSDoc for fetchLead.
+┌─────────────────────────┬───────┐
+│ Files scanned           │    87 │
+│ Files with problems     │     1 │
+│ TSDoc syntax errors     │     1 │
+│ Exports without TSDoc   │     1 │
+│ Files with legacy JSDoc │     0 │
+└─────────────────────────┴───────┘
+✗ 2 problem(s) across 1 file(s).
+```
+
+Two behaviours keep the gate honest rather than merely strict:
+
+- **The project's `tsdoc.json` is loaded first.** Without it every `@since` in a real codebase is reported as an undefined tag — violations the project's own lint accepts. If that file exists but cannot be read, `check` exits `2` and inspects nothing, because reporting thousands of bogus problems is worse than stopping. A project that simply has no `tsdoc.json` yet is not an error.
+- **Test paths are skipped by default**, because the ESLint config `init` generates turns both TSDoc rules off for them. A gate that reported what the tool's own scaffolding excuses would be reporting phantom work. `--include-tests` opts back in.
+
+Exit codes: `0` clean · `2` unreadable `tsdoc.json` · `3` problems found.
+
 ## Development
 
 ```bash
 npm install
-npm run check   # typecheck + lint + test
+npm run check   # typecheck + lint + test + the CLI's own `check` over this repo
 npm run build   # bundle to dist/ via unbuild
 ```
 
-The CLI dogfoods the tooling it ships: it is documented with TSDoc and linted with `eslint-plugin-tsdoc` + `eslint-plugin-tsdoc-require-2` at `error`.
+The CLI dogfoods the tooling it ships: it is documented with TSDoc, linted with `eslint-plugin-tsdoc` + `eslint-plugin-tsdoc-require-2` at `error`, and gated by its own `check` command (`npm run check:tsdoc`).
 
 ## License
 

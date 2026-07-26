@@ -53,6 +53,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   so an explicit `off` (the `__tests__/` exemption `init` writes) is never
   switched on and the `require-param` / `require-returns` siblings are never
   touched.
+- `validator` domain: doc-comment validation against the official
+  `@microsoft/tsdoc` parser — the same parser `eslint-plugin-tsdoc` runs, so a
+  clean result predicts a clean lint. The project's `tsdoc.json` is loaded and
+  applied first, without which every custom tag (`@since` above all) would be
+  reported as undefined; a missing `tsdoc.json` is treated as "no config", not
+  as an error, since that is the normal state before `init` runs.
+- `check` CLI subcommand: the CI gate, and the only command that validates
+  rather than transforms. Reports invalid TSDoc syntax, exports with no
+  documentation, and comments still holding JSDoc that `convert` would rewrite;
+  exits `3` on problems and `2` when `tsdoc.json` exists but cannot be read.
+  Supports `--syntax-only`, `--include-tests`, `--only` / `--exclude`, and
+  `--report` (`json` / `md`). Test paths are skipped by default because the
+  ESLint config `init` generates disables both TSDoc rules for them — the globs
+  are now a single shared constant so the two cannot drift. The CLI gates its
+  own source with this command (`npm run check:tsdoc`).
 - `escalate` CLI subcommand: the fourth migration step, bumping
   `tsdoc-require-2/require` from `warn` to `error` once the preflight is clean.
   Refuses to escalate (exit `3`) while undocumented exports remain, listing

@@ -38,10 +38,10 @@ init  →  convert  →  scaffold  →  escalate
 | `convert` | **shipped**  | Transforms existing JSDoc comments into TSDoc syntax (10-rule pipeline). |
 | `scaffold`| **shipped**  | Generates TSDoc stubs for undocumented exports (the ~80% of real-world work). |
 | `escalate`| **shipped**  | Bumps `tsdoc-require-2/require` from `warn` → `error`, gated on a preflight ESLint run. |
-| `check`   | _planned_    | Standalone CI validation (today `convert --check` / `scaffold --check` / `escalate --check` cover "would change"). |
+| `check`   | **shipped**  | CI gate — validates comments with the official `@microsoft/tsdoc` parser, reports undocumented exports and leftover JSDoc. |
 
 Domains present: `parser`, `scanner`, `transformer`, `scaffolder`, `generator`,
-`escalator`, `reporter`, `writer`, `commands`. See `PLAN.md` → _Implementation Status_ for the
+`escalator`, `validator`, `reporter`, `writer`, `commands`. See `PLAN.md` → _Implementation Status_ for the
 running tally and `PLAN.md` → _Development Roadmap_ for phase order.
 
 ---
@@ -63,6 +63,7 @@ src/
 ├── scaffolder/          # name→prose inference + TSDoc stub rendering for undocumented exports
 ├── generator/           # init's building blocks: project detection, tag classification, tsdoc.json, eslint patcher
 ├── escalator/           # escalate's building blocks: preflight ESLint run + rule-severity patch
+├── validator/           # check's building block: official @microsoft/tsdoc validation
 ├── reporter/            # colored diffs, tables, JSON/Markdown output, ANSI colors
 └── writer/              # async file writes
 ```
@@ -94,6 +95,14 @@ The shared orchestrator is [`src/commands/scaffold-file.ts`](./src/commands/scaf
 regardless of severity) → `reporter` diff or `writer`. Both halves respect an
 explicit `off`: the patcher never enables it, and the preflight never overrides
 it. See [`src/commands/escalate.ts`](./src/commands/escalate.ts).
+
+**Data-flow of a `check`:** `validator.createTsdocValidator` (loads
+`<cwd>/tsdoc.json` and configures the **official** parser) → per file
+`commands/check-file.checkSourceText`, which merges three sources: the official
+parser's violations, `scanner.undocumentedDeclarations`, and whether
+`convert` would still rewrite the file → `reporter`. Never writes. Exit `3` on
+problems, `2` when `tsdoc.json` is unreadable. See
+[`src/commands/check.ts`](./src/commands/check.ts).
 
 ---
 
@@ -142,6 +151,7 @@ npx jsdoc-to-tsdoc scan      # read-only inventory
 npx jsdoc-to-tsdoc convert   # JSDoc → TSDoc
 npx jsdoc-to-tsdoc scaffold  # TSDoc stubs for undocumented exports
 npx jsdoc-to-tsdoc escalate  # warn → error, gated on a preflight ESLint run
+npx jsdoc-to-tsdoc check     # CI gate: validate TSDoc, exit 3 on problems
 ```
 
 | Flag | Commands | Purpose |
@@ -151,10 +161,12 @@ npx jsdoc-to-tsdoc escalate  # warn → error, gated on a preflight ESLint run
 | `--strict` | `init` | Start the presence rule at `error` instead of `warn`. |
 | `--install` | `init` | Run the detected package manager to install missing dev deps. |
 | `--check` | `convert`, `scaffold`, `escalate` | CI mode — exit `3` if anything would change; never writes. |
+| `--syntax-only` | `check` | Only validate comment syntax. |
+| `--include-tests` | `check` | Also check the test paths `init` exempts. |
 | `--lite` | `scan`, `convert` | Only `@param`/`@returns` hygiene (`Rule.liteSafe`). |
 | `--severity <level>` | `escalate` | Target severity: `error` (default) or `warn`. |
 | `--skip-preflight` | `escalate` | Patch without running ESLint first. |
-| `--only` / `--exclude <globs>` | `scan`, `convert`, `scaffold` | Comma-separated include/exclude globs. |
+| `--only` / `--exclude <globs>` | `scan`, `convert`, `scaffold`, `check` | Comma-separated include/exclude globs. |
 | `--report <fmt>` | all | `json` or `md` to stdout. |
 
 **Exit codes:** `0` OK · `1` logic error · `2` parse failure · `3` violations
@@ -206,7 +218,10 @@ npm run typecheck      # tsc --noEmit
 npm run lint           # eslint . (includes the TSDoc dogfood)
 npm run test           # vitest run   (npm run test:coverage for the gate)
 npm run build          # unbuild → dist/  (+ CI asserts the <500 KB gzipped bound)
+npm run check:tsdoc    # builds, then runs the CLI's own `check` over this repo
 ```
+
+`npm run check` chains all of them.
 
 ---
 
@@ -265,6 +280,8 @@ npm run build          # unbuild → dist/  (+ CI asserts the <500 KB gzipped bo
 | Add a JSDoc→TSDoc transform | `src/transformer/rules/` + register in `rules/index.ts` |
 | Add/adjust a stub template or summary inference | `src/scaffolder/stub-builder.ts`, `src/scaffolder/name-inference.ts` |
 | Change the preflight or the severity patch | `src/escalator/` |
+| Change TSDoc validation or `tsdoc.json` loading | `src/validator/tsdoc-validator.ts` |
+| Change what `check` reports | `src/commands/check-file.ts` |
 | Change how exports reach the module surface | `src/scanner/export-inventory.ts` |
 | Change how a declaration is classified (component/action/hook/…) | `src/scanner/declaration-classifier.ts` |
 | Change what a statement contributes (names, params, type params) | `src/scanner/declaration-shape.ts` |
