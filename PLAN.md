@@ -43,13 +43,13 @@ TypeScript-redundant and JSDoc-only tags (`@function`, `@async`, `@typedef`,
 
 Stubs generated (per export kind): React components, Server Actions (detected by
 the `(prevState, formData)` signature), hooks (`useX`), interfaces, type aliases,
-classes, enums, plain functions, and constants. Re-export statements are skipped
+classes, enums, plain functions, and variables. Re-export statements are skipped
 — the symbol is documented at its definition site. Stub tag order follows the
 TSDoc convention (summary, `@remarks`, `@typeParam`/`@param`, `@returns`), and
 the generated output is itself valid under `tsdoc/syntax` and satisfies
 `tsdoc-require-2/require`.
 
-Coverage: 356 tests, ~94 % overall (100 % on the transformer rules and the
+Coverage: 362 tests, ~94 % overall (100 % on the transformer rules and the
 generator domain; ~98 % on the scaffolder).
 
 ### Deferred (next increments)

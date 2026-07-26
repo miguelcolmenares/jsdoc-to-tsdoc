@@ -225,7 +225,7 @@ export function inferHookSummary(name: string): string {
 }
 
 /**
- * Infers a summary for a type, interface, class, enum, or constant.
+ * Infers a summary for a type, interface, class, enum, or variable.
  *
  * @remarks
  * Rendered as the humanized identifier rather than a "&lt;Kind&gt; for the …"

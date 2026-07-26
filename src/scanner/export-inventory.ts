@@ -118,7 +118,11 @@ export function collectExportedDeclarations(
   );
 
   const results: ExportedDeclaration[] = [];
-  const localsByName = new Map<string, ts.Statement>();
+  // One name can map to several statements: an overload set contributes a
+  // declaration per signature plus the implementation, and declaration merging
+  // pairs (an interface and a function of the same name) contribute two. Each
+  // needs its own comment, so an export list has to mark them all.
+  const localsByName = new Map<string, ts.Statement[]>();
   const recorded = new Set<ts.Statement>();
 
   const record = (statement: ts.Statement, shape: DeclarationShape): void => {
@@ -159,8 +163,11 @@ export function collectExportedDeclarations(
       continue;
     }
     for (const name of shape.names) {
-      if (!localsByName.has(name)) {
-        localsByName.set(name, statement);
+      const declared = localsByName.get(name);
+      if (declared === undefined) {
+        localsByName.set(name, [statement]);
+      } else {
+        declared.push(statement);
       }
     }
   }
@@ -172,16 +179,20 @@ export function collectExportedDeclarations(
   const exportedNamesByStatement = new Map<ts.Statement, Set<string>>();
 
   const noteExported = (name: string): void => {
-    const target = localsByName.get(name);
-    if (target === undefined) {
+    const targets = localsByName.get(name);
+    if (targets === undefined) {
       return;
     }
-    const names = exportedNamesByStatement.get(target);
-    if (names === undefined) {
-      exportedNamesByStatement.set(target, new Set([name]));
-      return;
+    // Every statement contributing this name is published by the export, so
+    // each one needs its own comment.
+    for (const target of targets) {
+      const names = exportedNamesByStatement.get(target);
+      if (names === undefined) {
+        exportedNamesByStatement.set(target, new Set([name]));
+        continue;
+      }
+      names.add(name);
     }
-    names.add(name);
   };
 
   for (const statement of sourceFile.statements) {

@@ -29,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `convert` and `scan` CLI subcommands with `--dry-run` / `--preview` diffs.
 - `scanner` export inventory: enumerates exported declarations through the
   TypeScript Compiler API, classifies each one (React component, Server Action,
-  hook, interface, type alias, class, enum, function, constant), records the
+  hook, interface, type alias, class, enum, function, variable), records the
   stub insertion point and indentation, flags declarations that are already
   documented, and skips re-export statements.
 - `scaffolder` domain: deterministic summary inference from identifier names

@@ -106,6 +106,25 @@ const fixtures: ReadonlyArray<readonly [name: string, file: string, source: stri
     ].join("\n"),
   ],
   [
+    "overload set exported through an export list",
+    "a.ts",
+    [
+      "function f(a: string): string;",
+      "function f(a: number): string;",
+      "function f(a: unknown): string { return String(a); }",
+      "export { f };",
+    ].join("\n"),
+  ],
+  [
+    "declaration merging exported through an export list",
+    "a.ts",
+    [
+      "interface Shape { kind: string }",
+      "function Shape() { return { kind: 'x' }; }",
+      "export { Shape };",
+    ].join("\n"),
+  ],
+  [
     "export under a packageDocumentation header",
     "a.ts",
     "/**\n * @packageDocumentation\n * Header.\n */\n\nexport function foo(): void {}",
