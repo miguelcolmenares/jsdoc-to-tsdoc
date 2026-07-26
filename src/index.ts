@@ -18,6 +18,15 @@ export {
   type StubCounts,
 } from "@/commands/scaffold-file";
 export {
+  PRESENCE_RULE_ID,
+  runPreflight,
+  updateRuleSeverity,
+  type PreflightResult,
+  type RuleSeverity,
+  type RuleSeverityUpdate,
+  type SeverityOccurrence,
+} from "@/escalator";
+export {
   aggregateCommentTags,
   collectProjectTags,
   detectProject,

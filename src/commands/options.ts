@@ -4,6 +4,7 @@
  * @since 0.1.0
  */
 
+import type { Severity } from "@/generator";
 import type { ReportFormat } from "@/reporter";
 
 /**
@@ -31,6 +32,21 @@ export function splitGlobs(value: unknown): string[] {
  */
 export function parseReportFormat(value: unknown): ReportFormat | undefined {
   if (value === "json" || value === "md") {
+    return value;
+  }
+  return undefined;
+}
+
+/**
+ * Parses the `--severity` option into a rule severity.
+ *
+ * @param value - The raw option value.
+ * @returns The severity, or `undefined` for anything unrecognized — which the
+ * caller reports rather than silently coercing, since guessing the severity of
+ * an enforcement change would be the wrong kind of helpful.
+ */
+export function parseSeverity(value: unknown): Severity | undefined {
+  if (value === "warn" || value === "error") {
     return value;
   }
   return undefined;

@@ -2,7 +2,7 @@
 
 CLI tool to migrate JSDoc comments to the [TSDoc](https://tsdoc.org/) standard in TypeScript projects.
 
-> **Status: Alpha (v0.1.0, in development).** The `init`, `scan`, `convert`, and `scaffold` commands are implemented and tested. `escalate` and `check` are on the roadmap — see [PLAN.md](./PLAN.md).
+> **Status: Alpha (v0.1.0, in development).** The full `init → convert → scaffold → escalate` workflow is implemented and tested. A standalone `check` command is on the roadmap — see [PLAN.md](./PLAN.md).
 
 ## The Problem
 
@@ -29,9 +29,14 @@ npx jsdoc-to-tsdoc convert
 npx jsdoc-to-tsdoc scaffold --dry-run
 npx jsdoc-to-tsdoc scaffold
 
+# Lock the codebase in: bump tsdoc-require-2/require from "warn" to "error"
+npx jsdoc-to-tsdoc escalate --dry-run
+npx jsdoc-to-tsdoc escalate
+
 # CI gate — exit code 3 if any file would change / any export lacks TSDoc
 npx jsdoc-to-tsdoc convert --check
 npx jsdoc-to-tsdoc scaffold --check
+npx jsdoc-to-tsdoc escalate --check
 ```
 
 ### Options
@@ -39,13 +44,15 @@ npx jsdoc-to-tsdoc scaffold --check
 | Flag | Commands | Purpose |
 |------|----------|---------|
 | `--cwd <dir>` | all | Project directory to scan (default `.`). |
-| `--dry-run` / `--preview` | `init`, `convert`, `scaffold` | Show a diff without writing. |
+| `--dry-run` / `--preview` | `init`, `convert`, `scaffold`, `escalate` | Show a diff without writing. |
 | `--strict` | `init` | Start `tsdoc-require-2/require` at `error` instead of `warn`. |
 | `--install` | `init` | Run the detected package manager to install missing dev dependencies. |
-| `--check` | `convert`, `scaffold` | CI mode — exit `3` if anything would change; never writes. |
+| `--check` | `convert`, `scaffold`, `escalate` | CI mode — exit `3` if anything would change; never writes. |
 | `--lite` | `scan`, `convert` | Only `@param` / `@returns` hygiene; leave prose and structural tags. |
-| `--only <globs>` | all | Comma-separated globs to include (e.g. `"src/lib/**"`). |
-| `--exclude <globs>` | all | Comma-separated globs to exclude (e.g. `"**/*.test.ts"`). |
+| `--severity <level>` | `escalate` | Target severity: `error` (default) or `warn` to walk it back. |
+| `--skip-preflight` | `escalate` | Patch the config without running ESLint first. |
+| `--only <globs>` | `scan`, `convert`, `scaffold` | Comma-separated globs to include (e.g. `"src/lib/**"`). |
+| `--exclude <globs>` | `scan`, `convert`, `scaffold` | Comma-separated globs to exclude (e.g. `"**/*.test.ts"`). |
 | `--report <fmt>` | all | Machine-readable output: `json` or `md` (written to stdout). |
 
 ## What `init` does
@@ -96,6 +103,31 @@ grep -rn "TODO(tsdoc)" src
 ```
 
 Stub tag order follows the TSDoc convention — summary, `@remarks`, `@typeParam`/`@param`, `@returns` — and the generated output is valid under `tsdoc/syntax` and satisfies `tsdoc-require-2/require`. Running `scaffold` twice is a no-op.
+
+## What `escalate` does
+
+Closes the migration by flipping `tsdoc-require-2/require` from the progressive `warn` to `error`, so missing documentation fails CI from that commit on.
+
+Because every message the rule emits at `warn` becomes a build failure at `error`, the patch is gated on a **preflight**: the project's own ESLint is resolved and run with the project's own config, and the escalation is refused (exit `3`) while the rule still reports anything.
+
+```bash
+$ npx jsdoc-to-tsdoc escalate
+✗ 3 export(s) still reported by tsdoc-require-2/require:
+  src/lib/api.ts:12:8  Missing TSDoc for function fetchLead.
+  …
+Run `jsdoc-to-tsdoc scaffold` to document them, or --skip-preflight to escalate anyway.
+```
+
+Reading the real config — instead of forcing the rule on through an override — is what makes that verdict trustworthy: every `off` the project configured (the `__tests__/` exemption `init` writes, most commonly) is honoured exactly as CI honours it, so the check cannot invent violations the pipeline would never report. For the same reason the patch itself only rewrites **enabled** assignments: an explicit `off` is a deliberate opt-out and is never switched on, and the sibling rules `require-param` / `require-returns` are never touched.
+
+The result is a one-line diff — the only line that ever conflicts when a long-lived migration branch is rebased:
+
+```diff
+-      "tsdoc-require-2/require": "warn",
++      "tsdoc-require-2/require": "error",
+```
+
+Use `--check` as a cheap CI gate that asks "is this repo locked in yet?" (exit `3` if not, no lint run), `--dry-run` to preview the diff, and `--severity warn` to walk an escalation back.
 
 ## Development
 
