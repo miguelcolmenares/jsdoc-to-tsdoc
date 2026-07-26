@@ -41,11 +41,19 @@ export interface TsdocViolation {
 
 /** A parser bound to one project's TSDoc configuration. */
 export interface TsdocValidator {
-  /** Absolute path of the `tsdoc.json` applied, or `undefined` when none exists. */
+  /**
+   * Absolute path of the `tsdoc.json` that was **found**, or `undefined` when
+   * the project has none.
+   *
+   * @remarks
+   * Discovery, not application: a file that was found but could not be used
+   * still reports its path, so the caller can name it. Check
+   * {@link TsdocValidator.configErrors} to know whether it was applied.
+   */
   readonly configPath: string | undefined;
   /**
-   * Problems found while loading `tsdoc.json`. A non-empty list means custom
-   * tags may be missing, so violations would be untrustworthy.
+   * Problems that stopped `tsdoc.json` from being applied. A non-empty list
+   * means custom tags are missing, so violations would be untrustworthy.
    */
   readonly configErrors: readonly string[];
   /**
@@ -58,18 +66,38 @@ export interface TsdocValidator {
   validate(sourceText: string, fileName: string): readonly TsdocViolation[];
 }
 
+/** What probing `tsdoc.json` found. */
+type ConfigProbe =
+  | { readonly status: "absent" }
+  | { readonly status: "present" }
+  | { readonly status: "unreadable"; readonly reason: string };
+
 /**
- * Tests whether a path exists.
+ * Probes `tsdoc.json`, keeping "not there" apart from "cannot be reached".
+ *
+ * @remarks
+ * Swallowing every `stat` failure as "absent" would let a permission wall on a
+ * parent directory read as a project that never configured TSDoc, and the run
+ * would then report every custom tag as undefined. `ENOENT` is a file that is
+ * simply not there; `ENOTDIR` means a path component is not a directory, so it
+ * cannot be there either. Anything else is a real failure.
  *
  * @param path - The absolute path to probe.
- * @returns `true` when `stat` succeeds.
+ * @returns What was found.
  */
-async function exists(path: string): Promise<boolean> {
+async function probeConfig(path: string): Promise<ConfigProbe> {
   try {
     await stat(path);
-    return true;
-  } catch {
-    return false;
+    return { status: "present" };
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ENOENT" || code === "ENOTDIR") {
+      return { status: "absent" };
+    }
+    return {
+      status: "unreadable",
+      reason: error instanceof Error ? error.message : String(error),
+    };
   }
 }
 
@@ -103,24 +131,36 @@ export async function createTsdocValidator(
 
   const configuration = new TSDocConfiguration();
   const configPath = join(cwd, "tsdoc.json");
-  const configFile = (await exists(configPath))
-    ? TSDocConfigFile.loadFile(configPath)
-    : undefined;
+  const probe = await probeConfig(configPath);
 
-  // A config that failed to parse defines no tags, so applying it would leave
-  // every custom tag undefined. The caller stops on `configErrors` instead.
-  if (configFile !== undefined && !configFile.hasErrors) {
-    configFile.configureParser(configuration);
+  let configErrors: readonly string[] = [];
+
+  if (probe.status === "unreadable") {
+    configErrors = [probe.reason];
+  } else if (probe.status === "present") {
+    try {
+      const configFile = TSDocConfigFile.loadFile(configPath);
+      if (configFile.hasErrors) {
+        // A config that failed to parse defines no tags, so applying it would
+        // leave every custom tag undefined. The caller stops instead.
+        configErrors = configFile.log.messages.map((message) => message.text);
+      } else {
+        configFile.configureParser(configuration);
+      }
+    } catch (error) {
+      // `stat` succeeds on a file the process may not read, so a permission wall
+      // surfaces only here, where the loader actually opens it. Letting it throw
+      // would exit `1` through the command's generic handler instead of the `2`
+      // documented for a config that exists but cannot be used.
+      configErrors = [error instanceof Error ? error.message : String(error)];
+    }
   }
 
   const parser = new TSDocParser(configuration);
 
   return {
-    configPath: configFile === undefined ? undefined : configPath,
-    configErrors:
-      configFile !== undefined && configFile.hasErrors
-        ? configFile.log.messages.map((message) => message.text)
-        : [],
+    configPath: probe.status === "absent" ? undefined : configPath,
+    configErrors,
     validate(sourceText, fileName) {
       const violations: TsdocViolation[] = [];
 

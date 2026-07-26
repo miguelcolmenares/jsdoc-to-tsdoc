@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -135,6 +135,58 @@ describe("createTsdocValidator", () => {
 
     expect(validator.configErrors.length).toBeGreaterThan(0);
     expect(validator.configErrors.join(" ")).toMatch(/parsing JSON/i);
+  });
+
+  // `chmod` cannot revoke read access for root, and on Windows it only toggles
+  // the read-only flag, so the permission cases are only meaningful elsewhere.
+  const canRevokeRead =
+    process.platform !== "win32" && (process.getuid?.() ?? 0) !== 0;
+
+  it.skipIf(!canRevokeRead)(
+    "reports an unreadable tsdoc.json instead of throwing",
+    async () => {
+      // `stat` succeeds without read permission, so this only surfaces when the
+      // loader opens the file. Throwing would reach the command's generic
+      // handler and exit 1, bypassing the exit 2 documented for a bad config.
+      const root = await project(withSinceTag);
+      await chmod(join(root, "tsdoc.json"), 0o000);
+
+      const validator = await createTsdocValidator(root);
+
+      expect(validator.configErrors.length).toBeGreaterThan(0);
+      expect(validator.configErrors.join(" ")).toMatch(/EACCES|permission/i);
+      // Found but not applied: the path is still reported so it can be named.
+      expect(validator.configPath).toContain("tsdoc.json");
+
+      await chmod(join(root, "tsdoc.json"), 0o644);
+    },
+  );
+
+  it.skipIf(!canRevokeRead)(
+    "reports an unreachable directory instead of assuming no config",
+    async () => {
+      // A parent directory without execute permission makes `stat` itself fail
+      // with EACCES. Treating that as "absent" would silently drop every custom
+      // tag and flood the run with undefined-tag violations.
+      const root = await project();
+      const locked = join(root, "locked");
+      await mkdir(locked);
+      await chmod(locked, 0o000);
+
+      const validator = await createTsdocValidator(locked);
+
+      expect(validator.configErrors.length).toBeGreaterThan(0);
+      expect(validator.configErrors.join(" ")).toMatch(/EACCES|permission/i);
+
+      await chmod(locked, 0o755);
+    },
+  );
+
+  it("reports the path of a config it found but could not apply", async () => {
+    const validator = await createTsdocValidator(await project("{ not json"));
+
+    expect(validator.configPath).toContain("tsdoc.json");
+    expect(validator.configErrors.length).toBeGreaterThan(0);
   });
 
   it("treats a missing tsdoc.json as no config, not as an error", async () => {
