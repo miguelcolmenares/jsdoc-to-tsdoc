@@ -50,6 +50,13 @@ export interface ExportedDeclaration {
   readonly hasDocComment: boolean;
   /** Offset at which a doc comment for this declaration should be inserted. */
   readonly insertPos: number;
+  /**
+   * Offset at which the replaced span ends. Equal to {@link insertPos} for the
+   * usual zero-width insertion; when another statement shares the line it spans
+   * the spaces or tabs separating the two, so moving the declaration onto its
+   * own line does not strand them as trailing whitespace.
+   */
+  readonly insertEnd: number;
   /** Indentation (leading whitespace) of the declaration's line. */
   readonly indent: string;
   /**
@@ -119,7 +126,7 @@ export function collectExportedDeclarations(
       return;
     }
     recorded.add(statement);
-    const { insertPos, indent, line, ownsLine } = locateInsertion(
+    const { insertPos, insertEnd, indent, line, ownsLine } = locateInsertion(
       sourceFile,
       statement,
     );
@@ -129,6 +136,7 @@ export function collectExportedDeclarations(
       kind: shape.kind,
       hasDocComment: hasLeadingDocComment(sourceFile, statement),
       insertPos,
+      insertEnd,
       indent,
       line,
       ownsLine,

@@ -197,6 +197,17 @@ describe("scaffoldSourceText", () => {
     expect(scaffoldSourceText(result.output, "a.ts").changed).toBe(false);
   });
 
+  it("does not strand the separator as trailing whitespace", () => {
+    // The stub replaces the spaces that separated the declaration from the
+    // previous statement rather than leaving them at the end of that line.
+    const result = scaffoldSourceText("const a = 1; export const b = 2;", "a.ts");
+
+    expect(result.output.split("\n")[0]).toBe("const a = 1;");
+    for (const line of result.output.split("\n")) {
+      expect(line).not.toMatch(/[ \t]+$/);
+    }
+  });
+
   it("tallies stubs by export kind", () => {
     const source = [
       "export function submitForm(prevState: S, formData: FormData) { return prevState; }",

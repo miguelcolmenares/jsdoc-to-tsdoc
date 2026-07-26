@@ -162,6 +162,22 @@ describe("scaffold satisfies the rules init installs", () => {
     expect(scaffoldSourceText(first.output, file).changed).toBe(false);
   });
 
+  it.each(fixtures)("%s introduces no trailing whitespace", (_name, file, source) => {
+    // Scaffolding must preserve formatting. Stranded spaces at the end of a
+    // line are flagged by formatters and whitespace rules, which would hand the
+    // user cleanup work the tool was supposed to save.
+    const sourceOffenders = source
+      .split("\n")
+      .filter((line) => /[ \t]+$/.test(line)).length;
+
+    const { output } = scaffoldSourceText(source, file);
+    const outputOffenders = output
+      .split("\n")
+      .filter((line) => /[ \t]+$/.test(line));
+
+    expect(outputOffenders).toHaveLength(sourceOffenders);
+  });
+
   it("leaves an already-documented file untouched and passing", async () => {
     const source = [
       "/**",

@@ -430,8 +430,11 @@ describe("collectExportedDeclarations", () => {
     const source = "const a = 1; export const b = 2;";
     const declaration = findByName(source, "a.ts", "b");
 
-    // Inserting at the line start would document `const a = 1;` instead.
-    expect(source.slice(declaration.insertPos)).toBe("export const b = 2;");
+    // Inserting at the line start would document `const a = 1;` instead. The
+    // replaced span reaches back over the separating space so it is consumed
+    // rather than left at the end of the previous line.
+    expect(source.slice(declaration.insertEnd)).toBe("export const b = 2;");
+    expect(source.slice(declaration.insertPos, declaration.insertEnd)).toBe(" ");
     expect(declaration.indent).toBe("");
   });
 

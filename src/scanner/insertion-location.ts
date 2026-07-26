@@ -84,7 +84,13 @@ export function hasLeadingDocComment(sourceFile: ts.SourceFile, node: ts.Node): 
 export function locateInsertion(
   sourceFile: ts.SourceFile,
   node: ts.Node,
-): { insertPos: number; indent: string; line: number; ownsLine: boolean } {
+): {
+  insertPos: number;
+  insertEnd: number;
+  indent: string;
+  line: number;
+  ownsLine: boolean;
+} {
   const start = node.getStart(sourceFile, /* includeJsDocComment */ false);
   const { line } = sourceFile.getLineAndCharacterOfPosition(start);
   const lineStart = sourceFile.getPositionOfLineAndCharacter(line, 0);
@@ -95,9 +101,27 @@ export function locateInsertion(
   // indentation is still what the stub must align to, so it is reported either
   // way.
   const indent = /^[ \t]*/.exec(prefix)?.[0] ?? "";
+
   if (!/^[ \t]*$/.test(prefix)) {
-    return { insertPos: start, indent, line: line + 1, ownsLine: false };
+    // The stub moves this declaration onto a line of its own, so the spaces or
+    // tabs that separated it from the previous statement are swallowed by the
+    // replacement. Leaving them behind would strand trailing whitespace at the
+    // end of the previous line, which formatters and whitespace rules flag.
+    const separator = /[ \t]*$/.exec(prefix)?.[0] ?? "";
+    return {
+      insertPos: start - separator.length,
+      insertEnd: start,
+      indent,
+      line: line + 1,
+      ownsLine: false,
+    };
   }
 
-  return { insertPos: lineStart, indent, line: line + 1, ownsLine: true };
+  return {
+    insertPos: lineStart,
+    insertEnd: lineStart,
+    indent,
+    line: line + 1,
+    ownsLine: true,
+  };
 }

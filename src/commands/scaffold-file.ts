@@ -66,7 +66,7 @@ export function scaffoldSourceText(
   for (const declaration of undocumented) {
     edits.push({
       pos: declaration.insertPos,
-      end: declaration.insertPos,
+      end: declaration.insertEnd,
       text: buildStub(declaration),
     });
     counts[declaration.kind] = (counts[declaration.kind] ?? 0) + 1;

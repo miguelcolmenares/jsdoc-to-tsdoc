@@ -8,6 +8,7 @@ const declaration = (
 ): ExportedDeclaration => ({
   hasDocComment: false,
   insertPos: 0,
+  insertEnd: 0,
   indent: "",
   line: 1,
   parameters: [],
