@@ -14,6 +14,7 @@ const declaration = (
   typeParameters: [],
   hasReturnValue: false,
   names: [overrides.name],
+  ownsLine: true,
   ...overrides,
 });
 

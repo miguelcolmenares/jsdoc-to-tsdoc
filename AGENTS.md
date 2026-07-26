@@ -68,8 +68,8 @@ src/
 
 **Data-flow of a `convert`:** `scanner.extractJsDocComments` (via
 `ts.getLeadingCommentRanges`) → for each comment `transformer.runPipeline`
-(ordered rules over the comment text) → `scanner.applyEdits` (splices replacements
-from highest offset down) → `writer` or `reporter`. The shared orchestrator is
+(ordered rules over the comment text) → `scanner.applyEdits` (one left-to-right
+pass over the original text, joined once) → `writer` or `reporter`. The shared orchestrator is
 [`src/commands/convert-file.ts`](./src/commands/convert-file.ts) (pure, no I/O),
 reused by both `scan` (counting) and `convert` (writing).
 
@@ -77,7 +77,7 @@ reused by both `scan` (counting) and `convert` (writing).
 compiler API — classifies each export, records its insertion offset and indent,
 flags existing docs) → `scanner.undocumentedDeclarations` → for each,
 `scaffolder.buildStub` (name inference + per-kind template) → `scanner.applyEdits`
-(zero-width insertions, spliced highest-offset-first) → `writer` or `reporter`.
+(zero-width insertions, applied in one left-to-right pass) → `writer` or `reporter`.
 The shared orchestrator is [`src/commands/scaffold-file.ts`](./src/commands/scaffold-file.ts)
 (pure, no I/O). Re-exports are skipped; a second run is a no-op (idempotent).
 

@@ -63,6 +63,14 @@ export interface ExportedDeclaration {
   readonly insertPos: number;
   /** Indentation (leading whitespace) of the declaration's line. */
   readonly indent: string;
+  /**
+   * Whether the declaration is the first thing on its line. When `false`
+   * another statement precedes it on the same line, so a stub must open on a
+   * fresh line: TypeScript treats a comment that starts on the same line as
+   * preceding code as a *trailing* comment of that earlier statement, which
+   * would leave this declaration looking undocumented.
+   */
+  readonly ownsLine: boolean;
   /** 1-based line number of the declaration, for reporting. */
   readonly line: number;
   /** Parameters, when the declaration is function-like. */
@@ -272,6 +280,11 @@ function hasLeadingDocComment(sourceText: string, node: ts.Node): boolean {
  * text, which would cost O(n) time and memory per declaration and make a file
  * with many exports quadratic.
  *
+ * When another statement shares the line (`const a = 1; export const b = 2;`),
+ * inserting at the line start would attach the comment to that earlier
+ * statement instead. In that case the stub is anchored at the declaration
+ * itself, which keeps the documentation on the symbol it describes.
+ *
  * @param sourceFile - The parsed source file, used for its line map.
  * @param node - The declaration to document.
  * @returns The insertion offset, the line's indentation, and its 1-based line number.
@@ -279,13 +292,19 @@ function hasLeadingDocComment(sourceText: string, node: ts.Node): boolean {
 function locateInsertion(
   sourceFile: ts.SourceFile,
   node: ts.Node,
-): { insertPos: number; indent: string; line: number } {
+): { insertPos: number; indent: string; line: number; ownsLine: boolean } {
   const start = node.getStart(sourceFile, /* includeJsDocComment */ false);
   const { line } = sourceFile.getLineAndCharacterOfPosition(start);
   const lineStart = sourceFile.getPositionOfLineAndCharacter(line, 0);
-  const indent =
-    /^[ \t]*/.exec(sourceFile.text.slice(lineStart, start))?.[0] ?? "";
-  return { insertPos: lineStart, indent, line: line + 1 };
+  const prefix = sourceFile.text.slice(lineStart, start);
+
+  // Only leading whitespace may separate the line start from the declaration;
+  // anything else means the line already holds other code.
+  if (!/^[ \t]*$/.test(prefix)) {
+    return { insertPos: start, indent: "", line: line + 1, ownsLine: false };
+  }
+
+  return { insertPos: lineStart, indent: prefix, line: line + 1, ownsLine: true };
 }
 
 /**
@@ -487,7 +506,10 @@ export function collectExportedDeclarations(
       return;
     }
     recorded.add(statement);
-    const { insertPos, indent, line } = locateInsertion(sourceFile, statement);
+    const { insertPos, indent, line, ownsLine } = locateInsertion(
+      sourceFile,
+      statement,
+    );
     results.push({
       name: shape.name,
       names: shape.names,
@@ -496,6 +518,7 @@ export function collectExportedDeclarations(
       insertPos,
       indent,
       line,
+      ownsLine,
       parameters: shape.parameters,
       typeParameters: shape.typeParameters,
       hasReturnValue: shape.hasReturnValue,

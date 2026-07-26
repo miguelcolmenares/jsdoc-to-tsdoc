@@ -231,6 +231,15 @@ describe("collectExportedDeclarations", () => {
     expect(declaration.line).toBe(3);
   });
 
+  it("anchors at the declaration when another statement shares the line", () => {
+    const source = "const a = 1; export const b = 2;";
+    const declaration = findByName(source, "a.ts", "b");
+
+    // Inserting at the line start would document `const a = 1;` instead.
+    expect(source.slice(declaration.insertPos)).toBe("export const b = 2;");
+    expect(declaration.indent).toBe("");
+  });
+
   it("preserves the declaration's indentation for the stub", () => {
     // A declaration is indented when it sits inside a namespace-style wrapper;
     // the recorded indent is what the stub must be rendered with.

@@ -86,4 +86,27 @@ describe("applyEdits", () => {
   it("returns the source unchanged when there are no edits", () => {
     expect(applyEdits("unchanged", [])).toBe("unchanged");
   });
+
+  it("throws on overlapping edits instead of corrupting the output", () => {
+    expect(() =>
+      applyEdits("AAAA BBBB", [
+        { pos: 0, end: 6, text: "x" },
+        { pos: 4, end: 9, text: "y" },
+      ]),
+    ).toThrow(/overlapping edit at 4/);
+  });
+
+  it("throws on an inverted span", () => {
+    expect(() =>
+      applyEdits("AAAA", [{ pos: 3, end: 1, text: "x" }]),
+    ).toThrow(/inverted edit span/);
+  });
+
+  it("accepts an edit that starts exactly where the previous one ended", () => {
+    const result = applyEdits("AABB", [
+      { pos: 0, end: 2, text: "x" },
+      { pos: 2, end: 4, text: "y" },
+    ]);
+    expect(result).toBe("xy");
+  });
 });

@@ -166,9 +166,14 @@ function renderComment(
  * ```
  */
 export function buildStub(declaration: ExportedDeclaration): string {
-  return renderComment(
+  const comment = renderComment(
     summaryFor(declaration),
     tagLinesFor(declaration),
     declaration.indent,
   );
+
+  // A comment that opens on the same line as preceding code is parsed as that
+  // statement's trailing comment, so this declaration would still read as
+  // undocumented and collect another stub on every run.
+  return declaration.ownsLine ? comment : `\n${comment}`;
 }

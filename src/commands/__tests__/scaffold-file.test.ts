@@ -147,6 +147,28 @@ describe("scaffoldSourceText", () => {
     expect(result.output).toContain(" * Alpha and beta.");
   });
 
+  it("documents a declaration that shares its line, idempotently", () => {
+    // TypeScript treats a comment opening on the same line as preceding code as
+    // that statement's trailing comment, so the stub must start a fresh line or
+    // the declaration keeps looking undocumented and collects a stub per run.
+    const source = "export const a = 1; export const b = 2;";
+
+    const first = scaffoldSourceText(source, "a.ts");
+    expect(first.stubsAdded).toBe(2);
+    expect(first.output).toMatch(/\n\/\*\*\n \* B\./);
+    expect(scaffoldSourceText(first.output, "a.ts").changed).toBe(false);
+  });
+
+  it("does not attach a stub to an earlier statement on the same line", () => {
+    const result = scaffoldSourceText("const a = 1; export const b = 2;", "a.ts");
+
+    expect(result.stubsAdded).toBe(1);
+    // The comment must sit after `const a = 1;`, not above it.
+    expect(result.output.startsWith("const a = 1;")).toBe(true);
+    expect(result.output).toContain(" * B.");
+    expect(scaffoldSourceText(result.output, "a.ts").changed).toBe(false);
+  });
+
   it("tallies stubs by export kind", () => {
     const source = [
       "export function submitForm(prevState: S, formData: FormData) { return prevState; }",

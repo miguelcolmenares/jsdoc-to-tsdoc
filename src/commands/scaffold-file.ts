@@ -44,9 +44,10 @@ export interface FileScaffold {
  * Generates TSDoc stubs for every undocumented export in a source file.
  *
  * @remarks
- * Each stub is inserted at the start of its declaration's line. Because
- * {@link applyEdits} splices from the highest offset down, the insertion points
- * captured during the inventory stay valid as edits are applied.
+ * Each stub is inserted at its declaration's anchor offset. Every offset is
+ * read from the original source and {@link applyEdits} consumes them in a
+ * single left-to-right pass, so the insertion points captured during the
+ * inventory stay valid as edits are applied.
  *
  * @param sourceText - The full source file contents.
  * @param fileName - The file name (selects the TS/TSX dialect).
