@@ -54,6 +54,31 @@ export interface LeadingComment {
   readonly text: string;
   /** 1-based line where the attached comment begins. */
   readonly line: number;
+  /**
+   * Offset where the comment starts — the first `//` of a run, not the
+   * indentation before it.
+   */
+  readonly pos: number;
+  /** Offset just past the comment, or past the last line of a run. */
+  readonly end: number;
+}
+
+/**
+ * Reports whether a `//` line is an instruction to another tool.
+ *
+ * @remarks
+ * Exported because a caller rewriting comments needs it and
+ * {@link LeadingComment.kind} deliberately will not answer it: a run counts as
+ * prose the moment one line is not a directive, so a `line` comment can still
+ * contain one. Promoting such a run into a `/** *\/` block would move the
+ * directive inside a block comment, where it stops working and no longer names
+ * the line it applied to.
+ *
+ * @param line - One `//` line, leading whitespace already trimmed.
+ * @returns `true` when the line instructs a tool rather than documenting code.
+ */
+export function isToolDirective(line: string): boolean {
+  return DIRECTIVE.test(line.trim());
 }
 
 /**
@@ -119,6 +144,8 @@ export function readLeadingComment(
       kind: isDoc ? "doc" : "block",
       text,
       line: lineOf(nearest.pos),
+      pos: nearest.pos,
+      end: nearest.end,
     };
   }
 
@@ -152,6 +179,8 @@ export function readLeadingComment(
     kind: isDirective ? "directive" : "line",
     text: run.join("\n"),
     line: lineOf(start === undefined ? nearest.pos : start.pos),
+    pos: start === undefined ? nearest.pos : start.pos,
+    end: nearest.end,
   };
 }
 

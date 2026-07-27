@@ -52,7 +52,7 @@ npx jsdoc-to-tsdoc escalate --check
 ### Options
 
 | Flag | Commands | Purpose |
-|------|----------|---------|
+| ------ | ---------- | --------- |
 | `--cwd <dir>` | all | Project directory to scan (default `.`). |
 | `--dry-run` / `--preview` | `init`, `convert`, `scaffold`, `escalate` | Show a diff without writing. |
 | `--strict` | `init` | Start `tsdoc-require-2/require` at `error` instead of `warn`. |
@@ -87,7 +87,7 @@ Answers the question that comes *before* the migration: what does this project's
 Every exported declaration is classified, and each file lands in exactly one bucket — the **most severe** topology among its exports, because that is the one naming the next action:
 
 | Topology | Meaning | Next action |
-|------|------|------|
+| ------ | ------ | ------ |
 | **Valid TSDoc** | The comment covers what the signature declares | ready for `convert` |
 | **Partial docs** | A comment, but part of the signature is undocumented | `convert`, then fill the gaps |
 | **Line comments** | No doc comment, but `//` prose a human wrote | prose to promote into `/** */` |
@@ -178,7 +178,7 @@ Generates a TSDoc stub for every exported declaration that has **no** documentat
 Exports are found and classified through the TypeScript compiler API, so an `export` keyword inside a string or a nested scope is never mistaken for a declaration:
 
 | Export shape | Generated stub |
-|------|------|
+| ------ | ------ |
 | `export default function HeroSection({…}: HeroSectionProps)` | "Renders the hero section." + `@param props` + `@returns` |
 | `export async function submitContactForm(prevState, formData)` | "Server Action. Submits the contact form." + one `@param` each + `@returns` |
 | `export const useHash = () => …` | "React hook for the hash." + `@returns` |
@@ -227,7 +227,7 @@ The CI gate, and the only command that validates rather than transforms. It neve
 Comments are parsed with **`@microsoft/tsdoc` itself** — the same parser `eslint-plugin-tsdoc` runs — so a clean `check` predicts a clean lint. Three categories are reported:
 
 | Category | Meaning |
-|------|------|
+| ------ | ------ |
 | `syntax` | The official parser rejected the comment. |
 | `missing` | An export carries no doc comment. |
 | `legacy` | The comment still holds JSDoc that `convert` would rewrite. |

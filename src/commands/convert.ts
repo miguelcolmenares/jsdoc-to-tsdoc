@@ -29,6 +29,7 @@ interface ChangedFile {
   readonly path: string;
   readonly commentsChanged: number;
   readonly membersDocumented: number;
+  readonly commentsPromoted: number;
   readonly appliedRules: readonly string[];
 }
 
@@ -59,6 +60,10 @@ export default defineCommand({
       type: "boolean",
       description: "Only fix @param/@returns hygiene; leave prose untouched.",
     },
+    "promote-line-comments": {
+      type: "boolean",
+      description: "Rewrite // prose above undocumented exports as /** */.",
+    },
     check: {
       type: "boolean",
       description: "CI mode — exit 3 if any file would change; never writes.",
@@ -80,6 +85,7 @@ export default defineCommand({
     try {
       const cwd = resolve(String(args.cwd ?? "."));
       const lite = Boolean(args.lite);
+      const promoteLineComments = Boolean(args["promote-line-comments"]);
       const check = Boolean(args.check);
       const dryRun = Boolean(args["dry-run"]) || Boolean(args.preview);
       const reportFormat = parseReportFormat(args.report);
@@ -99,10 +105,14 @@ export default defineCommand({
       const diffs: string[] = [];
       let commentsChanged = 0;
       let membersDocumented = 0;
+      let commentsPromoted = 0;
 
       for (const file of files) {
         const before = await readFile(file, "utf8");
-        const conversion = convertSourceText(before, file, { lite });
+        const conversion = convertSourceText(before, file, {
+          lite,
+          promoteLineComments,
+        });
         if (!conversion.changed) {
           continue;
         }
@@ -112,10 +122,12 @@ export default defineCommand({
           path: relativePath,
           commentsChanged: conversion.commentsChanged,
           membersDocumented: conversion.membersDocumented,
+          commentsPromoted: conversion.commentsPromoted,
           appliedRules: conversion.appliedRules,
         });
         commentsChanged += conversion.commentsChanged;
         membersDocumented += conversion.membersDocumented;
+        commentsPromoted += conversion.commentsPromoted;
 
         if (willWrite) {
           await writeFileText(file, conversion.output);
@@ -132,6 +144,7 @@ export default defineCommand({
             filesChanged: changedFiles.length,
             commentsChanged,
             membersDocumented,
+            commentsPromoted,
             wrote: willWrite,
             files: changedFiles,
           })}\n`,
@@ -155,6 +168,7 @@ export default defineCommand({
               filesChanged: changedFiles.length,
               commentsChanged,
               membersDocumented,
+              commentsPromoted,
               wrote: willWrite,
             },
             colors,

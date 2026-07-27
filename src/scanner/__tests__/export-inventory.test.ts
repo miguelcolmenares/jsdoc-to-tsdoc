@@ -467,10 +467,14 @@ describe("collectExportedDeclarations", () => {
 
     const declaration = findByName(source, "user.ts", "getUser");
     expect(declaration.hasDocComment).toBe(false);
+    // The span covers the whole run and starts at the first `//`, not at the
+    // detached note above it — promotion replaces exactly this range.
     expect(declaration.comment).toEqual({
       kind: "line",
       text: "// Fetches the user by ID\n// and returns null when absent.",
       line: 3,
+      pos: source.indexOf("// Fetches"),
+      end: source.indexOf("absent.") + "absent.".length,
     });
   });
 
@@ -484,6 +488,8 @@ describe("collectExportedDeclarations", () => {
       kind: "doc",
       text: "/** Adds. */",
       line: 1,
+      pos: 0,
+      end: "/** Adds. */".length,
     });
   });
 

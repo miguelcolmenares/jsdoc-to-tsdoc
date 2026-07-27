@@ -68,12 +68,19 @@ export function formatConvertSummary(
     readonly filesChanged: number;
     readonly commentsChanged: number;
     readonly membersDocumented: number;
+    readonly commentsPromoted: number;
     readonly wrote: boolean;
   },
   colors: Colors,
 ): string {
-  const { filesScanned, filesChanged, commentsChanged, membersDocumented, wrote } =
-    params;
+  const {
+    filesScanned,
+    filesChanged,
+    commentsChanged,
+    membersDocumented,
+    commentsPromoted,
+    wrote,
+  } = params;
   const verb = wrote ? "converted" : "would convert";
   if (filesChanged === 0) {
     return colors.green(`✓ Nothing to convert — ${filesScanned} files already TSDoc-clean.`);
@@ -85,7 +92,14 @@ export function formatConvertSummary(
     membersDocumented > 0
       ? ` ${String(membersDocumented)} @property description(s) moved onto the members they document.`
       : "";
+  // Promotion is called out for the same reason: it turns lines that were not
+  // documentation into documentation, so the count of rewritten comments does
+  // not account for it.
+  const promoted =
+    commentsPromoted > 0
+      ? ` ${String(commentsPromoted)} line comment(s) promoted to /** */.`
+      : "";
   return colors.bold(
-    `${verb} ${commentsChanged} comment(s) across ${filesChanged}/${filesScanned} file(s).${moved}`,
+    `${verb} ${commentsChanged} comment(s) across ${filesChanged}/${filesScanned} file(s).${moved}${promoted}`,
   );
 }
