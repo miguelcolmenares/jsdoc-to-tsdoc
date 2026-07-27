@@ -838,6 +838,18 @@ concrete failure that put it here.
 - [ ] `AGENTS.md` §11 (handoff and what is next) and §12 (the decisions and
       traps this iteration produced).
 
+**Automating a manual step**
+
+- [ ] Delete the instruction that told people to do it by hand. An interim
+      workaround is written as an instruction and outlives the problem silently,
+      because nothing fails when it goes stale. `AGENTS.md` §9 said to request
+      the Copilot review manually "until the workflow lands on the default
+      branch"; the workflow landed, the sentence stayed, and it was followed
+      months later — three no-op comments on PR #19.
+- [ ] Say where the automation runs and what it looks like when it works, so
+      "it did not happen" is distinguishable from "it has not happened yet".
+      Without that, the natural response to a slow run is to redo it by hand.
+
 **Before asking for review**
 
 - [ ] `npm run check` from the repo root — typecheck, lint, tests, and the

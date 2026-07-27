@@ -557,6 +557,13 @@ time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
   gains a capability, its header is part of the change.** This is the same
   defect as round 4's docstring, and it recurred because it was fixed as an
   instance rather than swept as a class.
+- **An interim instruction outlives the problem it was written for.** §9 told
+  agents to request the Copilot review by hand "until the workflow lands on the
+  default branch". It landed; the sentence stayed; it was followed anyway, for
+  three no-op comments on PR #19. Nothing fails when a workaround goes stale —
+  that is exactly why it survives. **Automating a manual step includes deleting
+  the instruction to do it manually**, now a `PLAN.md` → _Definition of Done_
+  item. A sweep for other interim instructions across the three docs found none.
 - **A sweep has to match the semantic class, not the literal one.** After round
   5 the fences were swept for _unlabelled_, so two `PLAN.md` blocks tagged
   ```` ```bash ```` that hold nothing but terminal output survived. The rule
