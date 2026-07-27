@@ -175,6 +175,78 @@ describe("convertFileOverview", () => {
       comment("/**", " * @packageDocumentation", " * HTTP utilities.", " */"),
     );
   });
+
+  it("emits @packageDocumentation once when @fileoverview precedes @module", () => {
+    const input = comment(
+      "/**",
+      " * @fileoverview HTTP utilities.",
+      " * @module lib/http",
+      " */",
+    );
+    expect(convertFileOverview.apply(input)).toBe(
+      comment("/**", " * @packageDocumentation", " * HTTP utilities.", " */"),
+    );
+  });
+
+  it("keeps the prose when @module precedes @fileoverview", () => {
+    const input = comment(
+      "/**",
+      " * @module lib/http",
+      " * @fileoverview HTTP utilities.",
+      " */",
+    );
+    expect(convertFileOverview.apply(input)).toBe(
+      comment("/**", " * @packageDocumentation", " * HTTP utilities.", " */"),
+    );
+  });
+
+  it("does not add a second tag when @packageDocumentation is already present", () => {
+    const input = comment(
+      "/**",
+      " * @packageDocumentation",
+      " * HTTP utilities.",
+      " * @module lib/http",
+      " */",
+    );
+    expect(convertFileOverview.apply(input)).toBe(
+      comment("/**", " * @packageDocumentation", " * HTTP utilities.", " */"),
+    );
+  });
+
+  it("still converts when the only @packageDocumentation is example text", () => {
+    const input = comment(
+      "/**",
+      " * @module lib/http",
+      " * @example",
+      " * ```ts",
+      " * @packageDocumentation",
+      " * ```",
+      " */",
+    );
+    expect(convertFileOverview.apply(input)).toBe(
+      comment(
+        "/**",
+        " * @packageDocumentation",
+        " * @example",
+        " * ```ts",
+        " * @packageDocumentation",
+        " * ```",
+        " */",
+      ),
+    );
+  });
+
+  it("drops a repeated @module without leaving an empty tag behind", () => {
+    const input = comment(
+      "/**",
+      " * @module lib/http",
+      " * @module lib/http/client",
+      " */",
+    );
+    expect(convertFileOverview.apply(input)).toBe(
+      comment("/**", " * @packageDocumentation", " */"),
+    );
+  });
 });
 
 describe("removeRedundantTags", () => {

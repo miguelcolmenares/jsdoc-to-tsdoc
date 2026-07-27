@@ -75,3 +75,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that exits `3` when the repo is not locked in yet, without running ESLint),
   `--severity` to walk an escalation back to `warn`, `--skip-preflight`, and
   `--report` (`json` / `md`).
+
+### Fixed
+
+- `convert` no longer emits a duplicate `@packageDocumentation` when a comment
+  carries more than one file-level tag. JSDoc routinely pairs them —
+  `@fileoverview` for the prose, `@module` for the name — and each was
+  translated independently, so the rewritten comment declared the modifier
+  twice. At most one is emitted now, the tag is not added at all when the
+  comment already has it, and prose from the dropped tags is kept as a summary
+  line so no documentation is lost with them.
