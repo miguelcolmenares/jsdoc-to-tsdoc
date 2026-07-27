@@ -298,11 +298,25 @@ Exit codes: `0` clean · `2` unreadable `tsdoc.json` · `3` problems found.
 
 ```bash
 npm install
-npm run check   # typecheck + lint + test + the CLI's own `check` over this repo
+npm run check   # format + typecheck + lint + test + the CLI's own `check` over this repo
 npm run build   # bundle to dist/ via unbuild
+npm run format  # prettier --write .
 ```
 
 The CLI dogfoods the tooling it ships: it is documented with TSDoc, linted with `eslint-plugin-tsdoc` + `eslint-plugin-tsdoc-require-2` at `error`, and gated by its own `check` command (`npm run check:tsdoc`).
+
+### Git hooks
+
+`npm install` sets up Husky (`prepare`). Two hooks:
+
+| Hook | What it does |
+| ------ | -------------- |
+| `pre-commit` | Blocks direct commits to `main` / `master`, then runs Prettier and ESLint over the staged files via lint-staged. |
+| `pre-push` | Runs the whole gate — `npm run check`, including the dogfood. About 11 s. |
+
+`pre-push` is where the expensive work goes: a commit is a checkpoint, a push is what CI and other people see. Because the gate includes `check:tsdoc`, a push cannot introduce a comment the CLI itself would reject. Use `git push --no-verify` for the rare case where you need to bypass it.
+
+Prettier formats TypeScript and JSON, never Markdown — see [`.prettierignore`](./.prettierignore) for why, which is a real constraint in this repo rather than a preference.
 
 ## License
 

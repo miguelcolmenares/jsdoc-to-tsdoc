@@ -208,6 +208,15 @@ in `--check` mode.
 - **Commits**: Conventional Commits (`feat`/`fix`/`docs`/`refactor`/`test`/
   `chore`/`ci`), **no ticket prefix** (OSS), **no AI-attribution trailers**.
   Branches: `feature/<desc>` or `fix/<desc>`. One reviewable unit per commit.
+- **Formatting is Prettier's job for `.ts`/`.json`, and nobody's for `.md`.**
+  Markdown is in `.prettierignore` on purpose: Prettier strips the padding
+  inside a code span, and this repo's prose is full of spans whose whitespace is
+  the subject — the docs describe the content after the ` * ` prefix, which it
+  rewrites to `*`, naming a different string. Do not "fix" that ignore.
+- **Hooks enforce this locally.** `pre-commit` refuses a direct commit to
+  `main`/`master` and runs lint-staged; `pre-push` runs `npm run check` in full,
+  dogfood included, in about 11 s. `--no-verify` exists but a bypassed push is a
+  push CI will catch anyway.
 
 ---
 
