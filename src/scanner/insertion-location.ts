@@ -49,9 +49,17 @@ export interface LeadingComment {
 }
 
 /**
- * Reads the comment that documents a declaration, if any.
+ * Reads the comment attached to a declaration, if any.
  *
  * @remarks
+ * Attachment is a position, not a meaning. A `// eslint-disable-next-line` or a
+ * plain `/* … *\/` block occupies exactly the slot a doc comment would, and both
+ * are returned — labelled by {@link LeadingComment.kind} — rather than dropped.
+ * Callers disagree about what counts: the presence rule wants `doc` alone, while
+ * `convert` needs to see the `line` prose it could promote and the classifier
+ * needs to tell an undocumented export from one that only carries a directive.
+ * Deciding here would force every caller to inherit one caller's definition.
+ *
  * Leading trivia can hold comments that document something other than this
  * declaration — most commonly a file-level `@packageDocumentation` header above
  * the first export, but also any note left a blank line further up. Counting
