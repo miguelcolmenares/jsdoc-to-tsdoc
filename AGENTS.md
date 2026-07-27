@@ -324,17 +324,16 @@ a real codebase is.
 
 ### In flight
 
-**PR #19 (`scan --classify`) is parked, not stalled.** It is complete and green
-— CI across the full matrix, 515 tests, every review thread answered and
-resolved — and is deliberately left open **waiting for the Copilot review quota
-to come back**, so it gets one more independent pass before merging. Do not
-merge it to unblock other work; branch from `main` instead.
+Nothing open. PR #19 is merged; start from _Next up_ below.
 
-That decision came from evidence: the reviews on #16, #17, #18 and #19 each
-found defects the author had missed, including two false-positive classes that
-survived a deliberate hunt for exactly those. The cloud alternative
-(`/code-review ultra`) failed twice with 30-minute timeouts and cannot be
-relied on as a substitute.
+**Wait for a clean Copilot round before merging, even when the PR looks done.**
+PR #19 was deliberately parked for one while the quota was out, and that round
+and the two after it each found something — a docstring contradicting the design
+it documented, then a Markdown nit whose class turned out to include a broken
+`AGENTS.md`. The reviews on #16, #17, #18 and #19 all found defects the author
+had missed, including two false-positive classes that survived a deliberate
+hunt for exactly those. The cloud alternative (`/code-review ultra`) failed
+twice with 30-minute timeouts and cannot be relied on as a substitute.
 
 ### Next up
 
