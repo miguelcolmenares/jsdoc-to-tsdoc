@@ -345,9 +345,9 @@ a real codebase is.
 
 ### In flight
 
-**`fix/property-member-docs`** — `@property` relocation. Complete locally and
-validated against all six real pre-migration files; going through the review
-cycle.
+Nothing. `fix/property-member-docs` merged as `0661786` after eight review
+rounds, seven of which found something. `main` is green: 567 tests, `check`
+clean over the CLI's own source.
 
 **Wait for a clean Copilot round before merging, even when the PR looks done.**
 PR #19 was deliberately parked for one while the quota was out, and that round
@@ -374,7 +374,7 @@ with checkboxes is `PLAN.md` → _In Scope (v0.1.0)_.
    dogfood (phase 10), then publish (phase 11).
 
 Done since this section was written: `scan --classify`, `--fail-on-missing`,
-`--fail-on-stale` (PR #19); `@property` relocation.
+`--fail-on-stale` (PR #19); `@property` relocation (PR #20).
 
 ---
 

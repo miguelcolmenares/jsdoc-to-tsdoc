@@ -1102,7 +1102,7 @@ re-extract its own inputs.
 | 6.5 | **Classifier domain + `scan --classify`** and the confidence gates | **Done** — `classifier` domain, `--fail-on-missing` / `--fail-on-stale` |
 | 7 | Interactive wizard (`@clack/prompts`) | Not started |
 | 8 | **Escalator + preflight ESLint check** | **Done** — `escalator` domain + `escalate` command |
-| 9 | Fixture-based snapshot tests (3 real repos) | **Partial** — unit + integration tests done (447 tests, ~95 %); repo fixtures pending |
+| 9 | Fixture-based snapshot tests (3 real repos) | **Partial** — unit + integration tests done (567 tests, ~95 %); repo fixtures pending |
 | 10 | Dogfood on a 4th real repo end-to-end | Not started |
 | 11 | npm publish as `jsdoc-to-tsdoc` v0.1.0 | Not started |
 
