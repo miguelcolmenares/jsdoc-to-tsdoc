@@ -80,7 +80,8 @@ Deterministic, formatting-preserving transformations derived from real-world mig
 - Removes JSDoc optional-parameter brackets: `@param [id=1]` → `@param id`.
 - Inserts the mandatory `name - description` hyphen in `@param` / `@typeParam`.
 - Converts `@access private` / `@private` → `@internal` (and `@protected` / `@public`).
-- Converts `@module` / `@fileoverview` → `@packageDocumentation`.
+- Converts `@module` / `@fileoverview` → `@packageDocumentation`, at most once per
+  comment even when several file-level tags appear together (their prose is kept).
 - Deletes TypeScript-redundant tags (`@function`, `@async`, `@class`, `@enum`, …) and JSDoc-only tags (`@typedef`, `@callback`, `@type`, `@property`).
 
 Content inside fenced code blocks (```` ```…``` ````) is never modified, so `@example` code is preserved verbatim.
