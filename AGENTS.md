@@ -316,6 +316,11 @@ Develop locally → update **all** docs and `PLAN.md` → `/prepare-pr` →
 `/create-github-pr` → address review, iterating until a review adds no new
 comments → `/finalize-github-pr`. Then pick the next item and repeat.
 
+**Work the checklist in `PLAN.md` → _Definition of Done_ before asking for
+review.** It is not generic hygiene: every item on it is something that was
+omitted once and caught by a reviewer instead of a gate. §12 below records what
+each omission cost; the checklist is the version you can act on beforehand.
+
 The package is **not** declared ready to publish until it has been run end to
 end against the real repositories the tool was designed from (see §8 and
 `PLAN.md` → _Fixture Strategy_): `nextjs-boilerplate`, `homecare-nextjs`,

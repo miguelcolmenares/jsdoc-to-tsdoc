@@ -795,6 +795,60 @@ import { removeTypeBraces } from "@/transformer/rules/remove-type-braces";
 The barrel is the contract; internal files can be renamed or split without
 breaking consumers.
 
+### Definition of Done
+
+A change is not finished when its tests pass. Every item below was omitted at
+least once and caught in review rather than by a gate, so each one names the
+concrete failure that put it here.
+
+**Adding a domain**
+
+- [ ] Barrel `index.ts` with a `@packageDocumentation` header stating what the
+      domain answers.
+- [ ] **Re-exported from `src/index.ts`**, or deliberately absent with the
+      reason written in that file's header. `classifier` shipped with a barrel,
+      tests, docs and a command consuming it, but no path from the package root
+      — invisible to every library consumer while the entry point claimed to
+      re-export each domain. `src/__tests__/public-surface.test.ts` pins the
+      exported names, so this now fails a test instead of waiting for a
+      reviewer.
+- [ ] Tests in `__tests__/`, asserting at the layer that owns the behaviour. A
+      test that still passes when the fix is reverted is proving nothing.
+
+**Changing what a module does**
+
+- [ ] Its file header describes the module as it is now, not as it was. Three
+      headers had quietly narrowed: `scan.ts` still called itself an inventory
+      after gaining a second mode and two CI gates, `insertion-location.ts`
+      still promised a boolean after it began labelling four kinds of comment,
+      and `export-inventory.ts` was framed around `scaffold` alone after the
+      classifier became a second consumer.
+- [ ] Any docstring that a reader could act on still matches the design. A
+      summary that contradicts the code invites the next reader to "fix" the
+      code to match the summary.
+
+**Changing the CLI surface**
+
+- [ ] `README.md` usage and options table, including how a new flag interacts
+      with existing ones. `--lite` was accepted and silently ignored alongside
+      `--classify`, so a CI job could read the output as the narrower set it
+      asked for.
+- [ ] `PLAN.md` — the *In Scope (v0.1.0)* checkbox, and any example output in
+      this file that the change makes stale.
+- [ ] `CHANGELOG.md` under *Unreleased*.
+- [ ] `AGENTS.md` §11 (handoff and what is next) and §12 (the decisions and
+      traps this iteration produced).
+
+**Before asking for review**
+
+- [ ] `npm run check` from the repo root — typecheck, lint, tests, and the
+      `check` dogfood over the CLI's own source.
+- [ ] **Fix the class, not the instance.** Every defect above recurred at least
+      once because it was fixed where it was reported. When a review finds one,
+      sweep every place the same shape could exist — and match the *semantic*
+      class: sweeping Markdown fences for "unlabelled" left the ones mislabelled
+      `bash` untouched, and they came back the next round.
+
 ### TSDoc-First (dogfooding)
 
 Every exported symbol in the CLI **must** have valid TSDoc. This is enforced
