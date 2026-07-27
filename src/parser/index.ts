@@ -19,6 +19,7 @@ export {
   getDocumentedParams,
   getDocumentedTypeParams,
   hasTypeBraces,
+  mayHoldPropertyTag,
   readPropertyTags,
   type PropertyTag,
 } from "@/parser/jsdoc-parser";

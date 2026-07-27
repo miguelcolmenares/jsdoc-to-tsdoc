@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   getBlockTags,
   hasTypeBraces,
+  mayHoldPropertyTag,
   readPropertyTags,
 } from "@/parser/jsdoc-parser";
 
@@ -53,6 +54,34 @@ describe("hasTypeBraces", () => {
       " */",
     );
     expect(hasTypeBraces(input)).toBe(false);
+  });
+});
+
+// The pre-filter that skips the read is only safe while it accepts everything
+// the reader does. A previous pre-filter was declared beside the pattern it
+// guarded, went out of sync with it in one round, and made `@Property`
+// invisible to the whole pipeline. This pins the direction that matters: the
+// guard may over-accept, never under-accept.
+describe("mayHoldPropertyTag", () => {
+  it.each([
+    "@property title - A title",
+    "@prop title - A title",
+    "@Property title - A title",
+    "@PROP title - A title",
+    "@property {string} ['quoted-key'] - Quoted",
+    "@property",
+  ])("accepts every spelling the reader reads: %s", (line) => {
+    const input = comment("/**", ` * ${line}`, " */");
+
+    expect(readPropertyTags(input)).not.toHaveLength(0);
+    expect(mayHoldPropertyTag(input)).toBe(true);
+  });
+
+  it("rejects a comment with no property tag", () => {
+    const input = comment("/**", " * @param id - The id", " */");
+
+    expect(mayHoldPropertyTag(input)).toBe(false);
+    expect(readPropertyTags(input)).toEqual([]);
   });
 });
 

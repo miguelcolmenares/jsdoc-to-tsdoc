@@ -199,6 +199,33 @@ export function getDocumentedTypeParams(comment: string): readonly string[] {
 const PROPERTY_LINE =
   /^@(?:property|prop)\b[ \t]*(?:\{[^}]*\}[ \t]*)?(\[[^\]]*\]|(?!-(?:[ \t]|$))\S+)?[ \t]*(?:-[ \t]*)?(.*)$/i;
 
+// Substring shared by every spelling `PROPERTY_LINE` can match, so text without
+// it holds no `@property` tag. Deliberately the only such pre-filter in the
+// codebase: the previous one was declared beside the pattern it guards and
+// drifted out of sync with it within a round.
+const PROPERTY_HINT = /@prop/i;
+
+/**
+ * Reports whether text could hold a `@property` tag at all.
+ *
+ * @remarks
+ * A cheap substring test for callers about to do something expensive on the
+ * strength of a tag being present — reading a comment's tags, or parsing a file
+ * a second time to find the members they document. It is deliberately loose:
+ * every spelling {@link readPropertyTags} recognizes contains this substring, so
+ * a false negative is impossible and a false positive costs only the work that
+ * would have happened anyway.
+ *
+ * Shared rather than reimplemented per caller, because a pre-filter that
+ * disagrees with the pattern it guards silently skips real work.
+ *
+ * @param text - A comment or a whole source file.
+ * @returns `false` only when no `@property` tag can be present.
+ */
+export function mayHoldPropertyTag(text: string): boolean {
+  return PROPERTY_HINT.test(text);
+}
+
 /**
  * Reduces a JSDoc name token to the member name it refers to.
  *
@@ -268,6 +295,14 @@ export interface PropertyTag {
  * ```
  */
 export function readPropertyTags(comment: string): readonly PropertyTag[] {
+  // Most comments carry no `@property` at all, and walking them to discover
+  // that costs a full traversal on top of the one the caller is already doing.
+  // The guard lives here rather than at each call site so no caller can hold a
+  // stricter idea of what counts than the pattern below does.
+  if (!mayHoldPropertyTag(comment)) {
+    return [];
+  }
+
   const tags: PropertyTag[] = [];
   let open: { name: string; parts: string[]; line: number; end: number } | null =
     null;

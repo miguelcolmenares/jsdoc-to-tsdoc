@@ -438,6 +438,23 @@ time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
   `jsdoc-parser` were swept for the same reason, since `leadingTag` and
   `getBlockTags` had been case-insensitive all along and the readers were the
   outliers.
+- **The second pre-filter went where the first one should have.** Review asked
+  for a `@prop` hint in `removeJsdocOnlyTags` "like the one in
+  `convert-file.ts`" — which would have been a third copy of a constant that had
+  already drifted once. It lives in the parser now, as `mayHoldPropertyTag`,
+  guarding `readPropertyTags` from the inside; both call sites use it and no
+  caller can hold a stricter idea of what counts than the pattern does. A table
+  test asserts the guard accepts every spelling the reader reads, and
+  reintroducing the case-sensitive version fails it in three places.
+  **A pre-filter belongs next to what it guards, not next to what calls it.**
+- **Quote the number you measured, not the one you expected.** The rule-level
+  win is real and large — 20 × 475 comment applications drop from **24.0 ms to
+  13.7 ms**, since 454 of those 475 comments take the early return. Over a full
+  `convert` pass it is **~37 ms → ~35 ms**, inside the run-to-run band, because
+  TypeScript parsing dominates. The first attempt measured the arms
+  sequentially and made the guarded build look 4 ms _slower_; interleaving
+  A/B/A/B removed a drift no amount of warmup would have. **Interleave the arms
+  — a warm-up fixes JIT, not a machine that gets busier while you measure.**
 - **A fixture set that the tool has already converted proves nothing.** The
   scratchpad copy of the six real files was converted in place by an earlier
   run, so re-validating against it reported `Nothing to convert — already

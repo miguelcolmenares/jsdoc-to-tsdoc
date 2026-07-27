@@ -14,7 +14,7 @@
  * @since 0.1.0
  */
 
-import { readPropertyTags } from "@/parser";
+import { mayHoldPropertyTag, readPropertyTags } from "@/parser";
 import {
   applyEdits,
   collectMemberTargets,
@@ -49,9 +49,6 @@ interface PropertyPlan {
 }
 
 const EMPTY_PLAN: PropertyPlan = { removable: [], insertions: [] };
-
-/** Cheap pre-filter for text that could hold a `@property` / `@prop` tag. */
-const PROPERTY_HINT = /@prop/i;
 
 /**
  * Renders a member doc comment on its own line, indented to match the member.
@@ -169,14 +166,12 @@ export function convertSourceText(
   // The member lookup costs a second parse of the file, and it is only ever
   // read to place a `@property` description. Skip it when the text cannot hold
   // one: `--lite` runs only the `@param` / `@returns` hygiene rules and never
-  // touches the tag, and a file without the substring has no tag to relocate.
-  // `@prop` covers `@property` too, and the match is case-insensitive because
-  // the reader is — a case-sensitive guard here would skip the lookup for a
-  // file whose only tag is `@Property`, silently making it unrelocatable. A
-  // false positive costs only the parse that would have happened anyway.
-  // Measured over this repo's 104 source files, a full `convert` pass drops
-  // from 55 ms to 37 ms.
-  const needsMembers = !context.lite && PROPERTY_HINT.test(sourceText);
+  // touches the tag, and a file holding no tag has nothing to relocate. The
+  // test is the parser's own, so this cannot come to disagree with what the
+  // reader accepts — a guard that did would skip the lookup for a real tag and
+  // silently make it unrelocatable. Measured over this repo's 104 source files,
+  // a full `convert` pass drops from 55 ms to 37 ms.
+  const needsMembers = !context.lite && mayHoldPropertyTag(sourceText);
   const memberTargets = needsMembers
     ? collectMemberTargets(sourceText, fileName)
     : new Map<number, readonly MemberTarget[]>();
