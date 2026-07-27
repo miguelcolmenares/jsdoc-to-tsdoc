@@ -412,6 +412,14 @@ time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
 - **A relocation is only emitted when the tag actually leaves.** If the pipeline
   declines the rewrite, writing the member comment would duplicate the prose
   instead of moving it.
+- **Review round 1 found the same class of bug inside the fix for it.**
+  `readPropertyTags` matched only identifier-like names, so a JSDoc spelling it
+  missed — `['quoted-key']`, a bare tag carrying only prose — fell through to
+  the blanket `JSDOC_ONLY_TAGS` deletion and lost its description. Broadening
+  the pattern was half the fix; the other half is that the rule now **keeps any
+  `@property` the reader did not report**. A safe default has to be structural,
+  or the next unforeseen spelling walks into the same trapdoor. When a change
+  exists to stop a failure, check that its own fallback path cannot cause it.
 - Final result on the real files: 25 tags in, 0 left, 7 moved onto members, 15
   deleted as redundant, 3 demoted — **0 descriptions lost, against 10 before** —
   idempotent on a second run and clean under `check --syntax-only`.
