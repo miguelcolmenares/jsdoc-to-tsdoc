@@ -9,7 +9,10 @@ import type { Rule } from "@/transformer/pipeline";
 
 const MODULE = /^@module\b/;
 const OVERVIEW = /^@(?:fileoverview|file|overview)\b[ \t]*(.*)$/;
-const PACKAGE_DOCUMENTATION = /^@packageDocumentation\b/;
+const PACKAGE_DOCUMENTATION_TAG = "@packageDocumentation";
+// Derived from the tag text rather than written twice: the substring pre-filter
+// in `hasPackageDocumentation` is only sound while it matches this pattern.
+const PACKAGE_DOCUMENTATION = new RegExp(`^${PACKAGE_DOCUMENTATION_TAG}\\b`);
 
 /**
  * Reports whether the comment already carries a `@packageDocumentation` tag.
@@ -20,10 +23,19 @@ const PACKAGE_DOCUMENTATION = /^@packageDocumentation\b/;
  * an `@example` block is sample text, not a tag this comment declares. The
  * mapper leaves every line untouched, so the rebuilt comment is discarded.
  *
+ * A substring test guards that traversal. Line content is always a slice of the
+ * raw comment, so a comment that does not contain the tag text anywhere cannot
+ * have a line matching it — the pre-filter can only skip work the scan would
+ * have spent finding nothing, which is the overwhelmingly common case.
+ *
  * @param comment - The full comment text.
  * @returns `true` when the tag is already present outside a fenced block.
  */
 function hasPackageDocumentation(comment: string): boolean {
+  if (!comment.includes(PACKAGE_DOCUMENTATION_TAG)) {
+    return false;
+  }
+
   let found = false;
   mapCommentLines(comment, (content, context) => {
     if (!context.inFence && PACKAGE_DOCUMENTATION.test(content)) {
