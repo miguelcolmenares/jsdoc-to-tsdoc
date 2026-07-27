@@ -397,6 +397,16 @@ time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
   listing members of a family is precisely how the gap appeared. **Always read
   the suppressed notes** (§9): they have now been the sharpest finding on two
   of the last three PRs.
+- **Round 3 found a real one, and the spec settled it.** `documentedNames`
+  scanned each line once from its start, so a single-line comment
+  (`/** Adds. @param a - … @param b - … *\/`) yielded **no** tags at all — not
+  just the first, as reported — and every parameter came back as an
+  undocumented gap. Rather than argue about whether a mid-line tag counts,
+  `@microsoft/tsdoc` was asked directly: it reads both params and the
+  `@returns`. The readers now scan the whole line. `getBlockTags` was left
+  alone — the conversion rules rewrite a line *by its leading tag*, which is a
+  different question — and `getCommentTags` was added for "does this comment
+  document X at all".
 - **Validated against a pre-migration commit, not just the migrated repos.**
   The three real repos are already migrated, so they only measure the end
   state. `nextjs-boilerplate` at `b803d9c` (the parent of the migration merge)

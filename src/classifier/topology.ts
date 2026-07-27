@@ -16,7 +16,7 @@
  */
 
 import {
-  getBlockTags,
+  getCommentTags,
   getDocumentedParams,
   getDocumentedTypeParams,
 } from "@/parser";
@@ -231,8 +231,10 @@ function findGaps(
 
   // Read through the fence-aware tag reader rather than a regex over the whole
   // comment: an `@returns` shown inside an `@example` is sample text, and
-  // letting it answer the question would hide a real gap.
-  const tags = new Set(getBlockTags(comment));
+  // letting it answer the question would hide a real gap. `getCommentTags`
+  // rather than `getBlockTags`, because on a single-line comment every tag but
+  // the first opens no line of its own.
+  const tags = new Set(getCommentTags(comment));
   if (
     declaration.hasReturnValue &&
     !tags.has("@returns") &&

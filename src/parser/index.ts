@@ -14,6 +14,7 @@ export {
 
 export {
   getBlockTags,
+  getCommentTags,
   getDocumentedParams,
   getDocumentedTypeParams,
   hasTypeBraces,

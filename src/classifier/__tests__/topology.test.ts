@@ -252,6 +252,48 @@ describe("classifyDeclaration", () => {
     expect(classify(source, "getUser").topology).toBe("no-docs");
   });
 
+  // A single-line comment carries its whole body on one line, so every tag but
+  // the first opens no line of its own. The official parser reads all of them
+  // (verified against `@microsoft/tsdoc`), so reading only the first reported
+  // every later tag as an undocumented gap.
+  it("reads every tag on a single-line comment", () => {
+    const source = [
+      "/** Adds. @param a - The a. @param b - The b. @returns The sum. */",
+      "export function add(a: number, b: number): number { return a + b; }",
+    ].join("\n");
+
+    const result = classify(source, "add");
+    expect(result.gaps).toEqual([]);
+    expect(result.topology).toBe("valid");
+  });
+
+  it("still spots a real gap on a single-line comment", () => {
+    const source = [
+      "/** Adds. @param a - The a. @returns The sum. */",
+      "export function add(a: number, b: number): number { return a + b; }",
+    ].join("\n");
+
+    expect(classify(source, "add").gaps).toEqual([
+      "@param b is not documented",
+    ]);
+  });
+
+  it("does not read a tag named in prose as documentation", () => {
+    const source = [
+      "/**",
+      " * Runs in `--lite` mode (pure `@param` / `@returns` hygiene).",
+      " *",
+      " * @param a - The addend.",
+      " * @returns The sum.",
+      " */",
+      "export function inc(a: number): number { return a + 1; }",
+    ].join("\n");
+
+    const result = classify(source, "inc");
+    expect(result.stale).toEqual([]);
+    expect(result.topology).toBe("valid");
+  });
+
   it("does not let a fenced @returns satisfy the gap check", () => {
     const source = [
       "/**",

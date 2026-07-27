@@ -59,15 +59,24 @@ export function hasTypeBraces(comment: string): boolean {
 // `@param` and its JSDoc aliases, then an optional `{type}`, then the name —
 // which may be wrapped in JSDoc optional brackets, carry a default value, or use
 // dot notation for a member of an object parameter.
+//
+// Matched anywhere a tag can begin — the comment's own start or after
+// whitespace — not only at the start of a line. A single-line comment carries
+// its whole body on one line (`/** Adds. @param a - … @param b - … *\/`), and
+// the official parser reads every tag in it, so anchoring to the line start
+// silently found none of them.
 const PARAM_NAME =
-  /^@(?:param|arg|argument)\s+(?:\{[^}]*\}\s*)?\[?\s*(?:\.\.\.)?([A-Za-z_$][\w$]*(?:\.[\w$]+)*)/;
-const TYPE_PARAM_NAME = /^@(?:typeParam|template)\s+([A-Za-z_$][\w$]*)/;
+  /(?:^|\s)@(?:param|arg|argument)\s+(?:\{[^}]*\}\s*)?\[?\s*(?:\.\.\.)?([A-Za-z_$][\w$]*(?:\.[\w$]+)*)/g;
+const TYPE_PARAM_NAME =
+  /(?:^|\s)@(?:typeParam|template)\s+([A-Za-z_$][\w$]*)/g;
+const ANY_TAG = /(?:^|\s)(@[a-zA-Z]+)/g;
 
 /**
  * Collects the names a comment documents with a given tag family.
  *
  * @param comment - The full `/** *\/` comment text.
- * @param pattern - Pattern whose first capture group is the documented name.
+ * @param pattern - Global pattern whose first capture group is the documented
+ * name.
  * @returns The names in source order, including any duplicates.
  */
 function documentedNames(
@@ -79,13 +88,50 @@ function documentedNames(
     if (context.inFence) {
       return content;
     }
-    const name = pattern.exec(content.trim())?.[1];
-    if (name !== undefined) {
-      names.push(name);
+    pattern.lastIndex = 0;
+    let match = pattern.exec(content);
+    while (match !== null) {
+      const name = match[1];
+      if (name !== undefined) {
+        names.push(name);
+      }
+      match = pattern.exec(content);
     }
     return content;
   });
   return names;
+}
+
+/**
+ * Collects every block tag a comment carries, wherever it sits on its line.
+ *
+ * @remarks
+ * {@link getBlockTags} reports only the tag that *opens* a line, which is what
+ * the conversion rules need: they rewrite a line by its leading tag. Asking
+ * whether a comment documents something at all is a different question, and on
+ * a single-line comment every tag but the first opens no line of its own.
+ *
+ * @param comment - The full `/** *\/` comment text.
+ * @returns Lowercased tag tokens, deduplicated.
+ */
+export function getCommentTags(comment: string): readonly string[] {
+  const seen = new Set<string>();
+  mapCommentLines(comment, (content, context) => {
+    if (context.inFence) {
+      return content;
+    }
+    ANY_TAG.lastIndex = 0;
+    let match = ANY_TAG.exec(content);
+    while (match !== null) {
+      const tag = match[1];
+      if (tag !== undefined) {
+        seen.add(tag.toLowerCase());
+      }
+      match = ANY_TAG.exec(content);
+    }
+    return content;
+  });
+  return [...seen];
 }
 
 /**
