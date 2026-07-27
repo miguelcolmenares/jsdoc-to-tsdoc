@@ -15,6 +15,7 @@ const declaration = (
   parameters: [],
   typeParameters: [],
   hasReturnValue: false,
+  hasSignature: true,
   names: [overrides.name],
   ownsLine: true,
   ...overrides,
@@ -50,6 +51,21 @@ describe("buildStub", () => {
     expect(stub).toContain(
       "@param fallback - TODO(tsdoc): describe fallback (optional).",
     );
+  });
+
+  it("never emits @param for a this type annotation", () => {
+    // `readParameters` drops it, so a stub can no longer write
+    // `@param this - TODO(tsdoc): describe this.` into a user's source.
+    const stub = buildStub(
+      declaration({
+        name: "handle",
+        kind: "function",
+        parameters: [{ name: "event", isOptional: false, isSynthesized: false }],
+      }),
+    );
+
+    expect(stub).not.toContain("@param this");
+    expect(stub).toContain("@param event -");
   });
 
   it("emits @typeParam for generics", () => {

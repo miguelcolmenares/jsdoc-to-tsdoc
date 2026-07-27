@@ -407,6 +407,24 @@ time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
   alone — the conversion rules rewrite a line *by its leading tag*, which is a
   different question — and `getCommentTags` was added for "does this comment
   document X at all".
+- **A cloud review found two the sweeps missed, both false positives.**
+  (1) A hook recognized by its *name* but produced by a factory or bound to an
+  alias (`export const useHash = createHook(defaults);`) reports no parameters,
+  and "declares none" was treated as evidence — so every `@param` on it came
+  back as contradicting the signature. `hasSignature` now separates "nothing
+  was read" from "nothing is declared"; only the second is evidence.
+  (2) TypeScript models an explicit `this` annotation as a parameter, so
+  `readParameters` counted it. That was **not** confined to the classifier:
+  `scaffold` was writing `@param this - TODO(tsdoc): describe this.` into real
+  source, and `check` accepted it because the syntax is legal TSDoc. A shared
+  reader means a defect in it is a defect in every command that reads it.
+  Both had survived a deliberate hunt for false positives that probed generics,
+  arrow consts, anonymous defaults and rest parameters — a reminder that the
+  author is the worst person to audit their own blind spots.
+- **A test that survives the revert is proving nothing.** The first version of
+  the `this`-annotation test asserted through the classifier, where the
+  destructuring guard suppressed the very difference it meant to pin; it passed
+  against the broken build. Assert at the layer that owns the behaviour.
 - **Validated against a pre-migration commit, not just the migrated repos.**
   The three real repos are already migrated, so they only measure the end
   state. `nextjs-boilerplate` at `b803d9c` (the parent of the migration merge)

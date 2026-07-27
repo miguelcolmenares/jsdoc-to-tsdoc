@@ -405,6 +405,47 @@ describe("collectExportedDeclarations", () => {
     ]);
   });
 
+  it("drops an explicit this annotation from the parameter list", () => {
+    const source =
+      "export function handle(this: HTMLElement, event: Event): void {}";
+
+    const declaration = findByName(source, "handle.ts", "handle");
+    expect(declaration.parameters).toEqual([
+      { name: "event", isOptional: false, isSynthesized: false },
+    ]);
+  });
+
+  it("numbers positional labels after dropping the this annotation", () => {
+    // `this` occupies a parameter slot in the AST, so counting it would push the
+    // first real parameter to index 1 and label it `arg1` instead of `options`.
+    const source =
+      "export function format(this: Formatter, { pretty }: Config): string { return ''; }";
+
+    const declaration = findByName(source, "format.ts", "format");
+    expect(declaration.parameters).toEqual([
+      { name: "options", isOptional: false, isSynthesized: true },
+    ]);
+  });
+
+  it("separates a signature that was never read from one declaring nothing", () => {
+    const readable = findByName(
+      "export function read(): string { return ''; }",
+      "a.ts",
+      "read",
+    );
+    expect(readable.hasSignature).toBe(true);
+    expect(readable.parameters).toEqual([]);
+
+    const unreadable = findByName(
+      "export const useHash = createHook(defaults);",
+      "a.ts",
+      "useHash",
+    );
+    expect(unreadable.kind).toBe("hook");
+    expect(unreadable.hasSignature).toBe(false);
+    expect(unreadable.parameters).toEqual([]);
+  });
+
   it("marks a destructured parameter's name as synthesized", () => {
     const source =
       "export function Card({ title, href }: CardProps) { return null; }";

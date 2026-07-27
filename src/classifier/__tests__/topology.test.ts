@@ -94,6 +94,46 @@ describe("classifyDeclaration", () => {
     expect(confidenceOf(result.topology)).toBe("stale");
   });
 
+  // "Nothing was read" and "nothing is declared" are different facts. A hook
+  // recognized by its name but produced by a factory or bound to an alias has
+  // no reachable signature, and treating that as "declares none" turned every
+  // `@param` on it into a contradiction.
+  it.each([
+    ["a factory", "export const useHash = createHook(defaults);"],
+    ["an alias", "export const useHash = useSession;"],
+  ])("never reports staleness for a hook built by %s", (_label, statement) => {
+    const source = [
+      "/**",
+      " * Reads the hash.",
+      " *",
+      " * @param initial - The initial value.",
+      " * @returns The hash.",
+      " */",
+      statement,
+    ].join("\n");
+
+    const result = classify(source, "useHash");
+    expect(result.stale).toEqual([]);
+    expect(result.topology).toBe("valid");
+  });
+
+  // `this` is a type annotation callers never pass, so it is neither a
+  // parameter to document nor one to report as undocumented.
+  it("ignores an explicit this type annotation", () => {
+    const source = [
+      "/**",
+      " * Handles the event.",
+      " *",
+      " * @param event - The event.",
+      " */",
+      "export function handle(this: HTMLElement, event: Event): void {}",
+    ].join("\n");
+
+    const result = classify(source, "handle");
+    expect(result.gaps).toEqual([]);
+    expect(result.topology).toBe("valid");
+  });
+
   it("says so when the signature declares no parameters at all", () => {
     const source = [
       "/**",

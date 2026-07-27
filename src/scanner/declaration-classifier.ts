@@ -157,6 +157,25 @@ export function returnsJsx(node: ts.SignatureDeclaration): boolean {
 }
 
 /**
+ * Reports whether a parameter is the `this` type annotation rather than a real
+ * parameter.
+ *
+ * @remarks
+ * `function handle(this: HTMLElement, event: Event)` declares one parameter;
+ * `this` is a type annotation that callers never pass. TypeScript still models
+ * it as a parameter node, so counting it made `scaffold` write
+ * `@param this - TODO(tsdoc): describe this.` into real code, and made the
+ * classifier report a correct comment as missing it. `this` is reserved, so no
+ * real parameter can carry the name.
+ *
+ * @param parameter - The parameter node to inspect.
+ * @returns `true` for the `this` pseudo-parameter.
+ */
+function isThisParameter(parameter: ts.ParameterDeclaration): boolean {
+  return ts.isIdentifier(parameter.name) && parameter.name.text === "this";
+}
+
+/**
  * Extracts the parameter names of a function-like declaration.
  *
  * @remarks
@@ -164,31 +183,36 @@ export function returnsJsx(node: ts.SignatureDeclaration): boolean {
  * the conventional `props` / `options` placeholder rather than by inventing one
  * name per destructured field.
  *
+ * The `this` annotation is dropped before anything else, so it neither appears
+ * as a parameter nor shifts the positional labels of the ones that follow.
+ *
  * @param node - The function-like declaration.
  * @returns One entry per declared parameter, in source order.
  */
 export function readParameters(
   node: ts.SignatureDeclaration,
 ): readonly ExportParameter[] {
-  return node.parameters.map((parameter, index) => {
-    const isOptional =
-      parameter.questionToken !== undefined ||
-      parameter.initializer !== undefined;
+  return node.parameters
+    .filter((parameter) => !isThisParameter(parameter))
+    .map((parameter, index) => {
+      const isOptional =
+        parameter.questionToken !== undefined ||
+        parameter.initializer !== undefined;
 
-    if (ts.isIdentifier(parameter.name)) {
-      return { name: parameter.name.text, isOptional, isSynthesized: false };
-    }
+      if (ts.isIdentifier(parameter.name)) {
+        return { name: parameter.name.text, isOptional, isSynthesized: false };
+      }
 
-    // Destructured binding: `{ title, href }: Props`. Name it after the type
-    // when it looks like a props object, else fall back to a positional label.
-    const typeText = parameter.type?.getText() ?? "";
-    const name = /Props$/.test(typeText)
-      ? "props"
-      : index === 0
-        ? "options"
-        : `arg${String(index)}`;
-    return { name, isOptional, isSynthesized: true };
-  });
+      // Destructured binding: `{ title, href }: Props`. Name it after the type
+      // when it looks like a props object, else fall back to a positional label.
+      const typeText = parameter.type?.getText() ?? "";
+      const name = /Props$/.test(typeText)
+        ? "props"
+        : index === 0
+          ? "options"
+          : `arg${String(index)}`;
+      return { name, isOptional, isSynthesized: true };
+    });
 }
 
 /**

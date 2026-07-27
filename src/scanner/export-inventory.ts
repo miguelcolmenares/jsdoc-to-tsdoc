@@ -87,6 +87,11 @@ export interface ExportedDeclaration {
   readonly typeParameters: readonly string[];
   /** Whether the declaration returns a value (drives whether to emit `@returns`). */
   readonly hasReturnValue: boolean;
+  /**
+   * Whether {@link ExportedDeclaration.parameters} was read from a callable
+   * node, rather than left empty because no signature was reachable.
+   */
+  readonly hasSignature: boolean;
 }
 
 /**
@@ -161,6 +166,7 @@ export function collectExportedDeclarations(
       parameters: shape.parameters,
       typeParameters: shape.typeParameters,
       hasReturnValue: shape.hasReturnValue,
+      hasSignature: shape.hasSignature,
     });
   };
 

@@ -110,6 +110,13 @@ function rootOf(documented: string): string {
  * every React component, which is the most common shape in the codebases this
  * tool was built for.
  *
+ * A signature that could not be read at all is likewise never judged. A hook
+ * recognized by its name but built by a factory or bound to an alias
+ * (`export const useHash = createHook(defaults);`) reports no parameters, and
+ * treating that as "declares none" turned every `@param` on it into a
+ * contradiction. "Nothing was read" and "nothing is declared" are different
+ * facts, and only the second is evidence.
+ *
  * Type parameters carry no such ambiguity, so they are always checked.
  *
  * @param declaration - The export being classified.
@@ -132,7 +139,7 @@ function findStale(
     }
   }
 
-  if (!isFunctionLikeKind(declaration.kind)) {
+  if (!isFunctionLikeKind(declaration.kind) || !declaration.hasSignature) {
     return stale;
   }
 

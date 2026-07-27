@@ -52,6 +52,19 @@ export interface DeclarationShape {
   readonly parameters: readonly ExportParameter[];
   readonly typeParameters: readonly string[];
   readonly hasReturnValue: boolean;
+  /**
+   * Whether {@link DeclarationShape.parameters} was read from a callable node.
+   *
+   * @remarks
+   * An empty parameter list is ambiguous on its own. `export function f() {}`
+   * declares none; `export const useHash = createHook(defaults);` is classified
+   * a hook by its name, but nothing here can see the signature it ends up with.
+   * Both arrive as `[]`, and anything comparing documentation against the
+   * signature has to tell them apart — reporting `@param initial` as
+   * contradicting a signature that was never read is exactly the false alarm
+   * that makes a report worth ignoring.
+   */
+  readonly hasSignature: boolean;
 }
 
 /**
@@ -76,6 +89,7 @@ export function describeStatement(
     parameters: [] as readonly ExportParameter[],
     typeParameters: [] as readonly string[],
     hasReturnValue: false,
+    hasSignature: false,
   };
 
   const readTypeParameters = (
@@ -93,6 +107,7 @@ export function describeStatement(
       parameters,
       typeParameters: readTypeParameters(statement),
       hasReturnValue: hasReturnValue(statement),
+      hasSignature: true,
     };
   }
 
@@ -187,6 +202,7 @@ export function describeStatement(
         parameters,
         typeParameters: readTypeParameters(initializer),
         hasReturnValue: hasReturnValue(initializer),
+        hasSignature: true,
       };
     }
 
@@ -242,5 +258,6 @@ export function describeDefaultExport(
     parameters,
     typeParameters: (expression.typeParameters ?? []).map((p) => p.name.text),
     hasReturnValue: hasReturnValue(expression),
+    hasSignature: true,
   };
 }

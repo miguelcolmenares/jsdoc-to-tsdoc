@@ -97,6 +97,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `scaffold` no longer emits `@param this` for a function declaring an explicit
+  `this` type annotation. TypeScript models it as a parameter, so stubs were
+  written into real source documenting an argument callers never pass, and
+  `check` accepted them because the syntax is legal TSDoc.
+
 - `convert` no longer emits a duplicate `@packageDocumentation` when a comment
   carries more than one file-level tag. JSDoc routinely pairs them —
   `@fileoverview` for the prose, `@module` for the name — and each was
