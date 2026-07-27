@@ -38,9 +38,7 @@ export const TODO_MARKER = "TODO(tsdoc): verify this generated summary.";
  * @param parameters - The declaration's parameters.
  * @returns One `@param` line per parameter, in source order.
  */
-function paramLines(
-  parameters: readonly ExportParameter[],
-): readonly string[] {
+function paramLines(parameters: readonly ExportParameter[]): readonly string[] {
   return parameters.map((parameter) => {
     const optional = parameter.isOptional ? " (optional)" : "";
     return `@param ${parameter.name} - TODO(tsdoc): describe ${parameter.name}${optional}.`;
@@ -53,9 +51,7 @@ function paramLines(
  * @param typeParameters - The declaration's type-parameter names.
  * @returns One `@typeParam` line per type parameter.
  */
-function typeParamLines(
-  typeParameters: readonly string[],
-): readonly string[] {
+function typeParamLines(typeParameters: readonly string[]): readonly string[] {
   return typeParameters.map(
     (name) => `@typeParam ${name} - TODO(tsdoc): describe ${name}.`,
   );

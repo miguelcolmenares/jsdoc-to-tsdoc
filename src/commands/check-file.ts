@@ -58,10 +58,7 @@ export interface CheckOptions {
  * @param names - Every name the statement binds.
  * @returns The problem message.
  */
-function describeMissing(
-  name: string,
-  names: readonly string[],
-): string {
+function describeMissing(name: string, names: readonly string[]): string {
   // A single statement can bind several names (`export const a = 1, b = 2;`),
   // and they share one comment position, so naming only the first would send
   // the reader looking for a declaration that is already covered.

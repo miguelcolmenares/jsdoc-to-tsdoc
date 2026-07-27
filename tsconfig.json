@@ -28,6 +28,11 @@
 
     "noEmit": true
   },
-  "include": ["src", "build.config.ts", "vitest.config.ts", "eslint.config.mjs"],
+  "include": [
+    "src",
+    "build.config.ts",
+    "vitest.config.ts",
+    "eslint.config.mjs"
+  ],
   "exclude": ["node_modules", "dist", "coverage"]
 }

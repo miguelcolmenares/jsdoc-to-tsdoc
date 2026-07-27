@@ -8,7 +8,8 @@ import { mapCommentLines } from "@/parser";
 import type { Rule } from "@/transformer/pipeline";
 
 const COLON_SEPARATOR = /^(@(?:param|typeParam)\s+)([$A-Za-z_][\w$.]*)\s*:\s*/;
-const MISSING_SEPARATOR = /^(@(?:param|typeParam)\s+)([$A-Za-z_][\w$.]*)\s+(?!-\s)(\S.*)$/;
+const MISSING_SEPARATOR =
+  /^(@(?:param|typeParam)\s+)([$A-Za-z_][\w$.]*)\s+(?!-\s)(\S.*)$/;
 
 /**
  * Ensures `@param` and `@typeParam` use the TSDoc-required `name - description`

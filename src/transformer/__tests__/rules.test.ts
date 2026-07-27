@@ -30,15 +30,15 @@ const apply = (
 
 describe("removeTypeBraces", () => {
   it("strips a type brace from @param", () => {
-    expect(apply(removeTypeBraces, "/** @param {string} name - The name */")).toBe(
-      "/** @param name - The name */",
-    );
+    expect(
+      apply(removeTypeBraces, "/** @param {string} name - The name */"),
+    ).toBe("/** @param name - The name */");
   });
 
   it("strips a type brace from @returns", () => {
-    expect(apply(removeTypeBraces, "/** @returns {boolean} Whether valid */")).toBe(
-      "/** @returns Whether valid */",
-    );
+    expect(
+      apply(removeTypeBraces, "/** @returns {boolean} Whether valid */"),
+    ).toBe("/** @returns Whether valid */");
   });
 
   it("leaves fenced example code untouched", () => {
@@ -62,9 +62,9 @@ describe("stripOptionalParamBrackets", () => {
   });
 
   it("removes [name] brackets", () => {
-    expect(apply(stripOptionalParamBrackets, "/** @param [name] - The name */")).toBe(
-      "/** @param name - The name */",
-    );
+    expect(
+      apply(stripOptionalParamBrackets, "/** @param [name] - The name */"),
+    ).toBe("/** @param name - The name */");
   });
 });
 
@@ -82,14 +82,19 @@ describe("renameTags", () => {
   });
 
   it("ignores unmapped tags", () => {
-    expect(apply(renameTags, "/** @remarks note */")).toBe("/** @remarks note */");
+    expect(apply(renameTags, "/** @remarks note */")).toBe(
+      "/** @remarks note */",
+    );
   });
 });
 
 describe("stripReturnPromise", () => {
   it("removes Promise<T> with a description", () => {
     expect(
-      apply(stripReturnPromise, "/** @returns Promise<User | null> - The user */"),
+      apply(
+        stripReturnPromise,
+        "/** @returns Promise<User | null> - The user */",
+      ),
     ).toBe("/** @returns The user */");
   });
 
@@ -102,9 +107,16 @@ describe("stripReturnPromise", () => {
 
   it("handles nested generics without leaving a stray angle bracket", () => {
     expect(
-      apply(stripReturnPromise, "/** @returns Promise<Array<User>> - the users */"),
+      apply(
+        stripReturnPromise,
+        "/** @returns Promise<Array<User>> - the users */",
+      ),
     ).toBe("/** @returns the users */");
-    const bare = comment("/**", " * @returns Promise<Map<string, User>>", " */");
+    const bare = comment(
+      "/**",
+      " * @returns Promise<Map<string, User>>",
+      " */",
+    );
     expect(apply(stripReturnPromise, bare)).toBe(
       comment("/**", " * @returns", " */"),
     );
@@ -119,9 +131,9 @@ describe("addHyphenSeparator", () => {
   });
 
   it("converts a colon separator to a hyphen", () => {
-    expect(apply(addHyphenSeparator, "/** @param query: string search */")).toBe(
-      "/** @param query - string search */",
-    );
+    expect(
+      apply(addHyphenSeparator, "/** @param query: string search */"),
+    ).toBe("/** @param query - string search */");
   });
 
   it("leaves an existing hyphen untouched", () => {
@@ -131,13 +143,17 @@ describe("addHyphenSeparator", () => {
   });
 
   it("leaves a name-only @param untouched", () => {
-    expect(apply(addHyphenSeparator, "/** @param name */")).toBe("/** @param name */");
+    expect(apply(addHyphenSeparator, "/** @param name */")).toBe(
+      "/** @param name */",
+    );
   });
 });
 
 describe("convertAccessTags", () => {
   it("maps @access private to @internal", () => {
-    expect(apply(convertAccessTags, "/** @access private */")).toBe("/** @internal */");
+    expect(apply(convertAccessTags, "/** @access private */")).toBe(
+      "/** @internal */",
+    );
   });
 
   it("maps @access protected to @protected", () => {
@@ -147,7 +163,9 @@ describe("convertAccessTags", () => {
   });
 
   it("maps the @private shorthand to @internal", () => {
-    expect(apply(convertAccessTags, "/** @private */")).toBe("/** @internal */");
+    expect(apply(convertAccessTags, "/** @private */")).toBe(
+      "/** @internal */",
+    );
   });
 });
 
@@ -268,7 +286,12 @@ describe("removeRedundantTags", () => {
   });
 
   it("drops @extends and @implements", () => {
-    const input = comment("/**", " * @extends Base", " * @implements Runnable", " */");
+    const input = comment(
+      "/**",
+      " * @extends Base",
+      " * @implements Runnable",
+      " */",
+    );
     expect(apply(removeRedundantTags, input)).toBe(comment("/**", " */"));
   });
 });

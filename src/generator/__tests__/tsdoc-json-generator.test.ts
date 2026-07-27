@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { generateTsdocJson, mergeTsdocJson } from "@/generator/tsdoc-json-generator";
+import {
+  generateTsdocJson,
+  mergeTsdocJson,
+} from "@/generator/tsdoc-json-generator";
 
 describe("generateTsdocJson", () => {
   it("emits the minimal document when there are no custom tags", () => {
@@ -28,7 +31,8 @@ describe("generateTsdocJson", () => {
 describe("mergeTsdocJson", () => {
   it("adds missing definitions while preserving existing ones", () => {
     const existing = JSON.stringify({
-      $schema: "https://developer.microsoft.com/json-schemas/tsdoc/v0/tsdoc.schema.json",
+      $schema:
+        "https://developer.microsoft.com/json-schemas/tsdoc/v0/tsdoc.schema.json",
       tagDefinitions: [{ tagName: "@since", syntaxKind: "block" }],
     });
 
@@ -42,7 +46,9 @@ describe("mergeTsdocJson", () => {
   });
 
   it("preserves unrelated fields and injects a missing schema", () => {
-    const merged = mergeTsdocJson(`{ "supportForTags": { "@foo": true } }`, ["@since"]);
+    const merged = mergeTsdocJson(`{ "supportForTags": { "@foo": true } }`, [
+      "@since",
+    ]);
     const parsed = JSON.parse(merged) as Record<string, unknown>;
 
     expect(parsed["supportForTags"]).toEqual({ "@foo": true });
@@ -55,13 +61,21 @@ describe("mergeTsdocJson", () => {
       tagDefinitions: { tagName: string }[];
     };
 
-    expect(parsed.tagDefinitions).toEqual([{ tagName: "@since", syntaxKind: "block" }]);
+    expect(parsed.tagDefinitions).toEqual([
+      { tagName: "@since", syntaxKind: "block" },
+    ]);
   });
 
   it("tolerates malformed existing tagDefinitions without throwing", () => {
     const existing = JSON.stringify({
-      $schema: "https://developer.microsoft.com/json-schemas/tsdoc/v0/tsdoc.schema.json",
-      tagDefinitions: [null, 42, { syntaxKind: "block" }, { tagName: "@author" }],
+      $schema:
+        "https://developer.microsoft.com/json-schemas/tsdoc/v0/tsdoc.schema.json",
+      tagDefinitions: [
+        null,
+        42,
+        { syntaxKind: "block" },
+        { tagName: "@author" },
+      ],
     });
 
     const merged = mergeTsdocJson(existing, ["@since", "@author"]);
@@ -90,6 +104,8 @@ describe("mergeTsdocJson", () => {
 
     expect(Array.isArray(parsed)).toBe(false);
     expect(parsed.$schema).toContain("tsdoc.schema.json");
-    expect(parsed.tagDefinitions).toEqual([{ tagName: "@since", syntaxKind: "block" }]);
+    expect(parsed.tagDefinitions).toEqual([
+      { tagName: "@since", syntaxKind: "block" },
+    ]);
   });
 });

@@ -12,6 +12,9 @@ import { writeFile } from "node:fs/promises";
  * @param path - The absolute path to write.
  * @param content - The file contents.
  */
-export async function writeFileText(path: string, content: string): Promise<void> {
+export async function writeFileText(
+  path: string,
+  content: string,
+): Promise<void> {
   await writeFile(path, content, "utf8");
 }

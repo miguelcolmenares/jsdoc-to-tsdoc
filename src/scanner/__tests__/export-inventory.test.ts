@@ -60,16 +60,16 @@ describe("collectExportedDeclarations", () => {
     const source = ["const local = 1;", "export { local as publicName };"].join(
       "\n",
     );
-    expect(collectExportedDeclarations(source, "a.ts").map((d) => d.name)).toEqual(
-      ["local"],
-    );
+    expect(
+      collectExportedDeclarations(source, "a.ts").map((d) => d.name),
+    ).toEqual(["local"]);
   });
 
   it("documents a local declaration exported as default", () => {
     const source = ["function bar() {}", "export default bar;"].join("\n");
-    expect(collectExportedDeclarations(source, "a.ts").map((d) => d.name)).toEqual(
-      ["bar"],
-    );
+    expect(
+      collectExportedDeclarations(source, "a.ts").map((d) => d.name),
+    ).toEqual(["bar"]);
   });
 
   it("describes only the bindings an export list actually publishes", () => {
@@ -175,9 +175,9 @@ describe("collectExportedDeclarations", () => {
     ].join("\n");
 
     const declarations = collectExportedDeclarations(source, "a.ts");
-    expect(declarations.find((d) => d.name === "documented")?.hasDocComment).toBe(
-      true,
-    );
+    expect(
+      declarations.find((d) => d.name === "documented")?.hasDocComment,
+    ).toBe(true);
     expect(declarations.find((d) => d.name === "bare")?.hasDocComment).toBe(
       false,
     );
@@ -220,9 +220,9 @@ describe("collectExportedDeclarations", () => {
       "// eslint-disable-next-line no-console",
       "export function withLineComment(): void {}",
     ].join("\n");
-    expect(findByName(lineComment, "a.ts", "withLineComment").hasDocComment).toBe(
-      false,
-    );
+    expect(
+      findByName(lineComment, "a.ts", "withLineComment").hasDocComment,
+    ).toBe(false);
 
     const blockComment = [
       "/** Documented. */",
@@ -243,7 +243,9 @@ describe("collectExportedDeclarations", () => {
     expect(component?.kind).toBe("react-component");
 
     const plain = "export default function () { return 1; }";
-    expect(collectExportedDeclarations(plain, "a.ts")[0]?.kind).toBe("function");
+    expect(collectExportedDeclarations(plain, "a.ts")[0]?.kind).toBe(
+      "function",
+    );
   });
 
   it("leaves a non-function default export alone", () => {
@@ -277,9 +279,10 @@ describe("collectExportedDeclarations", () => {
   });
 
   it("does not treat a line comment as documentation", () => {
-    const source = ["// Fetches the user.", "export function getUser() {}"].join(
-      "\n",
-    );
+    const source = [
+      "// Fetches the user.",
+      "export function getUser() {}",
+    ].join("\n");
     expect(findByName(source, "a.ts", "getUser").hasDocComment).toBe(false);
   });
 
@@ -315,7 +318,9 @@ describe("collectExportedDeclarations", () => {
     // The common React idiom has an expression body, not a block, so the JSX
     // check has to walk the body in either form.
     const concise = "export const Hero = () => <div />;";
-    expect(findByName(concise, "hero.tsx", "Hero").kind).toBe("react-component");
+    expect(findByName(concise, "hero.tsx", "Hero").kind).toBe(
+      "react-component",
+    );
 
     const parenthesized = "export const Hero = () => (\n  <div />\n);";
     expect(findByName(parenthesized, "hero.tsx", "Hero").kind).toBe(
@@ -479,9 +484,10 @@ describe("collectExportedDeclarations", () => {
   });
 
   it("exposes the text of an attached doc comment", () => {
-    const source = ["/** Adds. */", "export function add(a: number) { return a; }"].join(
-      "\n",
-    );
+    const source = [
+      "/** Adds. */",
+      "export function add(a: number) { return a; }",
+    ].join("\n");
 
     const declaration = findByName(source, "add.ts", "add");
     expect(declaration.comment).toEqual({
@@ -517,7 +523,9 @@ describe("collectExportedDeclarations", () => {
     const source = ["const x = 1;", "", "export function ship() {}"].join("\n");
     const declaration = findByName(source, "a.ts", "ship");
 
-    expect(source.slice(declaration.insertPos)).toBe("export function ship() {}");
+    expect(source.slice(declaration.insertPos)).toBe(
+      "export function ship() {}",
+    );
     expect(declaration.indent).toBe("");
     expect(declaration.line).toBe(3);
   });
@@ -530,7 +538,9 @@ describe("collectExportedDeclarations", () => {
     // replaced span reaches back over the separating space so it is consumed
     // rather than left at the end of the previous line.
     expect(source.slice(declaration.insertEnd)).toBe("export const b = 2;");
-    expect(source.slice(declaration.insertPos, declaration.insertEnd)).toBe(" ");
+    expect(source.slice(declaration.insertPos, declaration.insertEnd)).toBe(
+      " ",
+    );
     expect(declaration.indent).toBe("");
   });
 

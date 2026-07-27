@@ -135,14 +135,16 @@ describe("readPropertyTags", () => {
       " * @property [optional] - Bracketed",
       " * @property [withDefault=1] - Bracketed with a default",
       " * @property ['quoted-key'] - Bracketed and quoted",
-      " * @property \"double-quoted\" - Quoted alone",
+      ' * @property "double-quoted" - Quoted alone',
       " * @property nested.field - Dot notation",
       " * @prop aliased - The @prop alias",
       " * @property noSeparator The hyphen is optional in JSDoc",
       " */",
     );
 
-    expect(readPropertyTags(input).map((tag) => [tag.name, tag.description])).toEqual([
+    expect(
+      readPropertyTags(input).map((tag) => [tag.name, tag.description]),
+    ).toEqual([
       ["typed", "Has a type brace"],
       ["optional", "Bracketed"],
       ["withDefault", "Bracketed with a default"],
@@ -195,7 +197,9 @@ describe("readPropertyTags", () => {
   // A mid-line tag has no unambiguous end, and guessing where a description
   // stops would destroy the prose the move exists to rescue.
   it("reports nothing for a tag that does not open its line", () => {
-    expect(readPropertyTags("/** Summary. @property id - The id. */")).toEqual([]);
+    expect(readPropertyTags("/** Summary. @property id - The id. */")).toEqual(
+      [],
+    );
   });
 
   it("reports a tag with no description rather than skipping it", () => {

@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { canPromote, renderPromoted } from "@/transformer/promote-line-comments";
+import {
+  canPromote,
+  renderPromoted,
+} from "@/transformer/promote-line-comments";
 
 describe("canPromote", () => {
   it("accepts a run of plain prose", () => {
     expect(canPromote(["// Revalidate weekly (ISR)"])).toBe(true);
-    expect(canPromote(["// Fetches the user.", "// Returns null when absent."])).toBe(
-      true,
-    );
+    expect(
+      canPromote(["// Fetches the user.", "// Returns null when absent."]),
+    ).toBe(true);
   });
 
   // A directive arrives here as promotable text: `readLeadingComment` calls a
@@ -16,11 +19,17 @@ describe("canPromote", () => {
   // new comment and the declaration, so the rewrite gains nothing either way.
   it("refuses a run containing a tooling directive", () => {
     expect(
-      canPromote(["// Fetches the user.", "// eslint-disable-next-line no-console"]),
+      canPromote([
+        "// Fetches the user.",
+        "// eslint-disable-next-line no-console",
+      ]),
     ).toBe(false);
-    expect(canPromote(["// @ts-expect-error legacy shape", "// Keeps the build green."])).toBe(
-      false,
-    );
+    expect(
+      canPromote([
+        "// @ts-expect-error legacy shape",
+        "// Keeps the build green.",
+      ]),
+    ).toBe(false);
   });
 
   // `*/` would close the promoted comment early and splice the rest of the
@@ -57,9 +66,12 @@ describe("renderPromoted", () => {
         "  ",
       ),
     ).toBe(
-      ["/**", "   * Revalidate once per day.", "   * Must be a static literal.", "   */"].join(
-        "\n",
-      ),
+      [
+        "/**",
+        "   * Revalidate once per day.",
+        "   * Must be a static literal.",
+        "   */",
+      ].join("\n"),
     );
   });
 
@@ -73,9 +85,9 @@ describe("renderPromoted", () => {
   // declaration does better than an inferred summary would. Nothing is
   // recapitalized and no full stop is added.
   it("carries the prose across unchanged", () => {
-    expect(renderPromoted(["// fetches the user by id, null if absent"], "")).toBe(
-      "/** fetches the user by id, null if absent */",
-    );
+    expect(
+      renderPromoted(["// fetches the user by id, null if absent"], ""),
+    ).toBe("/** fetches the user by id, null if absent */");
   });
 
   it("handles a marker with no space after it", () => {

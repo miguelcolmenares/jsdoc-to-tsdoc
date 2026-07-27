@@ -7,7 +7,8 @@
 import { mapCommentLines } from "@/parser";
 import type { Rule } from "@/transformer/pipeline";
 
-const TYPE_BRACE = /^(@(?:param|returns?|property|prop|typeParam|type)\s+)\{[^}]*\}\s*/;
+const TYPE_BRACE =
+  /^(@(?:param|returns?|property|prop|typeParam|type)\s+)\{[^}]*\}\s*/;
 
 /**
  * Removes redundant `{Type}` annotations after `@param`, `@returns`, and

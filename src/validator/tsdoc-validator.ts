@@ -124,9 +124,8 @@ async function probeConfig(path: string): Promise<ConfigProbe> {
 export async function createTsdocValidator(
   cwd: string,
 ): Promise<TsdocValidator> {
-  const { TSDocConfiguration, TSDocParser, TextRange } = await import(
-    "@microsoft/tsdoc"
-  );
+  const { TSDocConfiguration, TSDocParser, TextRange } =
+    await import("@microsoft/tsdoc");
   const { TSDocConfigFile } = await import("@microsoft/tsdoc-config");
 
   const configuration = new TSDocConfiguration();

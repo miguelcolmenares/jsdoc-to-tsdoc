@@ -23,8 +23,20 @@ describe("classifyTag", () => {
 describe("aggregateCommentTags", () => {
   it("counts, classifies, and splits registerable from unknown tags", () => {
     const comments = [
-      ["/**", " * Summary.", " * @param a - First.", " * @since 0.1.0", " */"].join("\n"),
-      ["/**", " * Another.", " * @param b - Second.", " * @foobar note", " */"].join("\n"),
+      [
+        "/**",
+        " * Summary.",
+        " * @param a - First.",
+        " * @since 0.1.0",
+        " */",
+      ].join("\n"),
+      [
+        "/**",
+        " * Another.",
+        " * @param b - Second.",
+        " * @foobar note",
+        " */",
+      ].join("\n"),
     ];
 
     const report = aggregateCommentTags(comments);
@@ -61,7 +73,13 @@ describe("collectProjectTags", () => {
     await mkdir(join(root, "src"), { recursive: true });
     await writeFile(
       join(root, "src", "a.ts"),
-      ["/**", " * Does a thing.", " * @since 1.0.0", " */", "export const a = 1;"].join("\n"),
+      [
+        "/**",
+        " * Does a thing.",
+        " * @since 1.0.0",
+        " */",
+        "export const a = 1;",
+      ].join("\n"),
     );
   });
 

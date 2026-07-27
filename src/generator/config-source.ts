@@ -138,5 +138,7 @@ function maskLine(text: string, state: ScanState): string {
  */
 export function readConfigLines(source: string): readonly ConfigLine[] {
   const state: ScanState = { inBlockComment: false, quote: "" };
-  return source.split("\n").map((text) => ({ text, code: maskLine(text, state) }));
+  return source
+    .split("\n")
+    .map((text) => ({ text, code: maskLine(text, state) }));
 }

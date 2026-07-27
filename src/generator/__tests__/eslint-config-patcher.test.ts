@@ -16,20 +16,28 @@ const defineConfigSource = [
 
 describe("patchEslintFlatConfig", () => {
   it("inserts imports and the plugin block into a defineConfig array", () => {
-    const result = patchEslintFlatConfig(defineConfigSource, { severity: "warn" });
+    const result = patchEslintFlatConfig(defineConfigSource, {
+      severity: "warn",
+    });
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.changed).toBe(true);
-    expect(result.content).toContain('import tsdoc from "eslint-plugin-tsdoc";');
-    expect(result.content).toContain('import tsdocRequire from "eslint-plugin-tsdoc-require-2";');
+    expect(result.content).toContain(
+      'import tsdoc from "eslint-plugin-tsdoc";',
+    );
+    expect(result.content).toContain(
+      'import tsdocRequire from "eslint-plugin-tsdoc-require-2";',
+    );
     expect(result.content).toContain('"tsdoc/syntax": "error"');
     expect(result.content).toContain('"tsdoc-require-2/require": "warn"');
     expect(result.content).toContain('"tsdoc-require-2/require-param": "off"');
   });
 
   it("uses error severity in strict mode", () => {
-    const result = patchEslintFlatConfig(defineConfigSource, { severity: "error" });
+    const result = patchEslintFlatConfig(defineConfigSource, {
+      severity: "error",
+    });
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -37,7 +45,9 @@ describe("patchEslintFlatConfig", () => {
   });
 
   it("is idempotent when the config already references the plugin", () => {
-    const first = patchEslintFlatConfig(defineConfigSource, { severity: "warn" });
+    const first = patchEslintFlatConfig(defineConfigSource, {
+      severity: "warn",
+    });
     expect(first.ok).toBe(true);
     if (!first.ok) return;
 
@@ -82,7 +92,9 @@ describe("patchEslintFlatConfig", () => {
     // The substring "eslint-plugin-tsdoc" is present, but the syntax plugin is
     // not — the patch must still run and add it.
     expect(result.changed).toBe(true);
-    expect(result.content).toContain('import tsdoc from "eslint-plugin-tsdoc";');
+    expect(result.content).toContain(
+      'import tsdoc from "eslint-plugin-tsdoc";',
+    );
     expect(result.content).toContain('"tsdoc/syntax": "error"');
     // The existing presence-plugin import must not be duplicated.
     const requireImports = result.content.match(
@@ -158,7 +170,9 @@ describe("patchEslintFlatConfig", () => {
     if (!result.ok) return;
     // The plugin name only appears in a comment — the config must still be patched.
     expect(result.changed).toBe(true);
-    expect(result.content).toContain('import tsdoc from "eslint-plugin-tsdoc";');
+    expect(result.content).toContain(
+      'import tsdoc from "eslint-plugin-tsdoc";',
+    );
   });
 
   it("ignores a plugin import inside a multi-line block comment", () => {
@@ -231,15 +245,18 @@ describe("patchEslintFlatConfig", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     // Imports land after the multi-line import, not prepended before it.
-    expect(result.content.indexOf('import tsdoc from "eslint-plugin-tsdoc";')).toBeGreaterThan(
-      result.content.indexOf('} from "eslint/config"'),
-    );
+    expect(
+      result.content.indexOf('import tsdoc from "eslint-plugin-tsdoc";'),
+    ).toBeGreaterThan(result.content.indexOf('} from "eslint/config"'));
     // The file does not start with the injected import.
     expect(result.content.startsWith("import {")).toBe(true);
   });
 
   it("keeps the closing bracket on its own line for one-line containers", () => {
-    for (const source of ["export default [];", "export default defineConfig([]);"]) {
+    for (const source of [
+      "export default [];",
+      "export default defineConfig([]);",
+    ]) {
       const result = patchEslintFlatConfig(source, { severity: "warn" });
       expect(result.ok).toBe(true);
       if (!result.ok) continue;
@@ -248,7 +265,9 @@ describe("patchEslintFlatConfig", () => {
       expect(result.content).not.toContain("},]);");
       // The block landed and the container still closes.
       expect(result.content).toContain('"tsdoc/syntax": "error"');
-      expect(result.content.trimEnd().endsWith(source.endsWith(");") ? "]);" : "];")).toBe(true);
+      expect(
+        result.content.trimEnd().endsWith(source.endsWith(");") ? "]);" : "];"),
+      ).toBe(true);
     }
   });
 
@@ -272,7 +291,9 @@ describe("patchEslintFlatConfig", () => {
     // And a real import gets added (not just left as the commented one).
     const realImports = result.content
       .split("\n")
-      .filter((line) => /^import tsdoc from "eslint-plugin-tsdoc";/.test(line.trim()));
+      .filter((line) =>
+        /^import tsdoc from "eslint-plugin-tsdoc";/.test(line.trim()),
+      );
     expect(realImports).toHaveLength(1);
   });
 

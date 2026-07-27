@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { describeError, reportCommandFailure } from "@/commands/command-failure";
+import {
+  describeError,
+  reportCommandFailure,
+} from "@/commands/command-failure";
 
 afterEach(() => {
   process.exitCode = 0;

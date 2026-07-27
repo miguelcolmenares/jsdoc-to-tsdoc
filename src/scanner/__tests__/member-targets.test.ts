@@ -76,9 +76,7 @@ describe("collectMemberTargets", () => {
 
     const targets = collectMemberTargets(text, "banner.ts");
     expect(targets.size).toBe(1);
-    expect(only(targets)).toEqual([
-      expect.objectContaining({ name: "title" }),
-    ]);
+    expect(only(targets)).toEqual([expect.objectContaining({ name: "title" })]);
   });
 
   it("keys entries by the same offset the comment extractor reports", () => {
@@ -106,7 +104,9 @@ describe("collectMemberTargets", () => {
       "}",
     );
 
-    const members = collectMemberTargets(text, "outer.ts").get(text.indexOf("/**"));
+    const members = collectMemberTargets(text, "outer.ts").get(
+      text.indexOf("/**"),
+    );
     expect(members?.[0]).toMatchObject({ name: "deep", indent: "    " });
   });
 

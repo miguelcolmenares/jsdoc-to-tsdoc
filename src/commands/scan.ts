@@ -92,7 +92,8 @@ export default defineCommand({
     },
     "fail-on-missing": {
       type: "boolean",
-      description: "Exit 3 when any export has no TSDoc comment (implies --classify).",
+      description:
+        "Exit 3 when any export has no TSDoc comment (implies --classify).",
     },
     "fail-on-stale": {
       type: "boolean",
@@ -138,9 +139,13 @@ export default defineCommand({
       });
 
       if (classify) {
-        await runClassify(
-          { cwd, files, reportFormat, failOnMissing, failOnStale },
-        );
+        await runClassify({
+          cwd,
+          files,
+          reportFormat,
+          failOnMissing,
+          failOnStale,
+        });
         return;
       }
 
@@ -181,7 +186,9 @@ export default defineCommand({
       ];
 
       if (reportFormat === "json") {
-        process.stdout.write(`${toJsonReport({ command: "scan", ...totals })}\n`);
+        process.stdout.write(
+          `${toJsonReport({ command: "scan", ...totals })}\n`,
+        );
         return;
       }
       if (reportFormat === "md") {
@@ -189,7 +196,9 @@ export default defineCommand({
         return;
       }
 
-      const colors = createColors(shouldUseColor(Boolean(process.stdout.isTTY)));
+      const colors = createColors(
+        shouldUseColor(Boolean(process.stdout.isTTY)),
+      );
       process.stdout.write(`${formatTable(rows, colors)}\n`);
       if (totals.filesToChange > 0) {
         process.stdout.write(

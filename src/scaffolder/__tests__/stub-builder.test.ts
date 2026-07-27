@@ -4,7 +4,8 @@ import { buildStub, TODO_MARKER } from "@/scaffolder/stub-builder";
 import type { ExportedDeclaration } from "@/scanner";
 
 const declaration = (
-  overrides: Partial<ExportedDeclaration> & Pick<ExportedDeclaration, "name" | "kind">,
+  overrides: Partial<ExportedDeclaration> &
+    Pick<ExportedDeclaration, "name" | "kind">,
 ): ExportedDeclaration => ({
   hasDocComment: false,
   comment: undefined,
@@ -60,7 +61,9 @@ describe("buildStub", () => {
       declaration({
         name: "handle",
         kind: "function",
-        parameters: [{ name: "event", isOptional: false, isSynthesized: false }],
+        parameters: [
+          { name: "event", isOptional: false, isSynthesized: false },
+        ],
       }),
     );
 
@@ -108,7 +111,9 @@ describe("buildStub", () => {
       declaration({
         name: "HeroSection",
         kind: "react-component",
-        parameters: [{ name: "props", isOptional: false, isSynthesized: false }],
+        parameters: [
+          { name: "props", isOptional: false, isSynthesized: false },
+        ],
         hasReturnValue: true,
       }),
     );
@@ -144,7 +149,9 @@ describe("buildStub", () => {
         name: "identity",
         kind: "function",
         typeParameters: ["T"],
-        parameters: [{ name: "value", isOptional: false, isSynthesized: false }],
+        parameters: [
+          { name: "value", isOptional: false, isSynthesized: false },
+        ],
         hasReturnValue: true,
       }),
     );

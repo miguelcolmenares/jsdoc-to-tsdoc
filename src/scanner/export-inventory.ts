@@ -21,7 +21,11 @@
 
 import * as ts from "typescript";
 
-import { isExported, type ExportKind, type ExportParameter } from "@/scanner/declaration-classifier";
+import {
+  isExported,
+  type ExportKind,
+  type ExportParameter,
+} from "@/scanner/declaration-classifier";
 import {
   describeDefaultExport,
   describeStatement,

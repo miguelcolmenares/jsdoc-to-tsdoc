@@ -112,7 +112,9 @@ describe("scaffold command", () => {
   it("leaves the exit code clean when everything is documented", async () => {
     await writeFile(
       file,
-      ["/**", " * Documented.", " */", "export const value = 1;", ""].join("\n"),
+      ["/**", " * Documented.", " */", "export const value = 1;", ""].join(
+        "\n",
+      ),
     );
 
     const output = await captureStdout(() =>

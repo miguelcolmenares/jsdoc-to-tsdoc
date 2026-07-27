@@ -70,11 +70,11 @@ export default defineCommand({
     },
     only: {
       type: "string",
-      description: "Comma-separated globs to include (e.g. \"src/lib/**\").",
+      description: 'Comma-separated globs to include (e.g. "src/lib/**").',
     },
     exclude: {
       type: "string",
-      description: "Comma-separated globs to exclude (e.g. \"**/*.test.ts\").",
+      description: 'Comma-separated globs to exclude (e.g. "**/*.test.ts").',
     },
     report: {
       type: "string",
@@ -132,7 +132,9 @@ export default defineCommand({
         if (willWrite) {
           await writeFileText(file, conversion.output);
         } else if (reportFormat === undefined) {
-          diffs.push(formatFileDiff(relativePath, before, conversion.output, colors));
+          diffs.push(
+            formatFileDiff(relativePath, before, conversion.output, colors),
+          );
         }
       }
 

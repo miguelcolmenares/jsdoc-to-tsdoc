@@ -39,7 +39,9 @@ export const renameTags: Rule = {
       if (!replacement) {
         return content;
       }
-      return whitespace + replacement + content.slice(whitespace.length + tag.length);
+      return (
+        whitespace + replacement + content.slice(whitespace.length + tag.length)
+      );
     });
   },
 };

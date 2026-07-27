@@ -55,7 +55,9 @@ describe("scaffoldSourceText", () => {
     ].join("\n");
 
     const lines = scaffoldSourceText(source, "a.ts").output.split("\n");
-    const maxIndex = lines.findIndex((line) => line.startsWith("export const MAX"));
+    const maxIndex = lines.findIndex((line) =>
+      line.startsWith("export const MAX"),
+    );
     const shipIndex = lines.findIndex((line) =>
       line.startsWith("export function ship"),
     );
@@ -160,7 +162,10 @@ describe("scaffoldSourceText", () => {
   });
 
   it("does not attach a stub to an earlier statement on the same line", () => {
-    const result = scaffoldSourceText("const a = 1; export const b = 2;", "a.ts");
+    const result = scaffoldSourceText(
+      "const a = 1; export const b = 2;",
+      "a.ts",
+    );
 
     expect(result.stubsAdded).toBe(1);
     // The comment must sit after `const a = 1;`, not above it.
@@ -170,7 +175,10 @@ describe("scaffoldSourceText", () => {
   });
 
   it("keeps surrounding indentation when the declaration shares its line", () => {
-    const result = scaffoldSourceText("  const a = 1; export const b = 2;", "a.ts");
+    const result = scaffoldSourceText(
+      "  const a = 1; export const b = 2;",
+      "a.ts",
+    );
 
     // Both the stub and the declaration it carries over must stay aligned.
     for (const line of result.output.split("\n").slice(1)) {
@@ -200,7 +208,10 @@ describe("scaffoldSourceText", () => {
   it("does not strand the separator as trailing whitespace", () => {
     // The stub replaces the spaces that separated the declaration from the
     // previous statement rather than leaving them at the end of that line.
-    const result = scaffoldSourceText("const a = 1; export const b = 2;", "a.ts");
+    const result = scaffoldSourceText(
+      "const a = 1; export const b = 2;",
+      "a.ts",
+    );
 
     expect(result.output.split("\n")[0]).toBe("const a = 1;");
     for (const line of result.output.split("\n")) {
