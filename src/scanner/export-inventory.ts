@@ -25,11 +25,12 @@ import {
   type DeclarationShape,
 } from "@/scanner/declaration-shape";
 import {
-  hasLeadingDocComment,
   locateInsertion,
+  readLeadingComment,
+  type LeadingComment,
 } from "@/scanner/insertion-location";
 
-export type { ExportKind, ExportParameter };
+export type { ExportKind, ExportParameter, LeadingComment };
 
 /**
  * An exported declaration discovered in a source file.
@@ -48,6 +49,17 @@ export interface ExportedDeclaration {
   readonly kind: ExportKind;
   /** Whether a `/** *\/` doc comment is already attached. */
   readonly hasDocComment: boolean;
+  /**
+   * The comment attached to the declaration, whatever its kind, or `undefined`
+   * when nothing is attached.
+   *
+   * @remarks
+   * {@link ExportedDeclaration.hasDocComment} answers the only question
+   * `scaffold` asks. Classification needs more: the text of a doc comment, to
+   * compare its tags against the signature, and the presence of `//` prose,
+   * which is documentation a human wrote even though TSDoc does not see it.
+   */
+  readonly comment: LeadingComment | undefined;
   /** Offset at which a doc comment for this declaration should be inserted. */
   readonly insertPos: number;
   /**
@@ -134,11 +146,13 @@ export function collectExportedDeclarations(
       sourceFile,
       statement,
     );
+    const comment = readLeadingComment(sourceFile, statement);
     results.push({
       name: shape.name,
       names: shape.names,
       kind: shape.kind,
-      hasDocComment: hasLeadingDocComment(sourceFile, statement),
+      hasDocComment: comment?.kind === "doc",
+      comment,
       insertPos,
       insertEnd,
       indent,

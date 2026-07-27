@@ -12,7 +12,32 @@
 import * as ts from "typescript";
 
 /**
- * Reports whether a declaration already has a leading `/** *\/` doc comment.
+ * What kind of comment sits immediately above a declaration.
+ *
+ * - `doc` — a `/** *\/` comment, the only kind that documents it for TSDoc.
+ * - `line` — one or more `//` lines, prose that `convert` could promote.
+ * - `block` — a plain `/* *\/` comment, which documents nothing.
+ */
+export type LeadingCommentKind = "doc" | "line" | "block";
+
+/**
+ * The comment attached to a declaration.
+ */
+export interface LeadingComment {
+  /** Which kind of comment it is. */
+  readonly kind: LeadingCommentKind;
+  /**
+   * The comment text. For a `line` run this is every consecutive `//` line
+   * joined with newlines, since JSDoc-style prose written with line comments
+   * spans several of them.
+   */
+  readonly text: string;
+  /** 1-based line where the attached comment begins. */
+  readonly line: number;
+}
+
+/**
+ * Reads the comment that documents a declaration, if any.
  *
  * @remarks
  * Leading trivia can hold comments that document something other than this
@@ -22,18 +47,24 @@ import * as ts from "typescript";
  * `tsdoc-require-2/require` still reports as undocumented, so `--check` would
  * pass while lint failed.
  *
- * A doc comment therefore counts only when it is the comment closest to the
- * declaration — a `//` or plain `/* … *\/` comment in between detaches it — and
- * only when no blank line separates the two. Both boundaries are where the
- * presence rule itself draws them: it reports the declaration below a detached
- * header, or below `/** … *\/` followed by an `// eslint-disable` line, as
+ * A comment therefore counts only when it is the one closest to the declaration
+ * and no blank line separates the two. Both boundaries are where the presence
+ * rule itself draws them: it reports the declaration below a detached header,
+ * or below `/** … *\/` followed by an `// eslint-disable` line, as
  * undocumented, while an adjacent doc comment satisfies it.
+ *
+ * A run of `//` lines is gathered as one comment because that is how such prose
+ * is written, but the run stops at a blank line for the same reason a doc
+ * comment does — the note further up belongs to something else.
  *
  * @param sourceFile - The parsed source file the node belongs to.
  * @param node - The declaration to inspect.
- * @returns `true` when a JSDoc-style comment documents this declaration.
+ * @returns The attached comment, or `undefined` when nothing is attached.
  */
-export function hasLeadingDocComment(sourceFile: ts.SourceFile, node: ts.Node): boolean {
+export function readLeadingComment(
+  sourceFile: ts.SourceFile,
+  node: ts.Node,
+): LeadingComment | undefined {
   const sourceText = sourceFile.text;
   const ranges = ts.getLeadingCommentRanges(sourceText, node.getFullStart()) ?? [];
 
@@ -41,21 +72,69 @@ export function hasLeadingDocComment(sourceFile: ts.SourceFile, node: ts.Node): 
   // separated from it by another comment.
   const nearest = ranges[ranges.length - 1];
   if (nearest === undefined) {
-    return false;
-  }
-
-  const text = sourceText.slice(nearest.pos, nearest.end);
-  const isDocComment =
-    nearest.kind === ts.SyntaxKind.MultiLineCommentTrivia &&
-    text.startsWith("/**") &&
-    text !== "/**/";
-  if (!isDocComment) {
-    return false;
+    return undefined;
   }
 
   // A blank line between the comment and the declaration detaches the two.
   const gap = sourceText.slice(nearest.end, node.getStart(sourceFile, false));
-  return !/\n[ \t\r]*\n/.test(gap);
+  if (/\n[ \t\r]*\n/.test(gap)) {
+    return undefined;
+  }
+
+  const text = sourceText.slice(nearest.pos, nearest.end);
+  const lineOf = (pos: number): number =>
+    sourceFile.getLineAndCharacterOfPosition(pos).line + 1;
+
+  if (nearest.kind === ts.SyntaxKind.MultiLineCommentTrivia) {
+    const isDoc = text.startsWith("/**") && text !== "/**/";
+    return {
+      kind: isDoc ? "doc" : "block",
+      text,
+      line: lineOf(nearest.pos),
+    };
+  }
+
+  // Walk back over the consecutive `//` lines that form one block of prose,
+  // stopping at a blank line or at any other kind of comment.
+  let first = ranges.length - 1;
+  while (first > 0) {
+    const previous = ranges[first - 1];
+    const current = ranges[first];
+    if (
+      previous === undefined ||
+      current === undefined ||
+      previous.kind !== ts.SyntaxKind.SingleLineCommentTrivia ||
+      /\n[ \t\r]*\n/.test(sourceText.slice(previous.end, current.pos))
+    ) {
+      break;
+    }
+    first -= 1;
+  }
+
+  const run = ranges
+    .slice(first)
+    .map((range) => sourceText.slice(range.pos, range.end));
+  const start = ranges[first];
+
+  return {
+    kind: "line",
+    text: run.join("\n"),
+    line: lineOf(start === undefined ? nearest.pos : start.pos),
+  };
+}
+
+/**
+ * Reports whether a declaration already has a leading `/** *\/` doc comment.
+ *
+ * @param sourceFile - The parsed source file the node belongs to.
+ * @param node - The declaration to inspect.
+ * @returns `true` when a JSDoc-style comment documents this declaration.
+ */
+export function hasLeadingDocComment(
+  sourceFile: ts.SourceFile,
+  node: ts.Node,
+): boolean {
+  return readLeadingComment(sourceFile, node)?.kind === "doc";
 }
 
 /**

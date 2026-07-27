@@ -27,6 +27,29 @@ export type ExportKind =
   | "class"
   | "enum";
 
+const FUNCTION_LIKE_KINDS: ReadonlySet<ExportKind> = new Set<ExportKind>([
+  "function",
+  "hook",
+  "server-action",
+  "react-component",
+]);
+
+/**
+ * Reports whether a kind describes something callable.
+ *
+ * @remarks
+ * `@param` and `@returns` only mean anything on a callable, so every command
+ * that reasons about those tags — `scaffold` when emitting them, the classifier
+ * when checking for them — has to draw this line. Drawing it once keeps them
+ * from disagreeing about which exports are supposed to carry them.
+ *
+ * @param kind - The declaration kind to test.
+ * @returns `true` for functions, hooks, Server Actions, and React components.
+ */
+export function isFunctionLikeKind(kind: ExportKind): boolean {
+  return FUNCTION_LIKE_KINDS.has(kind);
+}
+
 /**
  * A single parameter of an exported function-like declaration.
  */
@@ -35,6 +58,19 @@ export interface ExportParameter {
   readonly name: string;
   /** Whether the parameter is optional or has a default. */
   readonly isOptional: boolean;
+  /**
+   * Whether {@link ExportParameter.name} was invented for a destructuring
+   * pattern rather than written in the source.
+   *
+   * @remarks
+   * A synthesized name is good enough to scaffold a `@param` tag, but it is not
+   * evidence about what the source actually declares: `({ title, href }: Props)`
+   * reports one parameter called `props`, while its documentation may legitimately
+   * describe `title` and `href`. Anything that compares documentation against the
+   * signature has to know the difference, or it would report accurate docs as
+   * contradicting the code.
+   */
+  readonly isSynthesized: boolean;
 }
 
 const SERVER_ACTION_PARAMS = ["prevState", "formData"] as const;
@@ -140,7 +176,7 @@ export function readParameters(
       parameter.initializer !== undefined;
 
     if (ts.isIdentifier(parameter.name)) {
-      return { name: parameter.name.text, isOptional };
+      return { name: parameter.name.text, isOptional, isSynthesized: false };
     }
 
     // Destructured binding: `{ title, href }: Props`. Name it after the type
@@ -151,7 +187,7 @@ export function readParameters(
       : index === 0
         ? "options"
         : `arg${String(index)}`;
-    return { name, isOptional };
+    return { name, isOptional, isSynthesized: true };
   });
 }
 

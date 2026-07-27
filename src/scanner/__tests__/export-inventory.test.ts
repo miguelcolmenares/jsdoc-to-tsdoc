@@ -399,10 +399,59 @@ describe("collectExportedDeclarations", () => {
     const declaration = findByName(source, "pick.ts", "pick");
     expect(declaration.typeParameters).toEqual(["T", "K"]);
     expect(declaration.parameters).toEqual([
-      { name: "value", isOptional: false },
-      { name: "fallback", isOptional: true },
-      { name: "extra", isOptional: true },
+      { name: "value", isOptional: false, isSynthesized: false },
+      { name: "fallback", isOptional: true, isSynthesized: false },
+      { name: "extra", isOptional: true, isSynthesized: false },
     ]);
+  });
+
+  it("marks a destructured parameter's name as synthesized", () => {
+    const source =
+      "export function Card({ title, href }: CardProps) { return null; }";
+
+    const declaration = findByName(source, "card.tsx", "Card");
+    expect(declaration.parameters).toEqual([
+      { name: "props", isOptional: false, isSynthesized: true },
+    ]);
+  });
+
+  it("attaches a `//` prose run, stopping at a blank line", () => {
+    const source = [
+      "// Detached note.",
+      "",
+      "// Fetches the user by ID",
+      "// and returns null when absent.",
+      "export function getUser(id: string) { return id; }",
+    ].join("\n");
+
+    const declaration = findByName(source, "user.ts", "getUser");
+    expect(declaration.hasDocComment).toBe(false);
+    expect(declaration.comment).toEqual({
+      kind: "line",
+      text: "// Fetches the user by ID\n// and returns null when absent.",
+      line: 3,
+    });
+  });
+
+  it("exposes the text of an attached doc comment", () => {
+    const source = ["/** Adds. */", "export function add(a: number) { return a; }"].join(
+      "\n",
+    );
+
+    const declaration = findByName(source, "add.ts", "add");
+    expect(declaration.comment).toEqual({
+      kind: "doc",
+      text: "/** Adds. */",
+      line: 1,
+    });
+  });
+
+  it("reports a plain block comment as documenting nothing", () => {
+    const source = ["/* Not TSDoc. */", "export const answer = 42;"].join("\n");
+
+    const declaration = findByName(source, "answer.ts", "answer");
+    expect(declaration.hasDocComment).toBe(false);
+    expect(declaration.comment?.kind).toBe("block");
   });
 
   it("reports no return value for void and Promise<void> signatures", () => {
