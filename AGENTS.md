@@ -463,6 +463,20 @@ time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
   these files as raw text, so the defect was invisible to exactly the readers
   they are written for. **Check how the handoff renders, not only what it
   says.**
+- **Round 7 caught the domain that shipped unreachable.** `classifier` had a
+  barrel, tests, docs and a command using it, but no re-export from
+  `src/index.ts` — so it was invisible to every library consumer while
+  `src/index.ts` claimed to re-export each domain. Nothing enforced that
+  contract, which is why six earlier rounds and the author all missed it.
+  `src/__tests__/public-surface.test.ts` now pins the exported names, and the
+  entry point says which domains are deliberately absent (`reporter`, `writer`)
+  so the next reader does not have to guess whether an omission is a bug.
+  **A new domain is not done when its barrel exists.**
+- **A sweep has to match the semantic class, not the literal one.** After round
+  5 the fences were swept for _unlabelled_, so two `PLAN.md` blocks tagged
+  ```` ```bash ```` that hold nothing but terminal output survived. The rule
+  that settles it: `bash` when the block is commands to run, `text` when it is
+  what the terminal printed. Blocks that lead with `$ npx …` keep `bash`.
 - **Settled a `PLAN.md` contradiction:** the gates live on `scan`, not `check`.
   `check` already exits `3` for undocumented exports, so `--fail-on-missing`
   there would be a no-op; `scan` is otherwise read-only and gains a CI role.

@@ -615,7 +615,7 @@ comments it does not understand.
 
 **Classification via `scan --classify`** — as shipped:
 
-```bash
+```text
 Documentation analysis — 127 file(s) scanned
 ┌───────────────┬───────┐
 │ Valid TSDoc   │    84 │
@@ -698,7 +698,7 @@ Every inferred summary carries a `TODO(tsdoc)` marker so devs can
 
 **Stale docs** → never auto-rewrite. Report in `scan`:
 
-```bash
+```text
 🔴 src/utils.ts:12  greet()
    @param 'name' not in signature (found: 'userId')
    Suggestion: manual review — likely stale documentation

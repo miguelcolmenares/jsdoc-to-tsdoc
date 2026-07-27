@@ -82,7 +82,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `function Card({ title }: CardProps)` cannot be told apart from a stale tag,
   and parameter staleness is not judged for those signatures rather than
   guessed at. A report that flags accurate documentation gets ignored, taking
-  its true findings with it.
+  its true findings with it. Reachable from the package root alongside every
+  other analysis domain; a test now pins that surface, so a domain can no longer
+  ship with a barrel but no way for a library consumer to reach it.
 - `scan --classify`: documentation topology report with the recommended action
   per bucket. A file lands in the most severe topology among its exports, since
   that is the one naming the next step. Files exporting nothing are counted
