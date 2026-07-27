@@ -22,7 +22,7 @@ It exists because the ecosystem has the _pieces_ (`@microsoft/tsdoc` parser,
 rule) but **no tool orchestrates the end-to-end migration** we did by hand
 across several real Next.js repos. The workflow it automates is four steps:
 
-```
+```text
 init  →  convert  →  scaffold  →  escalate
 (bootstrap) (JSDoc→TSDoc)  (stub docs)  (warn→error)
 ```
@@ -55,7 +55,7 @@ running tally and `PLAN.md` → _Development Roadmap_ for phase order.
 `services/`. Each domain owns a barrel `index.ts` that is its only public
 contract; internal files are private and renameable.
 
-```
+```text
 src/
 ├── cli.ts                # citty entry point + subcommand dispatch (has the shebang)
 ├── index.ts             # programmatic library surface (re-exports each domain)
@@ -297,7 +297,6 @@ npm run check:tsdoc    # builds, then runs the CLI's own `check` over this repo
 | Which TSDoc tags are standard vs custom | `src/generator/tsdoc-tags.ts` |
 | Output formatting (diffs, tables, JSON/MD) | `src/reporter/` |
 | Roadmap / scope / phases | `PLAN.md` |
-```
 
 ---
 
@@ -368,7 +367,7 @@ time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
 
 ### PR #19 — `scan --classify`, confidence levels and the gap gates
 
-- **The trap the whole design is built around.** `readParameters` *invents* a
+- **The trap the whole design is built around.** `readParameters` _invents_ a
   name for a destructured binding (`props`, `options`, `argN`). Comparing
   documentation against it naively reports `@param title` on
   `function Card({ title, href }: CardProps)` as contradicting the signature —
@@ -377,7 +376,7 @@ time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
   parameter staleness is **not judged at all** for such signatures.
 - **Conservative beats complete, for a report.** A classification that flags
   accurate documentation gets ignored, and takes its true findings with it. The
-  same reasoning suspends parameter *gaps* for destructured signatures once the
+  same reasoning suspends parameter _gaps_ for destructured signatures once the
   comment documents any parameter, and skips `@param` judgement entirely on
   non-callable exports.
 - **A file gets one bucket, and it must name the next action.** Severity is
@@ -391,7 +390,7 @@ time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
   reported a test helper as undocumented, which ESLint and `check` both exempt.
   Classification now excludes test paths by default (`--include-tests` opts in);
   the default `scan` inventory still keeps them, because `convert` does rewrite
-  JSDoc in tests. When adding a command that judges *documentation coverage*,
+  JSDoc in tests. When adding a command that judges _documentation coverage_,
   check whether `init`'s generated config already excuses the paths.
 - **Review round 1 found two false verdicts, both confirmed by reproducing them.**
   The `@returns` gap check used a raw regex over the comment text instead of
@@ -418,11 +417,11 @@ time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
   undocumented gap. Rather than argue about whether a mid-line tag counts,
   `@microsoft/tsdoc` was asked directly: it reads both params and the
   `@returns`. The readers now scan the whole line. `getBlockTags` was left
-  alone — the conversion rules rewrite a line *by its leading tag*, which is a
+  alone — the conversion rules rewrite a line _by its leading tag_, which is a
   different question — and `getCommentTags` was added for "does this comment
   document X at all".
 - **A cloud review found two the sweeps missed, both false positives.**
-  (1) A hook recognized by its *name* but produced by a factory or bound to an
+  (1) A hook recognized by its _name_ but produced by a factory or bound to an
   alias (`export const useHash = createHook(defaults);`) reports no parameters,
   and "declares none" was treated as evidence — so every `@param` on it came
   back as contradicting the signature. `hasSignature` now separates "nothing
@@ -456,6 +455,15 @@ time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
   rather than a meaning, and record why filtering cannot happen there: the
   callers disagree about what counts, so deciding once would make all of them
   inherit one caller's definition.
+- **Round 5 was a Markdown nit that uncovered a broken document.** The finding
+  was one unlabelled fence in `README.md`. Sweeping the class across every
+  Markdown file — the habit round 2 taught — turned up an unpaired ` ``` ` in
+  this file, left after a table in §10. Everything below it, meaning §11 (the
+  handoff) and §12 (this log), rendered as one code block on GitHub, and
+  markdownlint had been skipping both sections for the same reason. Agents read
+  these files as raw text, so the defect was invisible to exactly the readers
+  they are written for. **Check how the handoff renders, not only what it
+  says.**
 - **Settled a `PLAN.md` contradiction:** the gates live on `scan`, not `check`.
   `check` already exits `3` for undocumented exports, so `--fail-on-missing`
   there would be a no-op; `scan` is otherwise read-only and gains a CI role.
@@ -471,12 +479,12 @@ time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
   reading the output found it.
 - **How it was found, and what that says about the transformer.** Running the
   rule pipeline over ~25 adversarial JSDoc inputs and diffing the
-  `@microsoft/tsdoc` parse of each comment *before vs. after* conversion found
+  `@microsoft/tsdoc` parse of each comment _before vs. after_ conversion found
   **zero** introduced violations. The transformer is sound. That is also why the
   deferred "validate each converted comment before writing it" idea looks weak:
   a guard with no demonstrable trigger, whose tests could only assert a no-op.
 - **A substring pre-filter next to a regex is a drift hazard.** The pre-check
-  that skips the pre-existence scan fails *open* into the exact duplicate-tag
+  that skips the pre-existence scan fails _open_ into the exact duplicate-tag
   bug being fixed, so the regex is built from the tag constant and the two
   cannot disagree.
 - **Measure before accepting a performance note.** The reported "measurable
@@ -493,7 +501,7 @@ time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
   `init` runs. Probing `<cwd>/tsdoc.json` directly keeps "no config yet" apart
   from "broken config". `extends` still resolves, because `loadFile` handles it.
 - **`stat` succeeds on a file the process cannot read.** So EACCES surfaces
-  inside `loadFile`, which *throws* — escaping as exit `1` instead of the
+  inside `loadFile`, which _throws_ — escaping as exit `1` instead of the
   documented exit `2`. The only way to make `stat` itself fail is a parent
   directory without execute permission; that is what the regression test uses.
 - **Shared constants beat parallel logic.** `check` was reporting test files
@@ -505,14 +513,14 @@ time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
 
 ### PR #16 — `escalate` + preflight (phase 8)
 
-- **Never lint with an injected config.** The preflight resolves the *target
-  project's* ESLint and runs it with the project's own configuration — no
+- **Never lint with an injected config.** The preflight resolves the _target
+  project's_ ESLint and runs it with the project's own configuration — no
   `overrideConfig`. Anything else manufactures violations the user's pipeline
   would never report, and the verdict has to equal CI's to be worth anything.
 - **Preflight runs for `warn` targets too**, because pipelines using
   `--max-warnings 0` break on an `off → warn` change just as hard.
 - **Text-patching a flat config must ignore comments.** A regex matched the rule
-  *inside a comment*, so `escalate` reported `"warn" → "error"` over a config it
+  _inside a comment_, so `escalate` reported `"warn" → "error"` over a config it
   had not touched — a false pass. Fixed with a character-level, length-preserving
   comment mask (`src/generator/config-source.ts`); offsets stay interchangeable
   with the original text. Known limit: regex literals are not tokenized, so `//`
@@ -525,14 +533,14 @@ time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
 
 - **Verify every review claim empirically before acting on it.** Twice a claim
   turned out to understate the problem, and once the accurate finding was the
-  one Copilot filed as *low confidence* in the review body rather than as a
+  one Copilot filed as _low confidence_ in the review body rather than as a
   thread. Read those too (§9).
 - **Prove the net bites.** After fixing, reintroduce the bug and confirm the new
   tests fail. On PR #17 this caught a real hole: the first regression test
   covered only one of the two code paths and passed against the broken build.
 - **Sweep for the defect class, not the reported instance.** The comment-mask
   fix surfaced a second case the review never mentioned — one that an existing
-  test had pinned as *correct*.
+  test had pinned as _correct_.
 - **The GitHub reviews API misleads in two specific ways.** It is paginated
   (`--paginate` is required), and your own replies are recorded as reviews by
   the repo owner with empty bodies — so a poll must filter on author **and**

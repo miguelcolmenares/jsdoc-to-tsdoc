@@ -94,7 +94,7 @@ Every exported declaration is classified, and each file lands in exactly one buc
 | **No docs** | Nothing, or a plain `/* */` block | run `scaffold` |
 | **Stale docs** | The comment contradicts the signature | manual review required |
 
-```
+```text
 Documentation analysis — 127 file(s) scanned
 ┌───────────────┬───────┐
 │ Valid TSDoc   │    84 │
