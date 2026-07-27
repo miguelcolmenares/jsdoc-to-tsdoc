@@ -427,12 +427,23 @@ time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
 - **A relocation is only emitted when the tag actually leaves.** If the pipeline
   declines the rewrite, writing the member comment would duplicate the prose
   instead of moving it.
+- **The perf note was worth taking, and worth measuring.** `collectMemberTargets`
+  parses the file a second time, and the result is only ever read to place a
+  `@property`. A substring guard on `@prop` skips it: a full `convert` pass over
+  this repo's 104 source files drops from **55 ms to 37 ms**. The first
+  comparison was garbage — it read a stale `dist/`, so the guarded build looked
+  twice as slow. **Rebuild between arms, warm up, take a median**; a perf claim
+  from a single cold run is worse than no claim.
 - **Round 2's suppressed note caught the asymmetry round 1 created.** Widening
   the reader to accept `['foo-bar']` and `"quoted"` names without widening the
   member scanner left a gap: a member declared `"foo-bar": string` was not a
   relocation target, so the description was demoted to a list item with its
   destination sitting right below it. Two sides of a name have to be widened
-  together. **Read the suppressed notes** — no thread was filed for this one.
+  together. **Read the suppressed notes** — no thread was filed for it that
+  round, and the next round filed one for the same thing. The follow-up also
+  showed the first fix was still too narrow: `["foo-bar"]: string` is a computed
+  key but declares the same addressable name as `"foo-bar": string`, so only a
+  computed key with a non-literal expression is genuinely unnameable.
 - **Review round 1 found the same class of bug inside the fix for it.**
   `readPropertyTags` matched only identifier-like names, so a JSDoc spelling it
   missed — `['quoted-key']`, a bare tag carrying only prose — fell through to

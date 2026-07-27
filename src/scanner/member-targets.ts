@@ -47,29 +47,52 @@ function membersOf(node: ts.Node): ts.NodeArray<ts.TypeElement> | undefined {
 }
 
 /**
+ * Reads the name a `@property` tag would have to use to address a member.
+ *
+ * @remarks
+ * The set accepted here has to mirror what {@link readPropertyTags} can
+ * normalize a JSDoc name down to, or a description is demoted to a list item
+ * while the member it names sits directly below it. Quoted and bracketed
+ * spellings both reduce to the bare key, so `"foo-bar": string`,
+ * `0: number` and `["foo-bar"]: string` are all addressable.
+ *
+ * A computed key whose expression is not a literal (`[KEY]: string`) is not:
+ * its name exists only at runtime, and no `@property` spelling names it.
+ *
+ * @param name - The member's name node, absent on an index signature.
+ * @returns The key as a `@property` tag would write it, or `undefined` when
+ * nothing could address the member.
+ */
+function keyOf(name: ts.PropertyName | undefined): string | undefined {
+  if (name === undefined) {
+    return undefined;
+  }
+  if (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name)) {
+    return name.text;
+  }
+  if (ts.isComputedPropertyName(name)) {
+    const { expression } = name;
+    return ts.isStringLiteral(expression) || ts.isNumericLiteral(expression)
+      ? expression.text
+      : undefined;
+  }
+  return undefined;
+}
+
+/**
  * Describes one member as a relocation target.
  *
  * @param member - The member node.
  * @param sourceFile - The parsed source file it belongs to.
- * @returns The target for a member named by an identifier or a string/numeric
- * literal, or `undefined` for one no `@property` tag could address — an index
- * signature or a computed key.
+ * @returns The target, or `undefined` for a member no `@property` tag could
+ * address — an index signature, or a computed key that is not a literal.
  */
 function describeMember(
   member: ts.TypeElement,
   sourceFile: ts.SourceFile,
 ): MemberTarget | undefined {
-  const { name } = member;
-  // String- and numeric-literal keys (`"foo-bar": string`) are as addressable
-  // from a `@property` tag as an identifier is — JSDoc writes them quoted or
-  // bracketed, and the reader normalizes both to the bare name. Accepting only
-  // identifiers here would demote a description to a list item while the member
-  // it names sits right below. Computed keys are excluded: no `@property`
-  // spelling addresses them.
-  if (
-    name === undefined ||
-    !(ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name))
-  ) {
+  const memberKey = keyOf(member.name);
+  if (memberKey === undefined) {
     return undefined;
   }
 
@@ -92,7 +115,7 @@ function describeMember(
       ? ""
       : (/^[ \t]*/.exec(sourceFile.text.slice(lineStart, insertPos))?.[0] ?? "");
 
-  return { name: name.text, hasDocComment, insertPos, indent };
+  return { name: memberKey, hasDocComment, insertPos, indent };
 }
 
 /**

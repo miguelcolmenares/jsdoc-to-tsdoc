@@ -147,6 +147,23 @@ describe("collectMemberTargets", () => {
     ]);
   });
 
+  // `["foo-bar"]: string` declares the same key as `"foo-bar": string`, so a
+  // tag can address it; only a key that exists at runtime cannot be named.
+  it("accepts a computed key whose expression is a literal", () => {
+    const text = source(
+      "/**",
+      " * Computed but literal.",
+      " */",
+      "export interface Keyed {",
+      '  ["foo-bar"]: string;',
+      "}",
+    );
+
+    expect(only(collectMemberTargets(text, "keyed.ts"))).toEqual([
+      expect.objectContaining({ name: "foo-bar" }),
+    ]);
+  });
+
   it("still excludes a computed key no @property could name", () => {
     const text = source(
       "const KEY = Symbol();",

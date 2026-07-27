@@ -102,9 +102,7 @@ describe("stripReturnPromise", () => {
 
   it("handles nested generics without leaving a stray angle bracket", () => {
     expect(
-      apply(stripReturnPromise, 
-        "/** @returns Promise<Array<User>> - the users */",
-      ),
+      apply(stripReturnPromise, "/** @returns Promise<Array<User>> - the users */"),
     ).toBe("/** @returns the users */");
     const bare = comment("/**", " * @returns Promise<Map<string, User>>", " */");
     expect(apply(stripReturnPromise, bare)).toBe(

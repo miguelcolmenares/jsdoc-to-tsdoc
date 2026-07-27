@@ -242,6 +242,29 @@ describe("convertSourceText and @property", () => {
     expect(result.output).toContain('  /** The hyphenated one */\n  "foo-bar": string;');
   });
 
+  // The guard that skips the member lookup keys on the `@prop` substring; a
+  // file whose only mention is inside a fenced example must still be safe.
+  it("does not relocate a @property that only appears in an example fence", () => {
+    const input = lines(
+      "/**",
+      " * Banner data.",
+      " *",
+      " * @example",
+      " * ```ts",
+      " * /** @property title - Not a real tag *" + "/",
+      " * ```",
+      " */",
+      "export interface Banner {",
+      "  title: string;",
+      "}",
+    );
+
+    const result = convertSourceText(input, "banner.ts", { lite: false });
+
+    expect(result.membersDocumented).toBe(0);
+    expect(result.output).toContain("@property title - Not a real tag");
+  });
+
   it("documents the members of a type alias over a type literal", () => {
     const input = lines(
       "/**",
