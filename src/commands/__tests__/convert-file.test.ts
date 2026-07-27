@@ -224,6 +224,24 @@ describe("convertSourceText and @property", () => {
     expect(twice.output).toBe(once.output);
   });
 
+  it("moves a description onto a member whose key is a quoted string", () => {
+    const input = lines(
+      "/**",
+      " * Keyed shape.",
+      " *",
+      " * @property ['foo-bar'] - The hyphenated one",
+      " */",
+      "export interface Keyed {",
+      '  "foo-bar": string;',
+      "}",
+    );
+
+    const result = convertSourceText(input, "keyed.ts", { lite: false });
+
+    expect(result.membersDocumented).toBe(1);
+    expect(result.output).toContain('  /** The hyphenated one */\n  "foo-bar": string;');
+  });
+
   it("documents the members of a type alias over a type literal", () => {
     const input = lines(
       "/**",

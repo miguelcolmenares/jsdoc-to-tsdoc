@@ -427,6 +427,12 @@ time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
 - **A relocation is only emitted when the tag actually leaves.** If the pipeline
   declines the rewrite, writing the member comment would duplicate the prose
   instead of moving it.
+- **Round 2's suppressed note caught the asymmetry round 1 created.** Widening
+  the reader to accept `['foo-bar']` and `"quoted"` names without widening the
+  member scanner left a gap: a member declared `"foo-bar": string` was not a
+  relocation target, so the description was demoted to a list item with its
+  destination sitting right below it. Two sides of a name have to be widened
+  together. **Read the suppressed notes** — no thread was filed for this one.
 - **Review round 1 found the same class of bug inside the fix for it.**
   `readPropertyTags` matched only identifier-like names, so a JSDoc spelling it
   missed — `['quoted-key']`, a bare tag carrying only prose — fell through to

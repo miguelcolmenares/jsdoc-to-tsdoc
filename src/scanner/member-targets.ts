@@ -51,15 +51,25 @@ function membersOf(node: ts.Node): ts.NodeArray<ts.TypeElement> | undefined {
  *
  * @param member - The member node.
  * @param sourceFile - The parsed source file it belongs to.
- * @returns The target, or `undefined` for a member with no plain name (an index
- * signature, or a computed key that no `@property` tag could address).
+ * @returns The target for a member named by an identifier or a string/numeric
+ * literal, or `undefined` for one no `@property` tag could address — an index
+ * signature or a computed key.
  */
 function describeMember(
   member: ts.TypeElement,
   sourceFile: ts.SourceFile,
 ): MemberTarget | undefined {
   const { name } = member;
-  if (name === undefined || !ts.isIdentifier(name)) {
+  // String- and numeric-literal keys (`"foo-bar": string`) are as addressable
+  // from a `@property` tag as an identifier is — JSDoc writes them quoted or
+  // bracketed, and the reader normalizes both to the bare name. Accepting only
+  // identifiers here would demote a description to a list item while the member
+  // it names sits right below. Computed keys are excluded: no `@property`
+  // spelling addresses them.
+  if (
+    name === undefined ||
+    !(ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name))
+  ) {
     return undefined;
   }
 

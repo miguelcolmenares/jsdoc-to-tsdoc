@@ -126,6 +126,42 @@ describe("collectMemberTargets", () => {
     ]);
   });
 
+  // The reader accepts `['foo-bar']` and `"foo-bar"` spellings, so the scanner
+  // has to be able to match the member they name. Rejecting it here would
+  // demote a description to a list item with its destination sitting right
+  // below it.
+  it("accepts a member named by a string or numeric literal", () => {
+    const text = source(
+      "/**",
+      " * Keyed shape.",
+      " */",
+      "export interface Keyed {",
+      '  "foo-bar": string;',
+      "  0: number;",
+      "}",
+    );
+
+    expect(only(collectMemberTargets(text, "keyed.ts"))).toEqual([
+      expect.objectContaining({ name: "foo-bar" }),
+      expect.objectContaining({ name: "0" }),
+    ]);
+  });
+
+  it("still excludes a computed key no @property could name", () => {
+    const text = source(
+      "const KEY = Symbol();",
+      "",
+      "/**",
+      " * Computed.",
+      " */",
+      "export interface Odd {",
+      "  [KEY]: string;",
+      "}",
+    );
+
+    expect(collectMemberTargets(text, "odd.ts").size).toBe(0);
+  });
+
   // Filtering every member away leaves the same situation as a declaration
   // with no members, so it must be absent rather than present and empty.
   it("omits a declaration whose members are all unnameable", () => {
