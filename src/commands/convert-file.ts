@@ -17,12 +17,35 @@
 import { mayHoldPropertyTag, readPropertyTags } from "@/parser";
 import {
   applyEdits,
+  collectExportedDeclarations,
   collectMemberTargets,
   extractJsDocComments,
   type MemberTarget,
   type SourceEdit,
 } from "@/scanner";
-import { runPipeline, type RuleContext } from "@/transformer";
+import {
+  canPromote,
+  renderPromoted,
+  runPipeline,
+  type RuleContext,
+} from "@/transformer";
+
+/**
+ * What one `convert` run may do to a file.
+ *
+ * @remarks
+ * Extends the rule context rather than widening it, because promotion is not
+ * something a rule can do: it changes a `//` run into a `/** *\/` comment, and
+ * a rule only ever sees the inside of a comment that already exists.
+ */
+export interface ConvertOptions extends RuleContext {
+  /**
+   * Rewrite a run of `//` prose above an undocumented export as the doc comment
+   * it was already serving as. Off by default — it edits lines no other rule
+   * touches.
+   */
+  readonly promoteLineComments?: boolean;
+}
 
 /**
  * The result of converting every comment in one source file.
@@ -36,6 +59,8 @@ export interface FileConversion {
   readonly commentsChanged: number;
   /** How many members gained a doc comment moved off a `@property`. */
   readonly membersDocumented: number;
+  /** How many runs of `//` prose were rewritten as doc comments. */
+  readonly commentsPromoted: number;
   /** The distinct rule names that fired across the file. */
   readonly appliedRules: readonly string[];
 }
@@ -150,17 +175,62 @@ function planProperties(
 }
 
 /**
+ * Rewrites the `//` prose above undocumented exports as doc comments.
+ *
+ * @remarks
+ * Only a run attached to an export that has no doc comment is a candidate: a
+ * `//` note beside something already documented is a remark about the code, not
+ * the documentation of it, and `check` never asks for one.
+ *
+ * The rendered comment goes back through the rule pipeline before it is
+ * emitted. Prose written as `//` can carry JSDoc spellings a person typed out
+ * of habit, and a promoted comment that the very next `convert` run would
+ * rewrite again is not idempotent.
+ *
+ * @param sourceText - The full source file contents.
+ * @param fileName - The file name (selects the TS/TSX dialect).
+ * @param context - The rule context to normalize promoted comments with.
+ * @returns One replacement edit per promoted run.
+ */
+function planPromotions(
+  sourceText: string,
+  fileName: string,
+  context: RuleContext,
+): readonly SourceEdit[] {
+  const edits: SourceEdit[] = [];
+
+  for (const declaration of collectExportedDeclarations(sourceText, fileName)) {
+    const { comment, indent } = declaration;
+    if (comment === undefined || comment.kind !== "line") {
+      continue;
+    }
+    const lines = comment.text.split("\n");
+    if (!canPromote(lines)) {
+      continue;
+    }
+    const promoted = renderPromoted(lines, indent);
+    edits.push({
+      pos: comment.pos,
+      end: comment.end,
+      text: runPipeline(promoted, context).output,
+    });
+  }
+
+  return edits;
+}
+
+/**
  * Converts all JSDoc comments in a source file to TSDoc.
  *
  * @param sourceText - The full source file contents.
  * @param fileName - The file name (selects the TS/TSX dialect).
- * @param context - Pipeline flags (for example `lite`).
+ * @param context - What this run may do (for example `lite`).
  * @returns The rewritten source plus per-file change metadata.
  */
 export function convertSourceText(
   sourceText: string,
   fileName: string,
-  context: RuleContext,
+  context: ConvertOptions,
 ): FileConversion {
   const comments = extractJsDocComments(sourceText, fileName);
   // The member lookup costs a second parse of the file, and it is only ever
@@ -176,7 +246,16 @@ export function convertSourceText(
     ? collectMemberTargets(sourceText, fileName)
     : new Map<number, readonly MemberTarget[]>();
 
-  const edits: SourceEdit[] = [];
+  // Promotion is planned from the original text, before any comment is
+  // rewritten, so the offsets it reports still refer to this source. `applyEdits`
+  // splices every edit in one pass, and a `//` run never overlaps the doc
+  // comments the pipeline rewrites.
+  const promotions =
+    context.promoteLineComments === true && !context.lite
+      ? planPromotions(sourceText, fileName, context)
+      : [];
+
+  const edits: SourceEdit[] = [...promotions];
   const appliedRules = new Set<string>();
   let commentsChanged = 0;
   let membersDocumented = 0;
@@ -213,6 +292,7 @@ export function convertSourceText(
     changed: edits.length > 0,
     commentsChanged,
     membersDocumented,
+    commentsPromoted: promotions.length,
     appliedRules: [...appliedRules],
   };
 }

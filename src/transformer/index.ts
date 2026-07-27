@@ -13,3 +13,8 @@ export {
 } from "@/transformer/pipeline";
 
 export { RULES } from "@/transformer/rules";
+
+export {
+  canPromote,
+  renderPromoted,
+} from "@/transformer/promote-line-comments";

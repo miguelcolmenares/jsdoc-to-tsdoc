@@ -1032,7 +1032,23 @@ Reporting & CI:
 - [ ] **`--commit-per-file`** for reviewable PRs
 - [x] **`--fail-on-missing` / `--fail-on-stale`** confidence gates *(on `scan`)*
 - [x] **`scan --classify`** — topology report (VALID / PARTIAL / LINE_COMMENTS / NO_DOCS / STALE)
-- [ ] **`convert --promote-line-comments`** — wrap `//` prose into `/** */`
+- [x] **`convert --promote-line-comments`** — wrap `//` prose into `/** */`
+
+Found by comparing the CLI against the hand migration on `osa-nextjs`
+(`feature/tsdoc-implementation`), which takes that repo from 143 remaining
+`check` errors to roughly 9. The hand migration shows the intended output for
+each, so none of them is a guess:
+
+- [ ] **Fence unfenced `@example` bodies** (72 errors) — an unfenced `{` is
+  `tsdoc-malformed-inline-tag` and its `}` is `tsdoc-escape-right-brace`. The
+  fix is a ```` ```typescript ```` fence around the example, exactly what the
+  person wrote by hand in ~15 files.
+- [ ] **Backtick a bare `@` in prose** (32 errors) — `@silverassist/icons`,
+  `@/lib/seo`, `@layer third-party` all read as tags to TSDoc
+  (`tsdoc-at-sign-in-word`, `tsdoc-characters-after-block-tag`).
+- [ ] **Fold dotted `@param params.foo`** (26 errors) — TSDoc has no notion of
+  a dotted parameter path (`tsdoc-param-tag-with-invalid-name`); the sub-params
+  belong in the parent's description.
 
 Distribution:
 

@@ -52,13 +52,14 @@ npx jsdoc-to-tsdoc escalate --check
 ### Options
 
 | Flag | Commands | Purpose |
-|------|----------|---------|
+| ------ | ---------- | --------- |
 | `--cwd <dir>` | all | Project directory to scan (default `.`). |
 | `--dry-run` / `--preview` | `init`, `convert`, `scaffold`, `escalate` | Show a diff without writing. |
 | `--strict` | `init` | Start `tsdoc-require-2/require` at `error` instead of `warn`. |
 | `--install` | `init` | Run the detected package manager to install missing dev dependencies. |
 | `--check` | `convert`, `scaffold`, `escalate` | CI mode — exit `3` if anything would change; never writes. |
 | `--lite` | `scan`, `convert` | Only `@param` / `@returns` hygiene; leave prose and structural tags. |
+| `--promote-line-comments` | `convert` | Rewrite a run of `//` prose above an undocumented export as the `/** */` comment it was already serving as. Off by default. |
 | `--severity <level>` | `escalate` | Target severity: `error` (default) or `warn` to walk it back. |
 | `--skip-preflight` | `escalate` | Patch the config without running ESLint first. |
 | `--syntax-only` | `check` | Only validate comment syntax; ignore undocumented exports and legacy JSDoc. |
@@ -87,7 +88,7 @@ Answers the question that comes *before* the migration: what does this project's
 Every exported declaration is classified, and each file lands in exactly one bucket — the **most severe** topology among its exports, because that is the one naming the next action:
 
 | Topology | Meaning | Next action |
-|------|------|------|
+| ------ | ------ | ------ |
 | **Valid TSDoc** | The comment covers what the signature declares | ready for `convert` |
 | **Partial docs** | A comment, but part of the signature is undocumented | `convert`, then fill the gaps |
 | **Line comments** | No doc comment, but `//` prose a human wrote | prose to promote into `/** */` |
@@ -171,6 +172,45 @@ says the same thing.
 `convert` reports how many descriptions it moved, because it is the one change
 that relocates text between declarations.
 
+### `--promote-line-comments`
+
+Some exports are documented with `//` prose that TSDoc cannot see. Left alone,
+`scaffold` inserts a generated stub **between** that prose and the declaration —
+so the file ends up with an inferred summary where the author's own explanation
+was already sitting one line above:
+
+```ts
+// Revalidate once per day. Next.js route segment config
+// must be a static literal — it cannot reference an imported constant.
+/** Revalidate. */          // ← what scaffold adds
+export const revalidate = 86400;
+```
+
+`convert --promote-line-comments` rewrites the run instead, keeping the words a
+person wrote — no summary is inferred, and nothing is recapitalized or
+repunctuated:
+
+```ts
+/**
+ * Revalidate once per day. Next.js route segment config
+ * must be a static literal — it cannot reference an imported constant.
+ */
+export const revalidate = 86400;
+```
+
+Only a run attached to an export with no doc comment is a candidate, and three
+kinds of run are refused outright: one containing a tooling directive
+(`// eslint-disable-next-line`), which stops working inside a block comment; one
+containing `*/`, which would close the comment early; and one with no prose in
+it, such as a bare `//` used as spacing — the empty `/** */` it would produce
+satisfies the presence rule, so `check` would stop reporting the export as
+undocumented without a word having been written. The promoted comment
+goes through the same rules as any other, so a `@param {string}` typed out of
+habit is normalized on the way in rather than left for the next run.
+
+It is off by default, because it is the only part of `convert` that rewrites
+lines which were not comments TSDoc recognized.
+
 ## What `scaffold` does
 
 Generates a TSDoc stub for every exported declaration that has **no** documentation — in the real migrations this was ~80% of the work. Exports that already have a doc comment are never touched, and re-export statements (`export { x } from "./x"`) are skipped because the symbol is documented at its definition site.
@@ -178,7 +218,7 @@ Generates a TSDoc stub for every exported declaration that has **no** documentat
 Exports are found and classified through the TypeScript compiler API, so an `export` keyword inside a string or a nested scope is never mistaken for a declaration:
 
 | Export shape | Generated stub |
-|------|------|
+| ------ | ------ |
 | `export default function HeroSection({…}: HeroSectionProps)` | "Renders the hero section." + `@param props` + `@returns` |
 | `export async function submitContactForm(prevState, formData)` | "Server Action. Submits the contact form." + one `@param` each + `@returns` |
 | `export const useHash = () => …` | "React hook for the hash." + `@returns` |
@@ -227,7 +267,7 @@ The CI gate, and the only command that validates rather than transforms. It neve
 Comments are parsed with **`@microsoft/tsdoc` itself** — the same parser `eslint-plugin-tsdoc` runs — so a clean `check` predicts a clean lint. Three categories are reported:
 
 | Category | Meaning |
-|------|------|
+| ------ | ------ |
 | `syntax` | The official parser rejected the comment. |
 | `missing` | An export carries no doc comment. |
 | `legacy` | The comment still holds JSDoc that `convert` would rewrite. |

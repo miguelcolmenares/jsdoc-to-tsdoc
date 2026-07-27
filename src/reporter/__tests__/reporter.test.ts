@@ -67,6 +67,7 @@ describe("formatConvertSummary", () => {
         filesChanged: 0,
         commentsChanged: 0,
         membersDocumented: 0,
+        commentsPromoted: 0,
         wrote: false,
       },
       plain,
@@ -81,6 +82,7 @@ describe("formatConvertSummary", () => {
         filesChanged: 2,
         commentsChanged: 7,
         membersDocumented: 0,
+        commentsPromoted: 0,
         wrote: true,
       },
       plain,
@@ -99,6 +101,7 @@ describe("formatConvertSummary", () => {
         filesChanged: 1,
         commentsChanged: 1,
         membersDocumented: 7,
+        commentsPromoted: 0,
         wrote: true,
       },
       plain,
@@ -108,6 +111,23 @@ describe("formatConvertSummary", () => {
     expect(summary).toContain(
       "7 @property description(s) moved onto the members they document",
     );
+  });
+
+  // Promotion turns lines that were not documentation into documentation, so
+  // the comment count does not account for it either.
+  it("calls out promoted line comments", () => {
+    const summary = formatConvertSummary(
+      {
+        filesScanned: 3,
+        filesChanged: 2,
+        commentsChanged: 4,
+        membersDocumented: 0,
+        commentsPromoted: 5,
+        wrote: true,
+      },
+      plain,
+    );
+    expect(summary).toContain("5 line comment(s) promoted to /** */");
   });
 });
 

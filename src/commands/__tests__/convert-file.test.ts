@@ -1,6 +1,26 @@
-import { describe, expect, it } from "vitest";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
+import { checkSourceText } from "@/commands/check-file";
 import { convertSourceText } from "@/commands/convert-file";
+import { createTsdocValidator, type TsdocValidator } from "@/validator";
+
+let root = "";
+let validator: TsdocValidator;
+
+beforeAll(async () => {
+  root = await mkdtemp(join(tmpdir(), "jtt-convertfile-"));
+  validator = await createTsdocValidator(root);
+});
+
+afterAll(async () => {
+  await rm(root, { recursive: true, force: true });
+});
+
+const all = { syntaxOnly: false };
 
 const source = [
   "/**",
@@ -325,5 +345,173 @@ describe("convertSourceText and @property", () => {
     const result = convertSourceText(input, "options.ts", { lite: false });
 
     expect(result.output).toContain("  /** How many times to retry */\n  retries: number;");
+  });
+});
+
+describe("convertSourceText and --promote-line-comments", () => {
+  const lines = (...parts: string[]): string => parts.join("\n");
+
+  // Taken from homecare/src/app/sitemap.xml/route.ts at its pre-migration
+  // commit, where `scaffold` would otherwise insert `/** Revalidate. */`
+  // between this explanation and the declaration it explains.
+  const revalidate = lines(
+    "// Revalidate once per day (CACHE_DURATIONS.long). Next.js route segment config",
+    "// must be a static literal — it cannot reference an imported constant.",
+    "export const revalidate = 86400;",
+  );
+
+  it("leaves line comments alone unless asked", () => {
+    const result = convertSourceText(revalidate, "route.ts", { lite: false });
+
+    expect(result.commentsPromoted).toBe(0);
+    expect(result.output).toBe(revalidate);
+  });
+
+  it("rewrites a run of prose as the doc comment it was serving as", () => {
+    const result = convertSourceText(revalidate, "route.ts", {
+      lite: false,
+      promoteLineComments: true,
+    });
+
+    expect(result.commentsPromoted).toBe(1);
+    expect(result.output).toBe(
+      lines(
+        "/**",
+        " * Revalidate once per day (CACHE_DURATIONS.long). Next.js route segment config",
+        " * must be a static literal — it cannot reference an imported constant.",
+        " */",
+        "export const revalidate = 86400;",
+      ),
+    );
+  });
+
+  it("promotes a one-line run to a one-line comment", () => {
+    const input = lines(
+      "// Revalidate every 30 days (ISR); WP webhook handles freshness",
+      "export const revalidate = 2592000;",
+    );
+
+    const result = convertSourceText(input, "page.tsx", {
+      lite: false,
+      promoteLineComments: true,
+    });
+
+    expect(result.output).toBe(
+      lines(
+        "/** Revalidate every 30 days (ISR); WP webhook handles freshness */",
+        "export const revalidate = 2592000;",
+      ),
+    );
+  });
+
+  it("leaves a declaration that already has a doc comment", () => {
+    const input = lines(
+      "/** Already documented. */",
+      "export const revalidate = 86400;",
+    );
+
+    const result = convertSourceText(input, "route.ts", {
+      lite: false,
+      promoteLineComments: true,
+    });
+
+    expect(result.commentsPromoted).toBe(0);
+  });
+
+  it("leaves a run holding a tooling directive", () => {
+    const input = lines(
+      "// Cache for a day.",
+      "// eslint-disable-next-line @typescript-eslint/no-magic-numbers",
+      "export const revalidate = 86400;",
+    );
+
+    const result = convertSourceText(input, "route.ts", {
+      lite: false,
+      promoteLineComments: true,
+    });
+
+    expect(result.commentsPromoted).toBe(0);
+    expect(result.output).toBe(input);
+  });
+
+  it("does nothing in --lite mode", () => {
+    const result = convertSourceText(revalidate, "route.ts", {
+      lite: true,
+      promoteLineComments: true,
+    });
+
+    expect(result.commentsPromoted).toBe(0);
+    expect(result.output).toBe(revalidate);
+  });
+
+  // Prose written with `//` can carry JSDoc spellings a person typed out of
+  // habit. Emitting them verbatim would leave a comment the very next run
+  // rewrites, so a promoted comment is normalized before it is written.
+  it("normalizes the promoted comment so a second run is a no-op", () => {
+    const input = lines(
+      "// Adds two numbers.",
+      "// @param {number} a - The first addend",
+      "export function add(a: number): number {",
+      "  return a;",
+      "}",
+    );
+
+    const once = convertSourceText(input, "add.ts", {
+      lite: false,
+      promoteLineComments: true,
+    });
+    const twice = convertSourceText(once.output, "add.ts", {
+      lite: false,
+      promoteLineComments: true,
+    });
+
+    expect(once.output).toContain("@param a - The first addend");
+    expect(once.output).not.toContain("{number}");
+    expect(twice.changed).toBe(false);
+  });
+
+  // A bare `//` used as spacing promotes to an empty `/** */`, which the
+  // presence rule accepts. `check` would then stop reporting the export as
+  // undocumented — the tool silencing its own gate with a comment that says
+  // nothing. The regression is stated as the harm, not as the diff.
+  it("leaves a run with no prose, so the export stays undocumented", () => {
+    const input = lines("//", "export const a = 1;");
+
+    const result = convertSourceText(input, "spacer.ts", {
+      lite: false,
+      promoteLineComments: true,
+    });
+
+    expect(result.commentsPromoted).toBe(0);
+    expect(result.output).toBe(input);
+    expect(checkSourceText(result.output, "spacer.ts", validator, all).counts.missing).toBe(
+      1,
+    );
+  });
+
+  it("promotes runs on several exports in one file", () => {
+    const input = lines(
+      "// The first one.",
+      "export const a = 1;",
+      "",
+      "// The second one.",
+      "export const b = 2;",
+    );
+
+    const result = convertSourceText(input, "pair.ts", {
+      lite: false,
+      promoteLineComments: true,
+    });
+
+    expect(result.commentsPromoted).toBe(2);
+    expect(result.output).toBe(
+      lines(
+        "/** The first one. */",
+        "export const a = 1;",
+        "",
+        "/** The second one. */",
+        "export const b = 2;",
+      ),
+    );
   });
 });

@@ -25,6 +25,8 @@ export {
 
 export { isFunctionLikeKind } from "@/scanner/declaration-classifier";
 
+export { isToolDirective } from "@/scanner/insertion-location";
+
 export {
   collectMemberTargets,
   type MemberTarget,
