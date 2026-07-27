@@ -183,9 +183,9 @@ function planProperties(
  * the documentation of it, and `check` never asks for one.
  *
  * The rendered comment goes back through the rule pipeline before it is
- * emitted. Prose written as `//` can carry JSDoc spellings — a `@param
- * {string}` a person typed out of habit — and a promoted comment that the very
- * next `convert` run would rewrite again is not idempotent.
+ * emitted. Prose written as `//` can carry JSDoc spellings a person typed out
+ * of habit, and a promoted comment that the very next `convert` run would
+ * rewrite again is not idempotent.
  *
  * @param sourceText - The full source file contents.
  * @param fileName - The file name (selects the TS/TSX dialect).

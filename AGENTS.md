@@ -345,9 +345,11 @@ a real codebase is.
 
 ### In flight
 
-Nothing. `fix/property-member-docs` merged as `0661786` after eight review
-rounds, seven of which found something. `main` is green: 567 tests, `check`
-clean over the CLI's own source.
+**`feature/promote-line-comments`** — `convert --promote-line-comments`, complete
+with tests and docs, not yet in review.
+
+`fix/property-member-docs` merged as `0661786` after eight review rounds, seven
+of which found something.
 
 **Wait for a clean Copilot round before merging, even when the PR looks done.**
 PR #19 was deliberately parked for one while the quota was out, and that round
@@ -363,18 +365,24 @@ twice with 30-minute timeouts and cannot be relied on as a substitute.
 Remaining v0.1.0 scope, in the order that unblocks the most work. The full list
 with checkboxes is `PLAN.md` → _In Scope (v0.1.0)_.
 
-1. **`convert --promote-line-comments`** — the `line-comments` topology it needs
-   now exists, so `scan --classify` already reports exactly which files it
-   would act on.
-2. **Interactive mode** (`--interactive`, phase 7). `@clack/prompts` is already
+1. **The three rules the `osa` comparison found**, in error-count order —
+   fence unfenced `@example` bodies (72), backtick a bare `@` in prose (32),
+   fold dotted `@param params.foo` into the parent (26). Together they take
+   `osa` from 143 remaining errors to roughly 9, and the hand migration shows
+   the intended output for each. This is the highest-value work left by a wide
+   margin: it is the difference between a tool that does most of the migration
+   and one that finishes it.
+2. **Fixtures** (phase 9) — `osa` gives before/after pairs with a human's
+   answer attached, which is what that phase was always missing.
+3. **Interactive mode** (`--interactive`, phase 7). `@clack/prompts` is already
    a dependency and is **not used anywhere** — either this lands or the
    dependency comes out, because today every consumer installs it for nothing.
-3. **`--commit-per-file`** for reviewable PRs.
-4. **Fixtures from the three real repos** (phase 9), then the end-to-end
-   dogfood (phase 10), then publish (phase 11).
+4. **`--commit-per-file`** for reviewable PRs, then the end-to-end dogfood
+   (phase 10), then publish (phase 11).
 
 Done since this section was written: `scan --classify`, `--fail-on-missing`,
-`--fail-on-stale` (PR #19); `@property` relocation (PR #20).
+`--fail-on-stale` (PR #19); `@property` relocation (PR #20);
+`--promote-line-comments`.
 
 ---
 
@@ -383,6 +391,52 @@ Done since this section was written: `scan --classify`, `--fail-on-missing`,
 Newest first. Each entry records what shipped and, more importantly, **the
 non-obvious things** — a decision and its reasoning, or a trap that cost real
 time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
+
+### `osa-nextjs` — the first ground truth, and what it exposed
+
+`osa-nextjs` has a hand-written migration on `feature/tsdoc-implementation`,
+branched straight off `master` (merge-base `46f01ff`). That makes it the only
+corpus where the tool's output can be compared against what a person actually
+decided, rather than against our own expectations.
+
+Method: `git archive` both refs into a scratchpad, run the CLI over the
+`master` copy, diff against the hand-migrated copy, and run `check` over all
+three. Never convert in place — see the fixture-set trap below.
+
+- **The comparison is worth more than any test we have written.** `check
+  --syntax-only`: **742 errors over 68 files before, 143 over 40 after the CLI,
+  0 in the hand migration.** The tool removes 81% of the problem unaided, and
+  **41 of the 81 files a person migrated come out byte-identical.** Both halves
+  matter — the second says the output is not merely valid but is what a careful
+  human writes.
+- **The 143 that remain are three rules, not a long tail.** `@example` bodies
+  that are not fenced (72 errors: an unfenced `{` is `tsdoc-malformed-inline-tag`
+  and its `}` is `tsdoc-escape-right-brace`), a bare `@` in prose (32 —
+  `@silverassist/icons`, `@/lib/seo`, `@layer third-party`), and dotted
+  `@param params.foo`, which TSDoc has no notion of (26). Four more are a
+  `@param` missing its hyphen. **The person fixed all three the same way every
+  time**, so the target output is not a guess: fence the example, wrap the `@`
+  in backticks, fold the sub-parameters into the parent's description.
+- **A file-level bucket hid the feature's own use case.** `scan --classify`
+  reported `line-comments: 0` for this repo while `convert
+  --promote-line-comments` promoted **18** runs. Both are right: a file is
+  reported under its _most severe_ topology, and with 221 undocumented files
+  every line-commented export was counted as `no-docs`. Reading the file counts
+  as a census of declarations understates any topology that is not the worst one
+  in its file — use `--report=json` and count declarations.
+- **A feature measured on three repos was measured on the wrong three.** Across
+  `homecare`, `assistedliving` and `nextjs-boilerplate` there are 8
+  line-comment declarations in 1,246, all of them `export const revalidate`, and
+  the plan's motivating example — a line-commented function gaining
+  `@param`/`@returns` — occurs zero times. That reading nearly cut the feature.
+  `osa` alone has 18. **Three samples that agree can still be one sample**;
+  these three repos share an author and a house style.
+- **The real argument for promotion was not the one in the plan.** It is not
+  that `//` prose is lost — nothing deletes it. It is that `scaffold` inserts an
+  inferred stub _between_ the prose and the declaration, so the file ends up
+  with `/** Revalidate. */` sitting under two lines explaining exactly why the
+  value is what it is. The plan's `@param`/`@returns` half was dropped: zero
+  real cases, and it is `scaffold`'s job.
 
 ### `@property` relocation — the tool was destroying documentation
 

@@ -112,6 +112,23 @@ describe("formatConvertSummary", () => {
       "7 @property description(s) moved onto the members they document",
     );
   });
+
+  // Promotion turns lines that were not documentation into documentation, so
+  // the comment count does not account for it either.
+  it("calls out promoted line comments", () => {
+    const summary = formatConvertSummary(
+      {
+        filesScanned: 3,
+        filesChanged: 2,
+        commentsChanged: 4,
+        membersDocumented: 0,
+        commentsPromoted: 5,
+        wrote: true,
+      },
+      plain,
+    );
+    expect(summary).toContain("5 line comment(s) promoted to /** */");
+  });
 });
 
 describe("report formats", () => {

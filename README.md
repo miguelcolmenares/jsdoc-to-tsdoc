@@ -59,6 +59,7 @@ npx jsdoc-to-tsdoc escalate --check
 | `--install` | `init` | Run the detected package manager to install missing dev dependencies. |
 | `--check` | `convert`, `scaffold`, `escalate` | CI mode — exit `3` if anything would change; never writes. |
 | `--lite` | `scan`, `convert` | Only `@param` / `@returns` hygiene; leave prose and structural tags. |
+| `--promote-line-comments` | `convert` | Rewrite a run of `//` prose above an undocumented export as the `/** */` comment it was already serving as. Off by default. |
 | `--severity <level>` | `escalate` | Target severity: `error` (default) or `warn` to walk it back. |
 | `--skip-preflight` | `escalate` | Patch the config without running ESLint first. |
 | `--syntax-only` | `check` | Only validate comment syntax; ignore undocumented exports and legacy JSDoc. |
@@ -170,6 +171,42 @@ says the same thing.
 
 `convert` reports how many descriptions it moved, because it is the one change
 that relocates text between declarations.
+
+### `--promote-line-comments`
+
+Some exports are documented with `//` prose that TSDoc cannot see. Left alone,
+`scaffold` inserts a generated stub **between** that prose and the declaration —
+so the file ends up with an inferred summary where the author's own explanation
+was already sitting one line above:
+
+```ts
+// Revalidate once per day. Next.js route segment config
+// must be a static literal — it cannot reference an imported constant.
+/** Revalidate. */          // ← what scaffold adds
+export const revalidate = 86400;
+```
+
+`convert --promote-line-comments` rewrites the run instead, keeping the words a
+person wrote — no summary is inferred, and nothing is recapitalized or
+repunctuated:
+
+```ts
+/**
+ * Revalidate once per day. Next.js route segment config
+ * must be a static literal — it cannot reference an imported constant.
+ */
+export const revalidate = 86400;
+```
+
+Only a run attached to an export with no doc comment is a candidate, and two
+kinds of run are refused outright: one containing a tooling directive
+(`// eslint-disable-next-line`), which stops working inside a block comment, and
+one containing `*/`, which would close the comment early. The promoted comment
+goes through the same rules as any other, so a `@param {string}` typed out of
+habit is normalized on the way in rather than left for the next run.
+
+It is off by default, because it is the only part of `convert` that rewrites
+lines which were not comments TSDoc recognized.
 
 ## What `scaffold` does
 

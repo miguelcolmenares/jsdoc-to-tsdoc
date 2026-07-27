@@ -99,6 +99,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   imply `--classify`. They live on `scan` rather than `check`, which already
   exits `3` for undocumented exports.
 
+- `convert --promote-line-comments` rewrites a run of `//` prose above an
+  undocumented export as the `/** */` comment it was already serving as. Without
+  it, `scaffold` inserts an inferred stub between that prose and the declaration
+  it explains, so the file gains a worse summary than the one already there. The
+  words are carried across unchanged — nothing is recapitalized or
+  repunctuated — and the result goes through the conversion rules, so a promoted
+  comment is not something the next run rewrites again. A run holding a tooling
+  directive or a `*/` is left alone: the first stops working inside a block
+  comment, the second would close it early. Off by default. `convert` reports
+  how many runs it promoted.
 - `@property` descriptions are relocated instead of deleted. TSDoc documents a
   member with its own comment and has no `@property` tag, so the tag still goes
   — but the prose it carries now lands somewhere. It moves onto the member when
