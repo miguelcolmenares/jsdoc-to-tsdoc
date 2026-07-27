@@ -19,6 +19,9 @@ npx jsdoc-to-tsdoc init
 # Inventory what would change (read-only)
 npx jsdoc-to-tsdoc scan
 
+# See where the project actually stands before changing anything
+npx jsdoc-to-tsdoc scan --classify
+
 # Preview a colored unified diff without writing
 npx jsdoc-to-tsdoc convert --dry-run
 
@@ -35,6 +38,10 @@ npx jsdoc-to-tsdoc escalate
 
 # CI gate — validate TSDoc, report undocumented exports, exit 3 on problems
 npx jsdoc-to-tsdoc check
+
+# Documentation-gap gates (both imply --classify)
+npx jsdoc-to-tsdoc scan --fail-on-missing
+npx jsdoc-to-tsdoc scan --fail-on-stale
 
 # Narrower gates — exit code 3 if a given command would change anything
 npx jsdoc-to-tsdoc convert --check
@@ -55,7 +62,10 @@ npx jsdoc-to-tsdoc escalate --check
 | `--severity <level>` | `escalate` | Target severity: `error` (default) or `warn` to walk it back. |
 | `--skip-preflight` | `escalate` | Patch the config without running ESLint first. |
 | `--syntax-only` | `check` | Only validate comment syntax; ignore undocumented exports and legacy JSDoc. |
-| `--include-tests` | `check` | Also check the test paths `init` exempts from the TSDoc rules. |
+| `--classify` | `scan` | Report documentation topology and confidence instead of the conversion inventory. |
+| `--fail-on-missing` | `scan` | Exit `3` when any export has no TSDoc comment (implies `--classify`). |
+| `--fail-on-stale` | `scan` | Exit `3` when any comment contradicts its signature (implies `--classify`). |
+| `--include-tests` | `check`, `scan --classify` | Also inspect the test paths `init` exempts from the TSDoc rules. |
 | `--only <globs>` | `scan`, `convert`, `scaffold`, `check` | Comma-separated globs to include (e.g. `"src/lib/**"`). |
 | `--exclude <globs>` | `scan`, `convert`, `scaffold`, `check` | Comma-separated globs to exclude (e.g. `"**/*.test.ts"`). |
 | `--report <fmt>` | all | Machine-readable output: `json` or `md` (written to stdout). |
@@ -69,6 +79,43 @@ Bootstraps a project for TSDoc without touching source comments:
 - Detects the package manager and prints the exact dev-dependency install command (or runs it with `--install`).
 
 Use `--strict` to lock the presence rule in at `error` from day one instead of the progressive `warn`.
+
+## What `scan --classify` does
+
+Answers the question that comes *before* the migration: what does this project's documentation actually look like, and where should the effort go?
+
+Every exported declaration is classified, and each file lands in exactly one bucket — the **most severe** topology among its exports, because that is the one naming the next action:
+
+| Topology | Meaning | Next action |
+|------|------|------|
+| **Valid TSDoc** | The comment covers what the signature declares | ready for `convert` |
+| **Partial docs** | A comment, but part of the signature is undocumented | `convert`, then fill the gaps |
+| **Line comments** | No doc comment, but `//` prose a human wrote | prose to promote into `/** */` |
+| **No docs** | Nothing, or a plain `/* */` block | run `scaffold` |
+| **Stale docs** | The comment contradicts the signature | manual review required |
+
+```
+Documentation analysis — 127 file(s) scanned
+┌───────────────┬───────┐
+│ Valid TSDoc   │    84 │
+│ Partial docs  │    12 │
+│ Line comments │     8 │
+│ No docs       │    19 │
+│ Stale docs    │     4 │
+│ No exports    │     0 │
+└───────────────┴───────┘
+Confidence: HIGH 84 · MEDIUM 12 · LOW 27 · STALE 4
+
+Stale documentation — review these by hand:
+  src/utils.ts:12 greet
+    @param 'name' is not a parameter of greet (found: userId)
+```
+
+Stale documentation is **never rewritten automatically** — only reported. It is also detected conservatively, and deliberately so: a report that flags accurate documentation gets ignored, taking its true findings with it. Concretely, a destructured parameter (`function Card({ title, href }: CardProps)`) has no name in the source, so `@param title` cannot be told apart from a stale tag — parameter staleness is not judged for those signatures at all rather than guessed at.
+
+Files that export nothing are counted apart from valid ones, which would otherwise overstate how much of the project is ready. Test paths are skipped by default, because the ESLint config `init` writes turns both TSDoc rules off for them.
+
+The human report shows the summary plus the stale findings; `--report=json` carries the full per-declaration detail, gaps included.
 
 ## What `convert` does
 

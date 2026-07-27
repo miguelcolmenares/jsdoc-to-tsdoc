@@ -34,14 +34,14 @@ init  →  convert  →  scaffold  →  escalate
 | Command   | State        | What it does |
 |-----------|--------------|--------------|
 | `init`    | **shipped**  | Generates/merges `tsdoc.json`, patches the ESLint flat config, reports deps to install. |
-| `scan`    | **shipped**  | Read-only inventory of what `convert` would change. |
+| `scan`    | **shipped**  | Read-only inventory of what `convert` would change, plus `--classify`: documentation topology, confidence levels, and the `--fail-on-missing` / `--fail-on-stale` gates. |
 | `convert` | **shipped**  | Transforms existing JSDoc comments into TSDoc syntax (10-rule pipeline). |
 | `scaffold`| **shipped**  | Generates TSDoc stubs for undocumented exports (the ~80% of real-world work). |
 | `escalate`| **shipped**  | Bumps `tsdoc-require-2/require` from `warn` → `error`, gated on a preflight ESLint run. |
 | `check`   | **shipped**  | CI gate — validates comments with the official `@microsoft/tsdoc` parser, reports undocumented exports and leftover JSDoc. |
 
 Domains present: `parser`, `scanner`, `transformer`, `scaffolder`, `generator`,
-`escalator`, `validator`, `reporter`, `writer`, `commands`. See `PLAN.md` → _Implementation Status_ for the
+`escalator`, `validator`, `classifier`, `reporter`, `writer`, `commands`. See `PLAN.md` → _Implementation Status_ for the
 running tally and `PLAN.md` → _Development Roadmap_ for phase order.
 
 **Picking work up again?** Go to §11 — it carries what to do next and why, and
@@ -328,25 +328,21 @@ a real codebase is.
 Remaining v0.1.0 scope, in the order that unblocks the most work. The full list
 with checkboxes is `PLAN.md` → _In Scope (v0.1.0)_.
 
-1. **`scan --classify`** — topology report + confidence levels. Stale-doc
-   detection is the substance: no command does it today, and
-   `--fail-on-stale` and `--promote-line-comments` both depend on it.
-2. **`@property` → inline interface member docs** — the last structural
+1. **`@property` → inline interface member docs** — the last structural
    transform. The redundant block is removed today; splitting it onto members
    is what remains.
-3. **`--fail-on-missing` / `--fail-on-stale`** — cheap once classification exists.
-4. **`convert --promote-line-comments`** — needs the `line-comments` topology.
-5. **Interactive mode** (`--interactive`, phase 7). `@clack/prompts` is already
+2. **`convert --promote-line-comments`** — the `line-comments` topology it needs
+   now exists, so `scan --classify` already reports exactly which files it
+   would act on.
+3. **Interactive mode** (`--interactive`, phase 7). `@clack/prompts` is already
    a dependency and is **not used anywhere** — either this lands or the
    dependency comes out, because today every consumer installs it for nothing.
-6. **Fixtures from the three real repos** (phase 9), then the end-to-end
+4. **`--commit-per-file`** for reviewable PRs.
+5. **Fixtures from the three real repos** (phase 9), then the end-to-end
    dogfood (phase 10), then publish (phase 11).
 
-### Known inconsistency to settle
-
-`PLAN.md` assigns `--fail-on-missing` to `scan` in the _Operational Modes_
-table but writes `check --report=json --fail-on-missing` in the CI example three
-paragraphs earlier. Pick one before implementing, and fix the other.
+Done since this section was written: `scan --classify`, `--fail-on-missing`,
+`--fail-on-stale` (PR #19).
 
 ---
 
@@ -355,6 +351,39 @@ paragraphs earlier. Pick one before implementing, and fix the other.
 Newest first. Each entry records what shipped and, more importantly, **the
 non-obvious things** — a decision and its reasoning, or a trap that cost real
 time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
+
+### PR #19 — `scan --classify`, confidence levels and the gap gates
+
+- **The trap the whole design is built around.** `readParameters` *invents* a
+  name for a destructured binding (`props`, `options`, `argN`). Comparing
+  documentation against it naively reports `@param title` on
+  `function Card({ title, href }: CardProps)` as contradicting the signature —
+  a false positive on the single most common shape in the codebases this tool
+  targets. `ExportParameter.isSynthesized` now records the difference, and
+  parameter staleness is **not judged at all** for such signatures.
+- **Conservative beats complete, for a report.** A classification that flags
+  accurate documentation gets ignored, and takes its true findings with it. The
+  same reasoning suspends parameter *gaps* for destructured signatures once the
+  comment documents any parameter, and skips `@param` judgement entirely on
+  non-callable exports.
+- **A file gets one bucket, and it must name the next action.** Severity is
+  ordered by how much human input the fix needs — `stale` (someone must read
+  it) > `no-docs` (invent prose, then review) > `line-comments` (prose exists,
+  promote it) > `partial` > `valid` — rather than by how common a topology is.
+- **Files that export nothing are counted apart.** Folding them into `valid`
+  would overstate how much of a project is ready to convert. On this repo they
+  were more than half the files before test paths were excluded.
+- **Dogfooding caught the same class of bug as PR #17.** `scan --classify`
+  reported a test helper as undocumented, which ESLint and `check` both exempt.
+  Classification now excludes test paths by default (`--include-tests` opts in);
+  the default `scan` inventory still keeps them, because `convert` does rewrite
+  JSDoc in tests. When adding a command that judges *documentation coverage*,
+  check whether `init`'s generated config already excuses the paths.
+- **Settled a `PLAN.md` contradiction:** the gates live on `scan`, not `check`.
+  `check` already exits `3` for undocumented exports, so `--fail-on-missing`
+  there would be a no-op; `scan` is otherwise read-only and gains a CI role.
+- **`isFunctionLikeKind` is now shared** with the scaffolder, so the two cannot
+  disagree about which exports are supposed to carry `@param` / `@returns`.
 
 ### PR #18 — `@packageDocumentation` emitted once per comment
 
