@@ -60,8 +60,8 @@ src/
 ├── cli.ts                # citty entry point + subcommand dispatch (has the shebang)
 ├── index.ts             # programmatic library surface (re-exports each domain)
 ├── commands/            # one file per subcommand (citty default export) + convert-file orchestrator
-├── parser/              # comment-line traversal, JSDoc→TSDoc tag registry, comment inspection
-├── scanner/             # TS-compiler-API comment extraction, file discovery, glob path filter
+├── parser/              # comment-line traversal, JSDoc→TSDoc tag registry, comment/@property inspection
+├── scanner/             # TS-compiler-API comment extraction, export/member inventory, file discovery, globs
 ├── transformer/         # the deterministic rule pipeline + rules/
 ├── scaffolder/          # name→prose inference + TSDoc stub rendering for undocumented exports
 ├── generator/           # init's building blocks: project detection, tag classification, tsdoc.json, eslint patcher
@@ -72,11 +72,16 @@ src/
 ```
 
 **Data-flow of a `convert`:** `scanner.extractJsDocComments` (via
-`ts.getLeadingCommentRanges`) → for each comment `transformer.runPipeline`
-(ordered rules over the comment text) → `scanner.applyEdits` (one left-to-right
-pass over the original text, joined once) → `writer` or `reporter`. The shared orchestrator is
-[`src/commands/convert-file.ts`](./src/commands/convert-file.ts) (pure, no I/O),
-reused by both `scan` (counting) and `convert` (writing).
+`ts.getLeadingCommentRanges`) + `scanner.collectMemberTargets` (the members of
+the declaration under each comment) → for each comment, decide what its
+`@property` tags may become, then `transformer.runPipeline` (ordered rules over
+the comment text, plus that decision) → `scanner.applyEdits` (one left-to-right
+pass over the original text, joined once, mixing comment rewrites with
+zero-width member insertions) → `writer` or `reporter`. The shared orchestrator
+is [`src/commands/convert-file.ts`](./src/commands/convert-file.ts) (pure, no
+I/O), reused by both `scan` (counting) and `convert` (writing). It is the only
+layer holding both the comment and the AST, which is why the `@property`
+decision lives there and not in a rule.
 
 **Data-flow of a `scaffold`:** `scanner.collectExportedDeclarations` (via the TS
 compiler API — classifies each export, records its insertion offset and indent,
@@ -114,9 +119,14 @@ problems, `2` when `tsdoc.json` is unreadable. See
 1. **Subcommand model, not one flow** (`citty`). Each verb mirrors a real
    migration step and is independently re-runnable.
 2. **Rule-based deterministic pipeline.** Every transform is an independent,
-   pure `Rule` (`name`, `summary`, `liteSafe`, `apply(comment) => comment`).
-   Same input → same output. No time, randomness, or I/O in the pipeline. Order
-   matters and is fixed in [`transformer/rules/index.ts`](./src/transformer/rules/index.ts).
+   pure `Rule` (`name`, `summary`, `liteSafe`,
+   `apply(comment, context) => comment`). Same input → same output. No time,
+   randomness, or I/O in the pipeline. Order matters and is fixed in
+   [`transformer/rules/index.ts`](./src/transformer/rules/index.ts).
+   A rule sees the comment and the `RuleContext` — never the code the comment
+   documents. Where a decision depends on that code, the caller makes it and
+   passes the answer in; `RuleContext.removableProperties` is the one case so
+   far, and its absence must always mean "change nothing".
 3. **Fence-aware, format-preserving edits.** Rules operate through
    [`parser/comment-lines.ts`](./src/parser/comment-lines.ts) (`mapCommentLines`),
    which hands each rule only the _content_ of a line (after ` * `), never the
@@ -242,7 +252,8 @@ npm run check:tsdoc    # builds, then runs the CLI's own `check` over this repo
 - `tsdoc/syntax` is stricter than expected. Common breakers to handle: literal
   `{…}` in prose, `@pkg` / `@/alias` names, `>` in breadcrumbs, `@layer`/`@graph`,
   arrow fns and emails in un-fenced `@example`, `@param [x=1]` optional brackets,
-  `@param obj.prop` dot notation, redundant `@property` blocks. (Full catalog in
+  `@param obj.prop` dot notation, `@property` blocks — only sometimes redundant,
+  see the iteration log. (Full catalog in
   `PLAN.md` and the boilerplate's `TSDOC_IMPLEMENTATION_PLAN.md`.)
 
 ### From building the CLI (inform how to code here)
@@ -263,10 +274,15 @@ npm run check:tsdoc    # builds, then runs the CLI's own `check` over this repo
 
 ## 9. Working with pull requests & reviews
 
-- Automated Copilot review is (being) wired via
-  `.github/workflows/request-copilot-review.yml` to re-request on every push to
-  an open PR. Until it lands on the default branch, request Copilot manually
-  after pushing.
+- **Copilot review is requested automatically on every push** to an open PR by
+  `.github/workflows/request-copilot-review.yml`, which is live on `main`.
+  **Do not post `@copilot review` by hand.** Push, then wait: the workflow
+  appears as the `Request Copilot review` check, and the round follows. Manual
+  comments add nothing — three of them on PR #19 produced no round at all, and
+  the wait was the same either way.
+- A round is tied to the commit that was head when it ran, so a push during a
+  review means the next round covers the newer commit, not that the pending one
+  was lost.
 - When addressing review comments: fix + add a regression test, push, then
   **reply to each thread referencing the fixing commit** and **resolve the
   thread** (`resolveReviewThread` via GraphQL). Verify `0` unresolved before
@@ -329,7 +345,9 @@ a real codebase is.
 
 ### In flight
 
-Nothing open. PR #19 is merged; start from _Next up_ below.
+**`fix/property-member-docs`** — `@property` relocation. Complete locally and
+validated against all six real pre-migration files; going through the review
+cycle.
 
 **Wait for a clean Copilot round before merging, even when the PR looks done.**
 PR #19 was deliberately parked for one while the quota was out, and that round
@@ -345,21 +363,18 @@ twice with 30-minute timeouts and cannot be relied on as a substitute.
 Remaining v0.1.0 scope, in the order that unblocks the most work. The full list
 with checkboxes is `PLAN.md` → _In Scope (v0.1.0)_.
 
-1. **`@property` → inline interface member docs** — the last structural
-   transform. The redundant block is removed today; splitting it onto members
-   is what remains.
-2. **`convert --promote-line-comments`** — the `line-comments` topology it needs
+1. **`convert --promote-line-comments`** — the `line-comments` topology it needs
    now exists, so `scan --classify` already reports exactly which files it
    would act on.
-3. **Interactive mode** (`--interactive`, phase 7). `@clack/prompts` is already
+2. **Interactive mode** (`--interactive`, phase 7). `@clack/prompts` is already
    a dependency and is **not used anywhere** — either this lands or the
    dependency comes out, because today every consumer installs it for nothing.
-4. **`--commit-per-file`** for reviewable PRs.
-5. **Fixtures from the three real repos** (phase 9), then the end-to-end
+3. **`--commit-per-file`** for reviewable PRs.
+4. **Fixtures from the three real repos** (phase 9), then the end-to-end
    dogfood (phase 10), then publish (phase 11).
 
 Done since this section was written: `scan --classify`, `--fail-on-missing`,
-`--fail-on-stale` (PR #19).
+`--fail-on-stale` (PR #19); `@property` relocation.
 
 ---
 
@@ -368,6 +383,116 @@ Done since this section was written: `scan --classify`, `--fail-on-missing`,
 Newest first. Each entry records what shipped and, more importantly, **the
 non-obvious things** — a decision and its reasoning, or a trap that cost real
 time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
+
+### `@property` relocation — the tool was destroying documentation
+
+- **This was a data-loss bug wearing a feature's label.** `PLAN.md` listed it as
+  "the remaining structural step" and called removing the block "the correct
+  action". Measured on the three real repos at their pre-migration commits, it
+  was not: of 25 `@property` tags across 6 files, **10 carried prose that
+  existed nowhere else** and `convert` deleted all of them. Reading the plan's
+  own framing rather than the data would have shipped the loss again.
+- **Measure before designing, and distrust the first two files.** The first two
+  files examined had every member documented already, which reads as "this
+  feature has no use case". The third inverted it: `homecare/homepage.ts` has 7
+  descriptions and 0 documented members. A sample of two agreed with each other
+  and with nothing else.
+- **A measurement script has bugs too.** The first count double-reported every
+  comment, because `getLeadingCommentRanges` repeats a comment's ranges on every
+  descendant sharing its full start. The second undercounted, because
+  `SourceFile` also reports a full start of 0 and claimed any comment opening
+  the file — resolving it to a node with no members. The unit test that would
+  have caught the second one passed anyway: it asserted an empty result, which
+  was true for the wrong reason until sibling tests proved the map is ever
+  populated. **An assertion that something is absent proves nothing on its own.**
+- **The decision cannot live in the pipeline, and that is the whole design.**
+  Rules are handed comment text; whether deleting a `@property` loses prose
+  depends on the declaration below it. `Rule.apply` now receives the
+  `RuleContext`, and `convert-file` — the one layer holding both the comment and
+  the AST — fills in `removableProperties` per comment. Omitting it removes
+  nothing: a caller that cannot prove a deletion is safe must not have silence
+  treated as proof.
+- **Preserving the prose must not break `check`.** The first version kept
+  un-relocatable tags verbatim, which was caught by running the built CLI over
+  the real files: `bp-constants.ts` then failed the tool's own `check` with
+  three `tsdoc-undefined-tag` errors, so `convert` → `check` in CI would break.
+  Those tags are now demoted to `` - `name` — description `` list items — same
+  words, valid TSDoc, nothing lost. **Validate the output against the next
+  command in the workflow, not only against the diff.**
+- **Three outcomes, decided per tag rather than per comment**, because one
+  comment can mix them: move onto an undocumented member, delete as redundant
+  when the member documents itself, demote to prose when no such member exists.
+  A repeated tag for a member already being written is demoted rather than
+  dropped — only the first description would survive the move.
+- **A relocation is only emitted when the tag actually leaves.** If the pipeline
+  declines the rewrite, writing the member comment would duplicate the prose
+  instead of moving it.
+- **A safety net inherits the blind spots of whatever feeds it.** The rule's
+  fallback keys on `leadingTag`, which lowercases; `readPropertyTags` did not.
+  So `@Property` was never accounted for, the net preserved it verbatim, and
+  `convert` emitted a comment that `check` then rejected as
+  `tsdoc-undefined-tag` — the tool producing output its own gate fails. The
+  skip guard added the same round had the identical gap
+  (`sourceText.includes("@prop")`). **When two pieces compare the same thing,
+  they have to normalize it the same way**; the sibling readers in
+  `jsdoc-parser` were swept for the same reason, since `leadingTag` and
+  `getBlockTags` had been case-insensitive all along and the readers were the
+  outliers.
+- **The second pre-filter went where the first one should have.** Review asked
+  for a `@prop` hint in `removeJsdocOnlyTags` "like the one in
+  `convert-file.ts`" — which would have been a third copy of a constant that had
+  already drifted once. It lives in the parser now, as `mayHoldPropertyTag`,
+  guarding `readPropertyTags` from the inside; both call sites use it and no
+  caller can hold a stricter idea of what counts than the pattern does. A table
+  test asserts the guard accepts every spelling the reader reads, and
+  reintroducing the case-sensitive version fails it in three places.
+  **A pre-filter belongs next to what it guards, not next to what calls it.**
+- **Quote the number you measured, not the one you expected.** The rule-level
+  win is real and large — 20 × 475 comment applications drop from **24.0 ms to
+  13.7 ms**, since 454 of those 475 comments take the early return. Over a full
+  `convert` pass it is **~37 ms → ~35 ms**, inside the run-to-run band, because
+  TypeScript parsing dominates. The first attempt measured the arms
+  sequentially and made the guarded build look 4 ms _slower_; interleaving
+  A/B/A/B removed a drift no amount of warmup would have. **Interleave the arms
+  — a warm-up fixes JIT, not a machine that gets busier while you measure.**
+- **A fixture set that the tool has already converted proves nothing.** The
+  scratchpad copy of the six real files was converted in place by an earlier
+  run, so re-validating against it reported `Nothing to convert — already
+  TSDoc-clean` and a clean `check`. That reads exactly like success. Only the
+  file count gave it away, and it was wrong too — the path was passed
+  positionally when `convert` takes `--cwd`, so the run had scanned this repo.
+  **Re-extract the inputs from the pinned commits for every validation run**;
+  this is why the real-repo fixtures belong in the repo (`PLAN.md` phase 9)
+  rather than in a mutable working copy. Same shape as the absent-assertion
+  trap above: a green result that is green for the wrong reason.
+- **The perf note was worth taking, and worth measuring.** `collectMemberTargets`
+  parses the file a second time, and the result is only ever read to place a
+  `@property`. A substring guard on `@prop` skips it: a full `convert` pass over
+  this repo's 104 source files drops from **55 ms to 37 ms**. The first
+  comparison was garbage — it read a stale `dist/`, so the guarded build looked
+  twice as slow. **Rebuild between arms, warm up, take a median**; a perf claim
+  from a single cold run is worse than no claim.
+- **Round 2's suppressed note caught the asymmetry round 1 created.** Widening
+  the reader to accept `['foo-bar']` and `"quoted"` names without widening the
+  member scanner left a gap: a member declared `"foo-bar": string` was not a
+  relocation target, so the description was demoted to a list item with its
+  destination sitting right below it. Two sides of a name have to be widened
+  together. **Read the suppressed notes** — no thread was filed for it that
+  round, and the next round filed one for the same thing. The follow-up also
+  showed the first fix was still too narrow: `["foo-bar"]: string` is a computed
+  key but declares the same addressable name as `"foo-bar": string`, so only a
+  computed key with a non-literal expression is genuinely unnameable.
+- **Review round 1 found the same class of bug inside the fix for it.**
+  `readPropertyTags` matched only identifier-like names, so a JSDoc spelling it
+  missed — `['quoted-key']`, a bare tag carrying only prose — fell through to
+  the blanket `JSDOC_ONLY_TAGS` deletion and lost its description. Broadening
+  the pattern was half the fix; the other half is that the rule now **keeps any
+  `@property` the reader did not report**. A safe default has to be structural,
+  or the next unforeseen spelling walks into the same trapdoor. When a change
+  exists to stop a failure, check that its own fallback path cannot cause it.
+- Final result on the real files: 25 tags in, 0 left, 7 moved onto members, 15
+  deleted as redundant, 3 demoted — **0 descriptions lost, against 10 before** —
+  idempotent on a second run and clean under `check --syntax-only`.
 
 ### PR #19 — `scan --classify`, confidence levels and the gap gates
 
@@ -487,6 +612,13 @@ time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
   gains a capability, its header is part of the change.** This is the same
   defect as round 4's docstring, and it recurred because it was fixed as an
   instance rather than swept as a class.
+- **An interim instruction outlives the problem it was written for.** §9 told
+  agents to request the Copilot review by hand "until the workflow lands on the
+  default branch". It landed; the sentence stayed; it was followed anyway, for
+  three no-op comments on PR #19. Nothing fails when a workaround goes stale —
+  that is exactly why it survives. **Automating a manual step includes deleting
+  the instruction to do it manually**, now a `PLAN.md` → _Definition of Done_
+  item. A sweep for other interim instructions across the three docs found none.
 - **A sweep has to match the semantic class, not the literal one.** After round
   5 the fences were swept for _unlabelled_, so two `PLAN.md` blocks tagged
   ```` ```bash ```` that hold nothing but terminal output survived. The rule

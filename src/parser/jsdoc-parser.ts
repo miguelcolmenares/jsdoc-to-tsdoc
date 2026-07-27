@@ -8,6 +8,11 @@
  * classification in `scan` and the "will this change?" preview in `convert`.
  * Deeper structural editing is the transformer pipeline's job.
  *
+ * {@link readPropertyTags} goes one step further and returns each tag's prose
+ * with the lines it occupies, because relocating a `@property` needs both, and
+ * having the reader and the rewriter derive the span separately is how the two
+ * would come to disagree.
+ *
  * @since 0.1.0
  */
 
@@ -48,7 +53,7 @@ export function hasTypeBraces(comment: string): boolean {
   mapCommentLines(comment, (content, context) => {
     if (
       !context.inFence &&
-      /^@(?:param|returns?|property|prop|type)\s+\{[^}]*\}/.test(content.trim())
+      /^@(?:param|returns?|property|prop|type)\s+\{[^}]*\}/i.test(content.trim())
     ) {
       found = true;
     }
@@ -66,10 +71,16 @@ export function hasTypeBraces(comment: string): boolean {
 // its whole body on one line (`/** Adds. @param a - … @param b - … *\/`), and
 // the official parser reads every tag in it, so anchoring to the line start
 // silently found none of them.
+// Every reader here is case-insensitive, matching the rest of the pipeline:
+// `leadingTag` and `getBlockTags` lowercase before comparing, so a
+// case-sensitive reader is the odd one out and reports a documented name as
+// undocumented purely because of how it was capitalized. `@typeParam` is the
+// TSDoc spelling and `@typeparam` is what a careless hand writes; both name
+// the same type parameter.
 const PARAM_NAME =
-  /(?:^|\s)@(?:param|arg|argument)\s+(?:\{[^}]*\}\s*)?\[?\s*(?:\.\.\.)?([A-Za-z_$][\w$]*(?:\.[\w$]+)*)/g;
+  /(?:^|\s)@(?:param|arg|argument)\s+(?:\{[^}]*\}\s*)?\[?\s*(?:\.\.\.)?([A-Za-z_$][\w$]*(?:\.[\w$]+)*)/gi;
 const TYPE_PARAM_NAME =
-  /(?:^|\s)@(?:typeParam|template)\s+([A-Za-z_$][\w$]*)/g;
+  /(?:^|\s)@(?:typeParam|template)\s+([A-Za-z_$][\w$]*)/gi;
 const ANY_TAG = /(?:^|\s)(@[a-zA-Z]+)/g;
 
 /**
@@ -166,4 +177,179 @@ export function getDocumentedParams(comment: string): readonly string[] {
  */
 export function getDocumentedTypeParams(comment: string): readonly string[] {
   return documentedNames(comment, TYPE_PARAM_NAME);
+}
+
+// Any `@property` tag that opens its line: the tag, an optional `{type}`, an
+// optional name token, and the rest as the description.
+//
+// The name is captured as a whole token rather than matched against an
+// identifier pattern. JSDoc permits shapes TypeScript identifiers do not —
+// `[optional]`, `[withDefault=1]`, `['quoted-key']` — and a name pattern that
+// rejected one of them would make the tag invisible here, which is the one
+// outcome that loses its description. Being generous costs a name that is
+// merely odd; being strict costs the prose.
+// The lookahead keeps a lone `-` out of the name: with no name at all
+// (`@property - Some prose`), the separator is the next token and would
+// otherwise be read as the member's name.
+// Case-insensitive, because `leadingTag` lowercases before comparing and the
+// removal rule's safety net keys on its result. A case-sensitive reader here
+// would leave `@Property` unaccounted for, the safety net would preserve it
+// verbatim, and `convert` would emit a comment that `check` then rejects as
+// `tsdoc-undefined-tag`.
+const PROPERTY_LINE =
+  /^@(?:property|prop)\b[ \t]*(?:\{[^}]*\}[ \t]*)?(\[[^\]]*\]|(?!-(?:[ \t]|$))\S+)?[ \t]*(?:-[ \t]*)?(.*)$/i;
+
+// Substring shared by every spelling `PROPERTY_LINE` can match, so text without
+// it holds no `@property` tag. Deliberately the only such pre-filter in the
+// codebase: the previous one was declared beside the pattern it guards and
+// drifted out of sync with it within a round.
+const PROPERTY_HINT = /@prop/i;
+
+/**
+ * Reports whether text could hold a `@property` tag at all.
+ *
+ * @remarks
+ * A cheap substring test for callers about to do something expensive on the
+ * strength of a tag being present — reading a comment's tags, or parsing a file
+ * a second time to find the members they document. It is deliberately loose:
+ * every spelling {@link readPropertyTags} recognizes contains this substring, so
+ * a false negative is impossible and a false positive costs only the work that
+ * would have happened anyway.
+ *
+ * Shared rather than reimplemented per caller, because a pre-filter that
+ * disagrees with the pattern it guards silently skips real work.
+ *
+ * @param text - A comment or a whole source file.
+ * @returns `false` only when no `@property` tag can be present.
+ */
+export function mayHoldPropertyTag(text: string): boolean {
+  return PROPERTY_HINT.test(text);
+}
+
+/**
+ * Reduces a JSDoc name token to the member name it refers to.
+ *
+ * @param token - The raw token as written after the tag.
+ * @returns The bare name, with optional brackets, a default value, and
+ * surrounding quotes removed.
+ */
+function memberName(token: string): string {
+  const unbracketed = /^\[(.*)\]$/.exec(token)?.[1] ?? token;
+  const [beforeDefault = ""] = unbracketed.split("=");
+  return beforeDefault.trim().replace(/^["'`]|["'`]$/g, "");
+}
+
+/**
+ * A `@property` tag together with the content lines it occupies.
+ */
+export interface PropertyTag {
+  /**
+   * The member name the tag documents, normalized from the JSDoc spelling.
+   *
+   * @remarks
+   * Empty when the tag names nothing at all. Such a tag is still reported
+   * rather than skipped: it may carry a description, and a description this
+   * reader does not return is one the removal rule cannot know to preserve.
+   */
+  readonly name: string;
+  /** The description, with any continuation lines folded into one. */
+  readonly description: string;
+  /** Zero-based index of the content line the tag opens. */
+  readonly line: number;
+  /** How many content lines the tag spans, continuations included. */
+  readonly lineCount: number;
+}
+
+/**
+ * Reads the `@property` tags a comment carries, with the span each one occupies.
+ *
+ * @remarks
+ * `@property` is the one JSDoc-only tag that carries prose nobody else has: it
+ * describes a member of a declared shape, and TypeScript's own syntax has no
+ * place to put
+ * that description except a doc comment on the member itself. Deleting the tag
+ * is therefore only safe once the description exists somewhere else, so the
+ * caller needs the description and the exact lines to remove — derived here,
+ * once, rather than re-derived by whoever removes them.
+ *
+ * Every tag that *opens* its line is reported, whatever it names — including
+ * one that names nothing. The reader is the removal rule's only account of
+ * where `@property` prose lives, so a tag missing from this list is a tag the
+ * rule cannot know to preserve.
+ *
+ * A `@property` sitting mid-line is the one exception. It has no unambiguous
+ * end, so folding a description out of it would be a guess, and a wrong guess
+ * here destroys the prose the move exists to rescue; the rule leaves such a
+ * line alone instead.
+ *
+ * A continuation line — one that follows a tag and starts neither a new tag nor
+ * a blank — belongs to that tag's description and is folded into it.
+ *
+ * @param comment - The full `/** *\/` comment text.
+ * @returns One entry per line-leading `@property` tag, in source order.
+ *
+ * @example
+ * ```typescript
+ * readPropertyTags("/**\n * @property id - The id.\n *\/");
+ * // → [{ name: "id", description: "The id.", line: 1, lineCount: 1 }]
+ * ```
+ */
+export function readPropertyTags(comment: string): readonly PropertyTag[] {
+  // Most comments carry no `@property` at all, and walking them to discover
+  // that costs a full traversal on top of the one the caller is already doing.
+  // The guard lives here rather than at each call site so no caller can hold a
+  // stricter idea of what counts than the pattern below does.
+  if (!mayHoldPropertyTag(comment)) {
+    return [];
+  }
+
+  const tags: PropertyTag[] = [];
+  let open: { name: string; parts: string[]; line: number; end: number } | null =
+    null;
+
+  const close = (): void => {
+    if (open === null) {
+      return;
+    }
+    tags.push({
+      name: open.name,
+      description: open.parts.join(" ").trim(),
+      line: open.line,
+      lineCount: open.end - open.line + 1,
+    });
+    open = null;
+  };
+
+  mapCommentLines(comment, (content, context) => {
+    if (context.inFence) {
+      close();
+      return content;
+    }
+
+    const trimmed = content.trim();
+    const match = PROPERTY_LINE.exec(trimmed);
+    if (match) {
+      close();
+      const [, token = "", description = ""] = match;
+      open = {
+        name: memberName(token),
+        parts: description.trim() === "" ? [] : [description.trim()],
+        line: context.index,
+        end: context.index,
+      };
+      return content;
+    }
+
+    if (open !== null && trimmed !== "" && !trimmed.startsWith("@")) {
+      open.parts.push(trimmed);
+      open.end = context.index;
+      return content;
+    }
+
+    close();
+    return content;
+  });
+
+  close();
+  return tags;
 }

@@ -1,7 +1,8 @@
 /**
  * @packageDocumentation
  * Public API of the parser domain: comment-line traversal, the JSDoc → TSDoc
- * tag registry, and lightweight comment inspection helpers.
+ * tag registry, and comment inspection — which tags and names a comment
+ * carries, and where its `@property` prose sits.
  *
  * @since 0.1.0
  */
@@ -18,6 +19,9 @@ export {
   getDocumentedParams,
   getDocumentedTypeParams,
   hasTypeBraces,
+  mayHoldPropertyTag,
+  readPropertyTags,
+  type PropertyTag,
 } from "@/parser/jsdoc-parser";
 
 export {

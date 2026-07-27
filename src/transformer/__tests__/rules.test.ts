@@ -12,19 +12,31 @@ import {
   stripPrefixTags,
   stripReturnPromise,
 } from "@/transformer/rules";
+import type { Rule, RuleContext } from "@/transformer";
 
 /** Joins lines into a multi-line comment for readable fixtures. */
 const comment = (...lines: string[]): string => lines.join("\n");
 
+/**
+ * Runs a rule with the default context. Most rules read only the comment; the
+ * ones that read the context take the overrides here, so the default stays the
+ * conservative one every other test asserts against.
+ */
+const apply = (
+  rule: Rule,
+  text: string,
+  context: Partial<RuleContext> = {},
+): string => rule.apply(text, { lite: false, ...context });
+
 describe("removeTypeBraces", () => {
   it("strips a type brace from @param", () => {
-    expect(removeTypeBraces.apply("/** @param {string} name - The name */")).toBe(
+    expect(apply(removeTypeBraces, "/** @param {string} name - The name */")).toBe(
       "/** @param name - The name */",
     );
   });
 
   it("strips a type brace from @returns", () => {
-    expect(removeTypeBraces.apply("/** @returns {boolean} Whether valid */")).toBe(
+    expect(apply(removeTypeBraces, "/** @returns {boolean} Whether valid */")).toBe(
       "/** @returns Whether valid */",
     );
   });
@@ -38,19 +50,19 @@ describe("removeTypeBraces", () => {
       " * ```",
       " */",
     );
-    expect(removeTypeBraces.apply(input)).toBe(input);
+    expect(apply(removeTypeBraces, input)).toBe(input);
   });
 });
 
 describe("stripOptionalParamBrackets", () => {
   it("removes [name=default] brackets", () => {
     expect(
-      stripOptionalParamBrackets.apply("/** @param [limit=100] - Max */"),
+      apply(stripOptionalParamBrackets, "/** @param [limit=100] - Max */"),
     ).toBe("/** @param limit - Max */");
   });
 
   it("removes [name] brackets", () => {
-    expect(stripOptionalParamBrackets.apply("/** @param [name] - The name */")).toBe(
+    expect(apply(stripOptionalParamBrackets, "/** @param [name] - The name */")).toBe(
       "/** @param name - The name */",
     );
   });
@@ -58,44 +70,42 @@ describe("stripOptionalParamBrackets", () => {
 
 describe("renameTags", () => {
   it("renames @return to @returns", () => {
-    expect(renameTags.apply("/** @return the value */")).toBe(
+    expect(apply(renameTags, "/** @return the value */")).toBe(
       "/** @returns the value */",
     );
   });
 
   it("renames @template to @typeParam", () => {
-    expect(renameTags.apply("/** @template T - The element */")).toBe(
+    expect(apply(renameTags, "/** @template T - The element */")).toBe(
       "/** @typeParam T - The element */",
     );
   });
 
   it("ignores unmapped tags", () => {
-    expect(renameTags.apply("/** @remarks note */")).toBe("/** @remarks note */");
+    expect(apply(renameTags, "/** @remarks note */")).toBe("/** @remarks note */");
   });
 });
 
 describe("stripReturnPromise", () => {
   it("removes Promise<T> with a description", () => {
     expect(
-      stripReturnPromise.apply("/** @returns Promise<User | null> - The user */"),
+      apply(stripReturnPromise, "/** @returns Promise<User | null> - The user */"),
     ).toBe("/** @returns The user */");
   });
 
   it("removes a bare Promise<T> return", () => {
     const input = comment("/**", " * @returns Promise<void>", " */");
-    expect(stripReturnPromise.apply(input)).toBe(
+    expect(apply(stripReturnPromise, input)).toBe(
       comment("/**", " * @returns", " */"),
     );
   });
 
   it("handles nested generics without leaving a stray angle bracket", () => {
     expect(
-      stripReturnPromise.apply(
-        "/** @returns Promise<Array<User>> - the users */",
-      ),
+      apply(stripReturnPromise, "/** @returns Promise<Array<User>> - the users */"),
     ).toBe("/** @returns the users */");
     const bare = comment("/**", " * @returns Promise<Map<string, User>>", " */");
-    expect(stripReturnPromise.apply(bare)).toBe(
+    expect(apply(stripReturnPromise, bare)).toBe(
       comment("/**", " * @returns", " */"),
     );
   });
@@ -103,55 +113,55 @@ describe("stripReturnPromise", () => {
 
 describe("addHyphenSeparator", () => {
   it("inserts a hyphen when missing", () => {
-    expect(addHyphenSeparator.apply("/** @param name The user name */")).toBe(
+    expect(apply(addHyphenSeparator, "/** @param name The user name */")).toBe(
       "/** @param name - The user name */",
     );
   });
 
   it("converts a colon separator to a hyphen", () => {
-    expect(addHyphenSeparator.apply("/** @param query: string search */")).toBe(
+    expect(apply(addHyphenSeparator, "/** @param query: string search */")).toBe(
       "/** @param query - string search */",
     );
   });
 
   it("leaves an existing hyphen untouched", () => {
-    expect(addHyphenSeparator.apply("/** @param name - The name */")).toBe(
+    expect(apply(addHyphenSeparator, "/** @param name - The name */")).toBe(
       "/** @param name - The name */",
     );
   });
 
   it("leaves a name-only @param untouched", () => {
-    expect(addHyphenSeparator.apply("/** @param name */")).toBe("/** @param name */");
+    expect(apply(addHyphenSeparator, "/** @param name */")).toBe("/** @param name */");
   });
 });
 
 describe("convertAccessTags", () => {
   it("maps @access private to @internal", () => {
-    expect(convertAccessTags.apply("/** @access private */")).toBe("/** @internal */");
+    expect(apply(convertAccessTags, "/** @access private */")).toBe("/** @internal */");
   });
 
   it("maps @access protected to @protected", () => {
-    expect(convertAccessTags.apply("/** @access protected */")).toBe(
+    expect(apply(convertAccessTags, "/** @access protected */")).toBe(
       "/** @protected */",
     );
   });
 
   it("maps the @private shorthand to @internal", () => {
-    expect(convertAccessTags.apply("/** @private */")).toBe("/** @internal */");
+    expect(apply(convertAccessTags, "/** @private */")).toBe("/** @internal */");
   });
 });
 
 describe("convertFileOverview", () => {
   it("converts @module and drops its path", () => {
     const input = comment("/**", " * @module lib/foo", " */");
-    expect(convertFileOverview.apply(input)).toBe(
+    expect(apply(convertFileOverview, input)).toBe(
       comment("/**", " * @packageDocumentation", " */"),
     );
   });
 
   it("converts @fileoverview and relocates its prose to a summary line", () => {
     const input = comment("/**", " * @fileoverview HTTP utilities.", " */");
-    expect(convertFileOverview.apply(input)).toBe(
+    expect(apply(convertFileOverview, input)).toBe(
       comment("/**", " * @packageDocumentation", " * HTTP utilities.", " */"),
     );
   });
@@ -165,12 +175,12 @@ describe("convertFileOverview", () => {
       " * ```",
       " */",
     );
-    expect(convertFileOverview.apply(input)).toBe(input);
+    expect(apply(convertFileOverview, input)).toBe(input);
   });
 
   it("expands a single-line @fileoverview into a multi-line comment", () => {
     expect(
-      convertFileOverview.apply("/** @fileoverview HTTP utilities. */"),
+      apply(convertFileOverview, "/** @fileoverview HTTP utilities. */"),
     ).toBe(
       comment("/**", " * @packageDocumentation", " * HTTP utilities.", " */"),
     );
@@ -183,7 +193,7 @@ describe("convertFileOverview", () => {
       " * @module lib/http",
       " */",
     );
-    expect(convertFileOverview.apply(input)).toBe(
+    expect(apply(convertFileOverview, input)).toBe(
       comment("/**", " * @packageDocumentation", " * HTTP utilities.", " */"),
     );
   });
@@ -195,7 +205,7 @@ describe("convertFileOverview", () => {
       " * @fileoverview HTTP utilities.",
       " */",
     );
-    expect(convertFileOverview.apply(input)).toBe(
+    expect(apply(convertFileOverview, input)).toBe(
       comment("/**", " * @packageDocumentation", " * HTTP utilities.", " */"),
     );
   });
@@ -208,7 +218,7 @@ describe("convertFileOverview", () => {
       " * @module lib/http",
       " */",
     );
-    expect(convertFileOverview.apply(input)).toBe(
+    expect(apply(convertFileOverview, input)).toBe(
       comment("/**", " * @packageDocumentation", " * HTTP utilities.", " */"),
     );
   });
@@ -223,7 +233,7 @@ describe("convertFileOverview", () => {
       " * ```",
       " */",
     );
-    expect(convertFileOverview.apply(input)).toBe(
+    expect(apply(convertFileOverview, input)).toBe(
       comment(
         "/**",
         " * @packageDocumentation",
@@ -243,7 +253,7 @@ describe("convertFileOverview", () => {
       " * @module lib/http/client",
       " */",
     );
-    expect(convertFileOverview.apply(input)).toBe(
+    expect(apply(convertFileOverview, input)).toBe(
       comment("/**", " * @packageDocumentation", " */"),
     );
   });
@@ -252,32 +262,126 @@ describe("convertFileOverview", () => {
 describe("removeRedundantTags", () => {
   it("drops an @async line", () => {
     const input = comment("/**", " * Does a thing.", " * @async", " */");
-    expect(removeRedundantTags.apply(input)).toBe(
+    expect(apply(removeRedundantTags, input)).toBe(
       comment("/**", " * Does a thing.", " */"),
     );
   });
 
   it("drops @extends and @implements", () => {
     const input = comment("/**", " * @extends Base", " * @implements Runnable", " */");
-    expect(removeRedundantTags.apply(input)).toBe(comment("/**", " */"));
+    expect(apply(removeRedundantTags, input)).toBe(comment("/**", " */"));
   });
 });
 
 describe("removeJsdocOnlyTags", () => {
-  it("drops a @property line", () => {
+  it("drops a @property line the caller authorized", () => {
     const input = comment("/**", " * @property name - The name", " */");
-    expect(removeJsdocOnlyTags.apply(input)).toBe(comment("/**", " */"));
+    expect(
+      apply(removeJsdocOnlyTags, input, { removableProperties: ["name"] }),
+    ).toBe(comment("/**", " */"));
+  });
+
+  // The description on a @property is its only copy, and TSDoc has no such
+  // tag. Unauthorized, the prose stays in the comment as a list item: keeping
+  // the tag verbatim would survive `convert` only to fail `check` with
+  // tsdoc-undefined-tag.
+  it("demotes a @property the caller said nothing about to prose", () => {
+    const input = comment("/**", " * @property name - The name", " */");
+    const demoted = comment("/**", " * - `name` — The name", " */");
+    expect(apply(removeJsdocOnlyTags, input)).toBe(demoted);
+    expect(apply(removeJsdocOnlyTags, input, { removableProperties: [] })).toBe(
+      demoted,
+    );
+  });
+
+  it("deletes a @property carrying no description either way", () => {
+    const input = comment("/**", " * @property name", " */");
+    expect(apply(removeJsdocOnlyTags, input)).toBe(comment("/**", " */"));
+  });
+
+  it("authorizes each @property by name, not the tag as a family", () => {
+    const input = comment(
+      "/**",
+      " * @property kept - Still needed",
+      " * @property gone - Already on the member",
+      " */",
+    );
+    expect(
+      apply(removeJsdocOnlyTags, input, { removableProperties: ["gone"] }),
+    ).toBe(comment("/**", " * - `kept` — Still needed", " */"));
+  });
+
+  // A wrapped description must leave with its tag; the tail alone would read as
+  // an unattributed sentence in the summary.
+  it("removes the continuation lines of a @property it drops", () => {
+    const input = comment(
+      "/**",
+      " * @property backgroundImage - Proxied URL for the banner",
+      " *   background image, resolved at build time",
+      " * @property height - Banner height",
+      " */",
+    );
+    expect(
+      apply(removeJsdocOnlyTags, input, {
+        removableProperties: ["backgroundImage"],
+      }),
+    ).toBe(comment("/**", " * - `height` — Banner height", " */"));
+  });
+
+  // A wrapped description that cannot move is folded onto one list item rather
+  // than left as a bullet followed by a dangling continuation line.
+  it("folds a wrapped description it demotes", () => {
+    const input = comment(
+      "/**",
+      " * @property backgroundImage - Proxied URL for the banner",
+      " *   background image, resolved at build time",
+      " */",
+    );
+    expect(apply(removeJsdocOnlyTags, input)).toBe(
+      comment(
+        "/**",
+        " * - `backgroundImage` — Proxied URL for the banner background image, resolved at build time",
+        " */",
+      ),
+    );
+  });
+
+  // The regression this pins: a name spelling the reader does not return is a
+  // description the rule would delete through the JSDoc-only branch.
+  it("preserves a description whose name uses a non-identifier spelling", () => {
+    const input = comment(
+      "/**",
+      " * @property ['foo-bar'] - Still real documentation",
+      " */",
+    );
+    expect(apply(removeJsdocOnlyTags, input)).toBe(
+      comment("/**", " * - `foo-bar` \u2014 Still real documentation", " */"),
+    );
+  });
+
+  it("keeps prose from a tag that names nothing, without a bare list item", () => {
+    const input = comment("/**", " * @property - Just a description", " */");
+    expect(apply(removeJsdocOnlyTags, input)).toBe(
+      comment("/**", " * Just a description", " */"),
+    );
+  });
+
+  // A mid-line tag has no unambiguous end, so the reader skips it. It must then
+  // survive rather than fall through to the blanket JSDoc-only deletion.
+  it("never deletes a @property the reader did not account for", () => {
+    const input = "/** Summary. @property id - The id. */";
+    expect(apply(removeJsdocOnlyTags, input)).toBe(input);
   });
 
   it("drops a @typedef line", () => {
     const input = comment("/**", " * @typedef {Object} Foo", " */");
-    expect(removeJsdocOnlyTags.apply(input)).toBe(comment("/**", " */"));
+    expect(apply(removeJsdocOnlyTags, input)).toBe(comment("/**", " */"));
   });
 });
 
 describe("stripPrefixTags", () => {
   it("reduces @description to plain prose", () => {
-    expect(stripPrefixTags.apply("/** @description Formats a value. */")).toBe(
+    expect(apply(stripPrefixTags, "/** @description Formats a value. */")).toBe(
       "/** Formats a value. */",
     );
   });
@@ -307,6 +411,6 @@ describe("fenced-code safety", () => {
     ["strip-prefix-tags", stripPrefixTags],
     ["strip-optional-param-brackets", stripOptionalParamBrackets],
   ])("%s leaves fenced example code untouched", (_name, rule) => {
-    expect(rule.apply(fenced)).toBe(fenced);
+    expect(apply(rule, fenced)).toBe(fenced);
   });
 });

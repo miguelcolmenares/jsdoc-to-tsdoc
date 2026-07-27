@@ -67,16 +67,25 @@ export function formatConvertSummary(
     readonly filesScanned: number;
     readonly filesChanged: number;
     readonly commentsChanged: number;
+    readonly membersDocumented: number;
     readonly wrote: boolean;
   },
   colors: Colors,
 ): string {
-  const { filesScanned, filesChanged, commentsChanged, wrote } = params;
+  const { filesScanned, filesChanged, commentsChanged, membersDocumented, wrote } =
+    params;
   const verb = wrote ? "converted" : "would convert";
   if (filesChanged === 0) {
     return colors.green(`✓ Nothing to convert — ${filesScanned} files already TSDoc-clean.`);
   }
+  // Relocated `@property` prose is called out rather than folded into the
+  // comment count: it is the one change that moves text between declarations,
+  // and a reader scanning the summary should see it happened.
+  const moved =
+    membersDocumented > 0
+      ? ` ${String(membersDocumented)} @property description(s) moved onto the members they document.`
+      : "";
   return colors.bold(
-    `${verb} ${commentsChanged} comment(s) across ${filesChanged}/${filesScanned} file(s).`,
+    `${verb} ${commentsChanged} comment(s) across ${filesChanged}/${filesScanned} file(s).${moved}`,
   );
 }

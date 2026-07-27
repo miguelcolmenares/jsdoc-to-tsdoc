@@ -99,6 +99,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   imply `--classify`. They live on `scan` rather than `check`, which already
   exits `3` for undocumented exports.
 
+- `@property` descriptions are relocated instead of deleted. TSDoc documents a
+  member with its own comment and has no `@property` tag, so the tag still goes
+  — but the prose it carries now lands somewhere. It moves onto the member when
+  the member has no comment of its own, is dropped as redundant when the member
+  already documents itself, and becomes a Markdown list item in the original
+  comment when the declaration has no such member (an exported array literal,
+  for instance), which keeps `convert` output valid for `check`. `convert`
+  reports how many descriptions it moved.
+- `Rule.apply` receives the `RuleContext`. Every rule until now decided from the
+  comment alone; `@property` cannot, because whether deleting it loses prose
+  depends on the declaration below the comment, which the pipeline never sees.
+  `RuleContext.removableProperties` carries that decision per comment, and
+  omitting it removes nothing — a caller that cannot prove a deletion is safe
+  must not have that treated as proof it is.
+- `scanner`: `collectMemberTargets` maps each doc comment to the interface or
+  type-literal members of the declaration it sits on, with each member's
+  documentation state, insertion offset and indentation.
+- `parser`: `readPropertyTags` reads each line-leading `@property` tag with its
+  description and the exact lines it occupies, folding wrapped descriptions.
+
 ### Fixed
 
 - `scaffold` no longer emits `@param this` for a function declaring an explicit
