@@ -8,6 +8,11 @@
  * classification in `scan` and the "will this change?" preview in `convert`.
  * Deeper structural editing is the transformer pipeline's job.
  *
+ * {@link readPropertyTags} goes one step further and returns each tag's prose
+ * with the lines it occupies, because relocating a `@property` needs both, and
+ * having the reader and the rewriter derive the span separately is how the two
+ * would come to disagree.
+ *
  * @since 0.1.0
  */
 
@@ -166,4 +171,104 @@ export function getDocumentedParams(comment: string): readonly string[] {
  */
 export function getDocumentedTypeParams(comment: string): readonly string[] {
   return documentedNames(comment, TYPE_PARAM_NAME);
+}
+
+// A `@property` tag that opens its line: the tag, an optional `{type}`, the
+// member name — possibly bracketed, defaulted, or dotted — and the description
+// after an optional hyphen separator.
+const PROPERTY_LINE =
+  /^@(?:property|prop)\s+(?:\{[^}]*\}\s*)?\[?\s*([A-Za-z_$][\w$]*(?:\.[\w$]+)*)(?:\s*=[^\]]*)?\]?\s*(?:-\s*)?(.*)$/;
+
+/**
+ * A `@property` tag together with the content lines it occupies.
+ */
+export interface PropertyTag {
+  /** The member name the tag documents, as written. */
+  readonly name: string;
+  /** The description, with any continuation lines folded into one. */
+  readonly description: string;
+  /** Zero-based index of the content line the tag opens. */
+  readonly line: number;
+  /** How many content lines the tag spans, continuations included. */
+  readonly lineCount: number;
+}
+
+/**
+ * Reads the `@property` tags a comment carries, with the span each one occupies.
+ *
+ * @remarks
+ * `@property` is the one JSDoc-only tag that carries prose nobody else has: it
+ * describes an interface member, and TypeScript's own syntax has no place to put
+ * that description except a doc comment on the member itself. Deleting the tag
+ * is therefore only safe once the description exists somewhere else, so the
+ * caller needs the description and the exact lines to remove — derived here,
+ * once, rather than re-derived by whoever removes them.
+ *
+ * Only a tag that *opens* its line is reported. A `@property` sitting mid-line
+ * has no unambiguous end, so folding a description out of it would be a guess,
+ * and a wrong guess here destroys the prose it was meant to rescue. Such a tag
+ * is left for the caller to keep in place.
+ *
+ * A continuation line — one that follows a tag and starts neither a new tag nor
+ * a blank — belongs to that tag's description and is folded into it.
+ *
+ * @param comment - The full `/** *\/` comment text.
+ * @returns One entry per line-leading `@property` tag, in source order.
+ *
+ * @example
+ * ```typescript
+ * readPropertyTags("/**\n * @property id - The id.\n *\/");
+ * // → [{ name: "id", description: "The id.", line: 1, lineCount: 1 }]
+ * ```
+ */
+export function readPropertyTags(comment: string): readonly PropertyTag[] {
+  const tags: PropertyTag[] = [];
+  let open: { name: string; parts: string[]; line: number; end: number } | null =
+    null;
+
+  const close = (): void => {
+    if (open === null) {
+      return;
+    }
+    tags.push({
+      name: open.name,
+      description: open.parts.join(" ").trim(),
+      line: open.line,
+      lineCount: open.end - open.line + 1,
+    });
+    open = null;
+  };
+
+  mapCommentLines(comment, (content, context) => {
+    if (context.inFence) {
+      close();
+      return content;
+    }
+
+    const trimmed = content.trim();
+    const match = PROPERTY_LINE.exec(trimmed);
+    if (match) {
+      close();
+      const [, name = "", description = ""] = match;
+      open = {
+        name,
+        parts: description.trim() === "" ? [] : [description.trim()],
+        line: context.index,
+        end: context.index,
+      };
+      return content;
+    }
+
+    if (open !== null && trimmed !== "" && !trimmed.startsWith("@")) {
+      open.parts.push(trimmed);
+      open.end = context.index;
+      return content;
+    }
+
+    close();
+    return content;
+  });
+
+  close();
+  return tags;
 }

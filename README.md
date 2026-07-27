@@ -129,9 +129,47 @@ Deterministic, formatting-preserving transformations derived from real-world mig
 - Converts `@access private` / `@private` → `@internal` (and `@protected` / `@public`).
 - Converts `@module` / `@fileoverview` → `@packageDocumentation`, at most once per
   comment even when several file-level tags appear together (their prose is kept).
-- Deletes TypeScript-redundant tags (`@function`, `@async`, `@class`, `@enum`, …) and JSDoc-only tags (`@typedef`, `@callback`, `@type`, `@property`).
+- Deletes TypeScript-redundant tags (`@function`, `@async`, `@class`, `@enum`, …) and JSDoc-only tags (`@typedef`, `@callback`, `@type`).
+- Moves `@property` descriptions onto the interface members they document, rather than deleting prose that exists nowhere else. See below.
 
 Content inside fenced code blocks (```` ```…``` ````) is never modified, so `@example` code is preserved verbatim.
+
+### `@property` is never thrown away
+
+TSDoc has no `@property` tag; a member is documented by its own comment. So the
+tag has to go — but its description is usually the only copy of that prose, and
+deleting it loses documentation the migration was supposed to preserve. Each tag
+therefore ends up in one of three places:
+
+| Situation | What happens |
+| ----------- | -------------- |
+| The member has no doc comment | The description is moved onto the member. |
+| The member already has one | The tag is deleted as redundant; the member's own wording is left alone. |
+| There is no such member, or the declaration has none at all | The description stays in the comment as a Markdown list item. |
+
+```diff
+  /**
+   * Homepage banner data.
+   *
+- * @property title - Banner title (may contain HTML)
+- * @property height - Banner minimum height in pixels
+   */
+  export interface HomepageBanner {
++   /** Banner title (may contain HTML) */
+    title: string | null;
++   /** Banner minimum height in pixels */
+    height: string | null;
+  }
+```
+
+The third case covers shapes with nothing to attach a comment to — the element
+type of an exported array literal, for instance. Keeping the tag verbatim would
+survive `convert` only to fail `check` with `tsdoc-undefined-tag`, so the prose
+is rewritten as `` - `name` — description `` instead, which is valid TSDoc and
+says the same thing.
+
+`convert` reports how many descriptions it moved, because it is the one change
+that relocates text between declarations.
 
 ## What `scaffold` does
 

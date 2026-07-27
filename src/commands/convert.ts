@@ -28,6 +28,7 @@ import { writeFileText } from "@/writer";
 interface ChangedFile {
   readonly path: string;
   readonly commentsChanged: number;
+  readonly membersDocumented: number;
   readonly appliedRules: readonly string[];
 }
 
@@ -97,6 +98,7 @@ export default defineCommand({
       const changedFiles: ChangedFile[] = [];
       const diffs: string[] = [];
       let commentsChanged = 0;
+      let membersDocumented = 0;
 
       for (const file of files) {
         const before = await readFile(file, "utf8");
@@ -109,9 +111,11 @@ export default defineCommand({
         changedFiles.push({
           path: relativePath,
           commentsChanged: conversion.commentsChanged,
+          membersDocumented: conversion.membersDocumented,
           appliedRules: conversion.appliedRules,
         });
         commentsChanged += conversion.commentsChanged;
+        membersDocumented += conversion.membersDocumented;
 
         if (willWrite) {
           await writeFileText(file, conversion.output);
@@ -127,6 +131,7 @@ export default defineCommand({
             filesScanned: files.length,
             filesChanged: changedFiles.length,
             commentsChanged,
+            membersDocumented,
             wrote: willWrite,
             files: changedFiles,
           })}\n`,
@@ -149,6 +154,7 @@ export default defineCommand({
               filesScanned: files.length,
               filesChanged: changedFiles.length,
               commentsChanged,
+              membersDocumented,
               wrote: willWrite,
             },
             colors,

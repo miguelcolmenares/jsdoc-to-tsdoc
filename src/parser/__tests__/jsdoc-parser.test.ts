@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { getBlockTags, hasTypeBraces } from "@/parser/jsdoc-parser";
+import {
+  getBlockTags,
+  hasTypeBraces,
+  readPropertyTags,
+} from "@/parser/jsdoc-parser";
 
 const comment = (...lines: string[]): string => lines.join("\n");
 
@@ -49,5 +53,106 @@ describe("hasTypeBraces", () => {
       " */",
     );
     expect(hasTypeBraces(input)).toBe(false);
+  });
+});
+
+describe("readPropertyTags", () => {
+  it("reads the name, description and span of each tag", () => {
+    const input = comment(
+      "/**",
+      " * Banner data.",
+      " *",
+      " * @property title - Banner title",
+      " * @property height - Banner height in pixels",
+      " */",
+    );
+
+    expect(readPropertyTags(input)).toEqual([
+      { name: "title", description: "Banner title", line: 3, lineCount: 1 },
+      {
+        name: "height",
+        description: "Banner height in pixels",
+        line: 4,
+        lineCount: 1,
+      },
+    ]);
+  });
+
+  it("folds a wrapped description into the tag that owns it", () => {
+    const input = comment(
+      "/**",
+      " * @property backgroundImage - Proxied URL for the banner",
+      " *   background image, resolved at build time",
+      " * @property height - Banner height",
+      " */",
+    );
+
+    expect(readPropertyTags(input)[0]).toEqual({
+      name: "backgroundImage",
+      description:
+        "Proxied URL for the banner background image, resolved at build time",
+      line: 1,
+      lineCount: 2,
+    });
+  });
+
+  it("accepts the JSDoc spellings the tag appears in", () => {
+    const input = comment(
+      "/**",
+      " * @property {string} typed - Has a type brace",
+      " * @property [optional] - Bracketed",
+      " * @property [withDefault=1] - Bracketed with a default",
+      " * @prop aliased - The @prop alias",
+      " * @property noSeparator The hyphen is optional in JSDoc",
+      " */",
+    );
+
+    expect(readPropertyTags(input).map((tag) => [tag.name, tag.description])).toEqual([
+      ["typed", "Has a type brace"],
+      ["optional", "Bracketed"],
+      ["withDefault", "Bracketed with a default"],
+      ["aliased", "The @prop alias"],
+      ["noSeparator", "The hyphen is optional in JSDoc"],
+    ]);
+  });
+
+  it("ignores tags inside a fenced example", () => {
+    const input = comment(
+      "/**",
+      " * Summary.",
+      " *",
+      " * @example",
+      " * ```ts",
+      " * /** @property fake - Not a real tag *\\/",
+      " * ```",
+      " */",
+    );
+
+    expect(readPropertyTags(input)).toEqual([]);
+  });
+
+  // A mid-line tag has no unambiguous end, and guessing where a description
+  // stops would destroy the prose the move exists to rescue.
+  it("reports nothing for a tag that does not open its line", () => {
+    expect(readPropertyTags("/** Summary. @property id - The id. */")).toEqual([]);
+  });
+
+  it("reports a tag with no description rather than skipping it", () => {
+    const input = comment("/**", " * @property bare", " */");
+    expect(readPropertyTags(input)).toEqual([
+      { name: "bare", description: "", line: 1, lineCount: 1 },
+    ]);
+  });
+
+  it("does not treat a following tag as a continuation", () => {
+    const input = comment(
+      "/**",
+      " * @property id - The id",
+      " * @returns Something",
+      " */",
+    );
+    expect(readPropertyTags(input)).toEqual([
+      { name: "id", description: "The id", line: 1, lineCount: 1 },
+    ]);
   });
 });

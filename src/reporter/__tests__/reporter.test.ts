@@ -62,7 +62,13 @@ describe("formatTable", () => {
 describe("formatConvertSummary", () => {
   it("reports a clean run", () => {
     const summary = formatConvertSummary(
-      { filesScanned: 5, filesChanged: 0, commentsChanged: 0, wrote: false },
+      {
+        filesScanned: 5,
+        filesChanged: 0,
+        commentsChanged: 0,
+        membersDocumented: 0,
+        wrote: false,
+      },
       plain,
     );
     expect(summary).toContain("Nothing to convert");
@@ -70,11 +76,36 @@ describe("formatConvertSummary", () => {
 
   it("reports converted counts", () => {
     const summary = formatConvertSummary(
-      { filesScanned: 5, filesChanged: 2, commentsChanged: 7, wrote: true },
+      {
+        filesScanned: 5,
+        filesChanged: 2,
+        commentsChanged: 7,
+        membersDocumented: 0,
+        wrote: true,
+      },
       plain,
     );
     expect(summary).toContain("converted 7 comment(s)");
     expect(summary).toContain("2/5");
+    expect(summary).not.toContain("@property");
+  });
+
+  // Moving prose between declarations is the one change a reader cannot infer
+  // from the comment count, so it is stated rather than folded in.
+  it("calls out relocated @property descriptions", () => {
+    const summary = formatConvertSummary(
+      {
+        filesScanned: 1,
+        filesChanged: 1,
+        commentsChanged: 1,
+        membersDocumented: 7,
+        wrote: true,
+      },
+      plain,
+    );
+    expect(summary).toContain(
+      "7 @property description(s) moved onto interface members",
+    );
   });
 });
 

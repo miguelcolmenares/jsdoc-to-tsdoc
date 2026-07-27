@@ -242,7 +242,8 @@ npm run check:tsdoc    # builds, then runs the CLI's own `check` over this repo
 - `tsdoc/syntax` is stricter than expected. Common breakers to handle: literal
   `{…}` in prose, `@pkg` / `@/alias` names, `>` in breadcrumbs, `@layer`/`@graph`,
   arrow fns and emails in un-fenced `@example`, `@param [x=1]` optional brackets,
-  `@param obj.prop` dot notation, redundant `@property` blocks. (Full catalog in
+  `@param obj.prop` dot notation, `@property` blocks — only sometimes redundant,
+  see the iteration log. (Full catalog in
   `PLAN.md` and the boilerplate's `TSDOC_IMPLEMENTATION_PLAN.md`.)
 
 ### From building the CLI (inform how to code here)
@@ -329,7 +330,9 @@ a real codebase is.
 
 ### In flight
 
-Nothing open. PR #19 is merged; start from _Next up_ below.
+**`fix/property-member-docs`** — `@property` relocation. Complete locally and
+validated against all six real pre-migration files; going through the review
+cycle.
 
 **Wait for a clean Copilot round before merging, even when the PR looks done.**
 PR #19 was deliberately parked for one while the quota was out, and that round
@@ -345,21 +348,18 @@ twice with 30-minute timeouts and cannot be relied on as a substitute.
 Remaining v0.1.0 scope, in the order that unblocks the most work. The full list
 with checkboxes is `PLAN.md` → _In Scope (v0.1.0)_.
 
-1. **`@property` → inline interface member docs** — the last structural
-   transform. The redundant block is removed today; splitting it onto members
-   is what remains.
-2. **`convert --promote-line-comments`** — the `line-comments` topology it needs
+1. **`convert --promote-line-comments`** — the `line-comments` topology it needs
    now exists, so `scan --classify` already reports exactly which files it
    would act on.
-3. **Interactive mode** (`--interactive`, phase 7). `@clack/prompts` is already
+2. **Interactive mode** (`--interactive`, phase 7). `@clack/prompts` is already
    a dependency and is **not used anywhere** — either this lands or the
    dependency comes out, because today every consumer installs it for nothing.
-4. **`--commit-per-file`** for reviewable PRs.
-5. **Fixtures from the three real repos** (phase 9), then the end-to-end
+3. **`--commit-per-file`** for reviewable PRs.
+4. **Fixtures from the three real repos** (phase 9), then the end-to-end
    dogfood (phase 10), then publish (phase 11).
 
 Done since this section was written: `scan --classify`, `--fail-on-missing`,
-`--fail-on-stale` (PR #19).
+`--fail-on-stale` (PR #19); `@property` relocation.
 
 ---
 
@@ -368,6 +368,53 @@ Done since this section was written: `scan --classify`, `--fail-on-missing`,
 Newest first. Each entry records what shipped and, more importantly, **the
 non-obvious things** — a decision and its reasoning, or a trap that cost real
 time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
+
+### `@property` relocation — the tool was destroying documentation
+
+- **This was a data-loss bug wearing a feature's label.** `PLAN.md` listed it as
+  "the remaining structural step" and called removing the block "the correct
+  action". Measured on the three real repos at their pre-migration commits, it
+  was not: of 25 `@property` tags across 6 files, **10 carried prose that
+  existed nowhere else** and `convert` deleted all of them. Reading the plan's
+  own framing rather than the data would have shipped the loss again.
+- **Measure before designing, and distrust the first two files.** The first two
+  files examined had every member documented already, which reads as "this
+  feature has no use case". The third inverted it: `homecare/homepage.ts` has 7
+  descriptions and 0 documented members. A sample of two agreed with each other
+  and with nothing else.
+- **A measurement script has bugs too.** The first count double-reported every
+  comment, because `getLeadingCommentRanges` repeats a comment's ranges on every
+  descendant sharing its full start. The second undercounted, because
+  `SourceFile` also reports a full start of 0 and claimed any comment opening
+  the file — resolving it to a node with no members. The unit test that would
+  have caught the second one passed anyway: it asserted an empty result, which
+  was true for the wrong reason until sibling tests proved the map is ever
+  populated. **An assertion that something is absent proves nothing on its own.**
+- **The decision cannot live in the pipeline, and that is the whole design.**
+  Rules are handed comment text; whether deleting a `@property` loses prose
+  depends on the declaration below it. `Rule.apply` now receives the
+  `RuleContext`, and `convert-file` — the one layer holding both the comment and
+  the AST — fills in `removableProperties` per comment. Omitting it removes
+  nothing: a caller that cannot prove a deletion is safe must not have silence
+  treated as proof.
+- **Preserving the prose must not break `check`.** The first version kept
+  un-relocatable tags verbatim, which was caught by running the built CLI over
+  the real files: `bp-constants.ts` then failed the tool's own `check` with
+  three `tsdoc-undefined-tag` errors, so `convert` → `check` in CI would break.
+  Those tags are now demoted to `` - `name` — description `` list items — same
+  words, valid TSDoc, nothing lost. **Validate the output against the next
+  command in the workflow, not only against the diff.**
+- **Three outcomes, decided per tag rather than per comment**, because one
+  comment can mix them: move onto an undocumented member, delete as redundant
+  when the member documents itself, demote to prose when no such member exists.
+  A repeated tag for a member already being written is demoted rather than
+  dropped — only the first description would survive the move.
+- **A relocation is only emitted when the tag actually leaves.** If the pipeline
+  declines the rewrite, writing the member comment would duplicate the prose
+  instead of moving it.
+- Final result on the real files: 25 tags in, 0 left, 7 moved onto members, 15
+  deleted as redundant, 3 demoted — **0 descriptions lost, against 10 before** —
+  idempotent on a second run and clean under `check --syntax-only`.
 
 ### PR #19 — `scan --classify`, confidence levels and the gap gates
 

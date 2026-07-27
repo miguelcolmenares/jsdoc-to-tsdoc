@@ -45,9 +45,10 @@ and the real-world learnings): `{Type}`-brace stripping, tag renames
 (`@return` → `@returns`, `@template` → `@typeParam`, `@default` → `@defaultValue`),
 `@returns Promise<T>` unwrapping, JSDoc optional-bracket removal, the mandatory
 `@param name - desc` hyphen, `@access` → visibility modifiers,
-`@module` / `@fileoverview` → `@packageDocumentation`, and removal of
-TypeScript-redundant and JSDoc-only tags (`@function`, `@async`, `@typedef`,
-`@property`, …). Fenced example code is never modified.
+`@module` / `@fileoverview` → `@packageDocumentation`, removal of
+TypeScript-redundant and JSDoc-only tags (`@function`, `@async`, `@typedef`, …),
+and relocation of `@property` descriptions onto the interface members they
+document. Fenced example code is never modified.
 
 Stubs generated (per export kind): React components, Server Actions (detected by
 the `(prevState, formData)` signature), hooks (`useX`), interfaces, type aliases,
@@ -86,9 +87,8 @@ generator domain and the classifier; ~97 % on the escalator and validator,
 
 ### Deferred (next increments)
 
-- Structural `@property` → inline interface-member docs (the redundant
-  `@property` block is currently removed, which is the correct action; splitting
-  it onto interface members is the remaining structural step).
+- Trim the blank content line a removed tag block can leave behind before the
+  closing `*/`. Valid TSDoc, but untidy output the tool writes into user files.
 - Interactive mode, `--commit-per-file`, and `--promote-line-comments`.
 - Reuse the `@microsoft/tsdoc` validation pass inside `convert`, so a
   transformed comment is proven valid before it is written.
@@ -166,7 +166,7 @@ progression are the other two. All three must ship together to be useful.
 | `@typedef {Object} MyType` | Remove entirely | Simple — delete |
 | `@callback MyCallback` | Remove entirely | Simple — delete |
 | `@type {Type}` | Remove entirely | Simple — delete |
-| `@property {string} name` | Inline `/** comment */` on interface member | Medium — structural (**now in scope**) |
+| `@property {string} name` | Inline `/** comment */` on interface member, or a prose list item when there is no member | Medium — structural (**shipped**) |
 | `@function`, `@async`, `@class` | Remove entirely | Simple — delete |
 | `@enum {string}` | Remove entirely | Simple — delete |
 | `@fires`, `@emits` | Not in TSDoc standard | Medium — decide policy |
@@ -411,7 +411,7 @@ src/
 │   │   ├── remove-type-braces.ts
 │   │   ├── add-hyphen-separator.ts
 │   │   ├── convert-file-overview.ts
-│   │   ├── convert-property.ts       # @property → inline interface docs
+│   │   ├── remove-jsdoc-only-tags.ts # @typedef/@callback/@type; resolves @property
 │   │   ├── remove-redundant-tags.ts
 │   │   ├── remove-jsdoc-only-tags.ts
 │   │   ├── convert-access-tags.ts
@@ -988,9 +988,12 @@ Conversion (existing JSDoc → TSDoc):
 - [x] Remove JSDoc-only tags (`@typedef`, `@callback`, `@type`)
 - [x] Convert `@fileoverview`/`@module` → `@packageDocumentation`
 - [x] Convert `@access private` → `@internal`
-- [ ] **Restructure `@property` → inline interface field docs** — the redundant
-      `@property` block is removed today; splitting it onto interface members is
-      the remaining structural step
+- [x] **Restructure `@property` → inline interface field docs** — the
+      description moves onto the member when the member has none, the tag is
+      deleted when the member already documents itself, and the prose becomes a
+      Markdown list item when the declaration has no such member. Measured on
+      the three real repos before migration: of 25 tags, 10 were being destroyed
+      and now none are
 
 Scaffolding (new TSDoc for undocumented exports):
 

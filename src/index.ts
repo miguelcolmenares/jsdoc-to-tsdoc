@@ -66,8 +66,10 @@ export {
   getBlockTags,
   hasTypeBraces,
   mapCommentLines,
+  readPropertyTags,
   type CommentLineContext,
   type CommentLineMapper,
+  type PropertyTag,
 } from "@/parser";
 export {
   buildStub,
@@ -79,11 +81,13 @@ export {
 } from "@/scaffolder";
 export {
   collectExportedDeclarations,
+  collectMemberTargets,
   extractJsDocComments,
   findSourceFiles,
   undocumentedDeclarations,
   type ExportedDeclaration,
   type ExportKind,
+  type MemberTarget,
   type SourceComment,
 } from "@/scanner";
 export {
