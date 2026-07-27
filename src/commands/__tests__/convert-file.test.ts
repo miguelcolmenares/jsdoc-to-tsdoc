@@ -265,6 +265,28 @@ describe("convertSourceText and @property", () => {
     expect(result.output).toContain("@property title - Not a real tag");
   });
 
+  // Reproduces the round-4 defect: @Property survived convert and then failed
+  // check with tsdoc-undefined-tag. Both the reader and the skip guard have to
+  // be case-insensitive, or the tag is simply never accounted for.
+  it("relocates a @property written with unusual casing", () => {
+    const input = lines(
+      "/**",
+      " * Banner data.",
+      " *",
+      " * @Property title - Banner title",
+      " */",
+      "export interface Banner {",
+      "  title: string;",
+      "}",
+    );
+
+    const result = convertSourceText(input, "banner.ts", { lite: false });
+
+    expect(result.membersDocumented).toBe(1);
+    expect(result.output).toContain("  /** Banner title */\n  title: string;");
+    expect(result.output.toLowerCase()).not.toContain("@property");
+  });
+
   it("documents the members of a type alias over a type literal", () => {
     const input = lines(
       "/**",

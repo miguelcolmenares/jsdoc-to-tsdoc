@@ -125,6 +125,22 @@ describe("readPropertyTags", () => {
     ]);
   });
 
+  // `leadingTag` lowercases before comparing, so the removal rule's safety net
+  // recognizes `@Property` while a case-sensitive reader would not — leaving it
+  // preserved verbatim and failing `check` as an undefined tag.
+  it("reads the tag whatever its casing", () => {
+    const input = comment(
+      "/**",
+      " * @Property title - Banner title",
+      " * @PROP height - Banner height",
+      " */",
+    );
+    expect(readPropertyTags(input).map((tag) => tag.name)).toEqual([
+      "title",
+      "height",
+    ]);
+  });
+
   it("reports a tag that names nothing but carries prose", () => {
     const input = comment("/**", " * @property - Just a description", " */");
     expect(readPropertyTags(input)).toEqual([

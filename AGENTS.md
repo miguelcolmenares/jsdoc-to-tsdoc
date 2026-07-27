@@ -427,6 +427,17 @@ time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
 - **A relocation is only emitted when the tag actually leaves.** If the pipeline
   declines the rewrite, writing the member comment would duplicate the prose
   instead of moving it.
+- **A safety net inherits the blind spots of whatever feeds it.** The rule's
+  fallback keys on `leadingTag`, which lowercases; `readPropertyTags` did not.
+  So `@Property` was never accounted for, the net preserved it verbatim, and
+  `convert` emitted a comment that `check` then rejected as
+  `tsdoc-undefined-tag` — the tool producing output its own gate fails. The
+  skip guard added the same round had the identical gap
+  (`sourceText.includes("@prop")`). **When two pieces compare the same thing,
+  they have to normalize it the same way**; the sibling readers in
+  `jsdoc-parser` were swept for the same reason, since `leadingTag` and
+  `getBlockTags` had been case-insensitive all along and the readers were the
+  outliers.
 - **The perf note was worth taking, and worth measuring.** `collectMemberTargets`
   parses the file a second time, and the result is only ever read to place a
   `@property`. A substring guard on `@prop` skips it: a full `convert` pass over

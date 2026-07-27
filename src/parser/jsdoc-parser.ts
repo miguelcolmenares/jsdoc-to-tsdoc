@@ -53,7 +53,7 @@ export function hasTypeBraces(comment: string): boolean {
   mapCommentLines(comment, (content, context) => {
     if (
       !context.inFence &&
-      /^@(?:param|returns?|property|prop|type)\s+\{[^}]*\}/.test(content.trim())
+      /^@(?:param|returns?|property|prop|type)\s+\{[^}]*\}/i.test(content.trim())
     ) {
       found = true;
     }
@@ -71,10 +71,16 @@ export function hasTypeBraces(comment: string): boolean {
 // its whole body on one line (`/** Adds. @param a - … @param b - … *\/`), and
 // the official parser reads every tag in it, so anchoring to the line start
 // silently found none of them.
+// Every reader here is case-insensitive, matching the rest of the pipeline:
+// `leadingTag` and `getBlockTags` lowercase before comparing, so a
+// case-sensitive reader is the odd one out and reports a documented name as
+// undocumented purely because of how it was capitalized. `@typeParam` is the
+// TSDoc spelling and `@typeparam` is what a careless hand writes; both name
+// the same type parameter.
 const PARAM_NAME =
-  /(?:^|\s)@(?:param|arg|argument)\s+(?:\{[^}]*\}\s*)?\[?\s*(?:\.\.\.)?([A-Za-z_$][\w$]*(?:\.[\w$]+)*)/g;
+  /(?:^|\s)@(?:param|arg|argument)\s+(?:\{[^}]*\}\s*)?\[?\s*(?:\.\.\.)?([A-Za-z_$][\w$]*(?:\.[\w$]+)*)/gi;
 const TYPE_PARAM_NAME =
-  /(?:^|\s)@(?:typeParam|template)\s+([A-Za-z_$][\w$]*)/g;
+  /(?:^|\s)@(?:typeParam|template)\s+([A-Za-z_$][\w$]*)/gi;
 const ANY_TAG = /(?:^|\s)(@[a-zA-Z]+)/g;
 
 /**
@@ -185,8 +191,13 @@ export function getDocumentedTypeParams(comment: string): readonly string[] {
 // The lookahead keeps a lone `-` out of the name: with no name at all
 // (`@property - Some prose`), the separator is the next token and would
 // otherwise be read as the member's name.
+// Case-insensitive, because `leadingTag` lowercases before comparing and the
+// removal rule's safety net keys on its result. A case-sensitive reader here
+// would leave `@Property` unaccounted for, the safety net would preserve it
+// verbatim, and `convert` would emit a comment that `check` then rejects as
+// `tsdoc-undefined-tag`.
 const PROPERTY_LINE =
-  /^@(?:property|prop)\b[ \t]*(?:\{[^}]*\}[ \t]*)?(\[[^\]]*\]|(?!-(?:[ \t]|$))\S+)?[ \t]*(?:-[ \t]*)?(.*)$/;
+  /^@(?:property|prop)\b[ \t]*(?:\{[^}]*\}[ \t]*)?(\[[^\]]*\]|(?!-(?:[ \t]|$))\S+)?[ \t]*(?:-[ \t]*)?(.*)$/i;
 
 /**
  * Reduces a JSDoc name token to the member name it refers to.
