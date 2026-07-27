@@ -34,7 +34,7 @@ export interface FileConversion {
   readonly changed: boolean;
   /** How many comments were rewritten. */
   readonly commentsChanged: number;
-  /** How many interface members gained a doc comment moved off a `@property`. */
+  /** How many members gained a doc comment moved off a `@property`. */
   readonly membersDocumented: number;
   /** The distinct rule names that fired across the file. */
   readonly appliedRules: readonly string[];

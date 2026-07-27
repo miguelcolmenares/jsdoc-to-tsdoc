@@ -227,7 +227,8 @@ export interface PropertyTag {
  *
  * @remarks
  * `@property` is the one JSDoc-only tag that carries prose nobody else has: it
- * describes an interface member, and TypeScript's own syntax has no place to put
+ * describes a member of a declared shape, and TypeScript's own syntax has no
+ * place to put
  * that description except a doc comment on the member itself. Deleting the tag
  * is therefore only safe once the description exists somewhere else, so the
  * caller needs the description and the exact lines to remove — derived here,

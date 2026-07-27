@@ -36,21 +36,25 @@ const PROPERTY_TAGS = ["@property", "@prop"];
  * one defect for another — the comment would survive `convert` and then fail
  * `check` with `tsdoc-undefined-tag`.
  *
- * So the tag always goes, and only its prose's destination varies. When
- * {@link RuleContext.removableProperties} names it, the description is already
- * on the interface member — the caller put it there — and the line is deleted.
- * Otherwise there was nowhere to move it, and the description stays in this
- * comment as a Markdown list item naming the member. That is what a person
- * migrating by hand writes for a shape with no members to document, such as the
- * element type of an exported array literal.
+ * So a tag the reader accounted for always goes, and only its prose's
+ * destination varies. When {@link RuleContext.removableProperties} names it,
+ * the description is already on the member — the caller put it there — and the
+ * line is deleted. Otherwise there was nowhere to move it, and the description
+ * stays in this comment as a Markdown list item naming the member. That is what
+ * a person migrating by hand writes for a shape with no members to document,
+ * such as the element type of an exported array literal.
  *
  * A tag carrying no description is deleted either way: there is nothing to
  * keep. A tag carrying a description but naming nothing keeps the description
  * as plain prose, since there is no member to name in a list item.
  *
- * A `@property` the reader did not account for is left untouched rather than
- * falling through to the blanket JSDoc-only deletion, so no path through this
- * rule can delete a description that nothing established was safe to lose.
+ * The one tag that stays a tag is one {@link readPropertyTags} did not report —
+ * today, a `@property` sitting mid-line, which has no unambiguous end. Rewriting
+ * it would mean guessing where its description stops, and a wrong guess destroys
+ * the prose; leaving it costs a `tsdoc-undefined-tag` from `check` that names
+ * the line for a person to fix. It is deliberately *not* handed to the blanket
+ * JSDoc-only deletion, so no path through this rule can delete a description
+ * that nothing established was safe to lose.
  *
  * Continuation lines are folded into the item or removed with it, so a
  * description wrapped across lines neither loses its tail nor leaves one behind

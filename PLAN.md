@@ -47,8 +47,7 @@ and the real-world learnings): `{Type}`-brace stripping, tag renames
 `@param name - desc` hyphen, `@access` → visibility modifiers,
 `@module` / `@fileoverview` → `@packageDocumentation`, removal of
 TypeScript-redundant and JSDoc-only tags (`@function`, `@async`, `@typedef`, …),
-and relocation of `@property` descriptions onto the interface members they
-document. Fenced example code is never modified.
+and relocation of `@property` descriptions onto the members they document. Fenced example code is never modified.
 
 Stubs generated (per export kind): React components, Server Actions (detected by
 the `(prevState, formData)` signature), hooks (`useX`), interfaces, type aliases,
@@ -166,7 +165,7 @@ progression are the other two. All three must ship together to be useful.
 | `@typedef {Object} MyType` | Remove entirely | Simple — delete |
 | `@callback MyCallback` | Remove entirely | Simple — delete |
 | `@type {Type}` | Remove entirely | Simple — delete |
-| `@property {string} name` | Inline `/** comment */` on interface member, or a prose list item when there is no member | Medium — structural (**shipped**) |
+| `@property {string} name` | Inline `/** comment */` on the member (`interface` or `type` over an object literal), or a prose list item when there is no member | Medium — structural (**shipped**) |
 | `@function`, `@async`, `@class` | Remove entirely | Simple — delete |
 | `@enum {string}` | Remove entirely | Simple — delete |
 | `@fires`, `@emits` | Not in TSDoc standard | Medium — decide policy |
