@@ -4,6 +4,7 @@ import {
   addHyphenSeparator,
   convertAccessTags,
   convertFileOverview,
+  fenceExampleBlocks,
   removeJsdocOnlyTags,
   removeRedundantTags,
   removeTypeBraces,
@@ -27,6 +28,151 @@ const apply = (
   text: string,
   context: Partial<RuleContext> = {},
 ): string => rule.apply(text, { lite: false, ...context });
+
+describe("fenceExampleBlocks", () => {
+  it("fences a body TSDoc would misparse", () => {
+    const input = comment(
+      "/**",
+      " * @example",
+      " * const r = f({ a: 1 });",
+      " */",
+    );
+
+    expect(apply(fenceExampleBlocks, input)).toBe(
+      comment(
+        "/**",
+        " * @example",
+        " * ```typescript",
+        " * const r = f({ a: 1 });",
+        " * ```",
+        " */",
+      ),
+    );
+  });
+
+  // An `@` inside a word is `tsdoc-at-sign-in-word`, so an email in sample
+  // code breaks the comment as surely as a brace does.
+  it("fences a body whose only hazard is an at sign inside a word", () => {
+    const input = comment("/**", " * @example", " * send('a@b.com')", " */");
+
+    expect(apply(fenceExampleBlocks, input)).toContain("```typescript");
+  });
+
+  // Fencing every example would rewrite comments that were never broken. The
+  // hand migration on osa-nextjs left 48 such bodies exactly as written.
+  it("leaves a body TSDoc parses cleanly", () => {
+    const input = comment(
+      "/**",
+      " * @example",
+      ' * toPath("/uploads/x.png")',
+      " */",
+    );
+
+    expect(apply(fenceExampleBlocks, input)).toBe(input);
+  });
+
+  it("leaves an already fenced body alone", () => {
+    const input = comment(
+      "/**",
+      " * @example",
+      " * ```typescript",
+      " * const r = f({ a: 1 });",
+      " * ```",
+      " */",
+    );
+
+    expect(apply(fenceExampleBlocks, input)).toBe(input);
+  });
+
+  it("closes the fence before the blank line and the next tag", () => {
+    const input = comment(
+      "/**",
+      " * @example",
+      " * const r = f({ a: 1 });",
+      " *",
+      " * @returns Nothing.",
+      " */",
+    );
+
+    expect(apply(fenceExampleBlocks, input)).toBe(
+      comment(
+        "/**",
+        " * @example",
+        " * ```typescript",
+        " * const r = f({ a: 1 });",
+        " * ```",
+        " *",
+        " * @returns Nothing.",
+        " */",
+      ),
+    );
+  });
+
+  it("fences each example in a comment that has several", () => {
+    const input = comment(
+      "/**",
+      " * @example",
+      " * f({ a: 1 })",
+      " * @example",
+      " * g({ b: 2 })",
+      " */",
+    );
+
+    const output = apply(fenceExampleBlocks, input);
+
+    expect(output.match(/```typescript/g)).toHaveLength(2);
+    expect(output.match(/```$/gm)).toHaveLength(2);
+  });
+
+  it("leaves a comment with no example alone", () => {
+    const input = comment("/**", " * @param a - The { thing }.", " */");
+
+    expect(apply(fenceExampleBlocks, input)).toBe(input);
+  });
+
+  it("is a no-op on its own output", () => {
+    const input = comment(
+      "/**",
+      " * @example",
+      " * const r = f({ a: 1 });",
+      " */",
+    );
+    const once = apply(fenceExampleBlocks, input);
+
+    expect(apply(fenceExampleBlocks, once)).toBe(once);
+  });
+
+  // Caught by running the rule over this repo. `buildStub` leads its example
+  // with a prose caption and fences only the code below it; wrapping that body
+  // would nest a fence inside a fence and turn the sentence into code.
+  it("leaves a body that fences its own code below a caption", () => {
+    const input = comment(
+      "/**",
+      " * @example",
+      " * The stub for `submitContactForm(prevState)` — one `@param` each:",
+      " *",
+      " * ```typescript",
+      " * buildStub(submitContactForm);",
+      " * ```",
+      " */",
+    );
+
+    expect(apply(fenceExampleBlocks, input)).toBe(input);
+  });
+
+  // An inline code span makes its content literal, so TSDoc parses it cleanly.
+  // Treating it as a hazard would fence a caption that is prose, not code.
+  it("ignores hazards that sit inside an inline code span", () => {
+    const input = comment(
+      "/**",
+      " * @example",
+      " * Pass `{ retries: 3 }` to the second argument.",
+      " */",
+    );
+
+    expect(apply(fenceExampleBlocks, input)).toBe(input);
+  });
+});
 
 describe("removeTypeBraces", () => {
   it("strips a type brace from @param", () => {

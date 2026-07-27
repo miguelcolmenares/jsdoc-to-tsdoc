@@ -460,6 +460,40 @@ time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
   specified, so the hooks use `printf`. Take a correct recommendation even when
   the reason given for it does not hold here, and say which part you verified.
 
+### Fencing `@example` bodies — matching a decision instead of guessing at one
+
+- **Ground truth turned a design question into a measurement.** "Fence every
+  example" or "fence only what breaks?" was answerable: the person fenced 53 of
+  102 and left 49 alone, and of those 49 exactly **one** contained a character
+  TSDoc misparses. So the criterion was theirs, not invented — fence what would
+  break, leave the rest as written. The rule now agrees with them on **101 of
+  102** examples.
+- **Matching totals hid two errors cancelling out.** The first heuristic scored
+  53 fenced against their 53 and looked perfect. Comparing the decisions
+  block-by-block instead of the counts showed 1 over-fence and 1 under-fence.
+  The under-fenced one was `'john@example.com'` — an `@` inside a word, which is
+  exactly what `tsdoc-at-sign-in-word` is named for, and the pattern had
+  required whitespace before the `@`. **Compare the decisions, not the totals**;
+  this is the same trap as an assertion of absence passing for the wrong reason.
+- **Err toward fencing, and say why.** The one remaining disagreement is an
+  example fenced that did not need it (`<a href="…">Link</a>`, HTML TSDoc
+  accepts). The two directions are not symmetric: an unfenced body that needed a
+  fence is a `check` failure, while a fenced body that did not need one is valid
+  TSDoc rendering sample code as sample code. Detecting "HTML TSDoc happens to
+  accept" would mean reimplementing its HTML parser.
+- **The dogfood found what the corpus could not.** `npm run check` over this
+  repo failed on `stub-builder.ts`: its `@example` opens with a prose caption
+  and fences only the code below it, a shape absent from `osa`. The rule saw an
+  unfenced first line, and would have nested a fence inside a fence and turned
+  the sentence into code. Two fixes: skip a body containing a fence **anywhere**
+  rather than only one that opens with it, and strip inline code spans before
+  testing for hazards, since TSDoc reads a code span literally and a caption
+  mentioning `` `@param` `` is prose. **A corpus of 343 files still only covers
+  the shapes that corpus happens to use.**
+- **Fencing runs first in `RULES`.** Every other rule skips fenced lines, so
+  fencing early puts an example beyond their reach before any of them sees it —
+  which is the point of a fence: sample code is not documentation to rewrite.
+
 ### `osa-nextjs` — the first ground truth, and what it exposed
 
 `osa-nextjs` has a hand-written migration on `feature/tsdoc-implementation`,

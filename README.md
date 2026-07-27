@@ -133,7 +133,31 @@ Deterministic, formatting-preserving transformations derived from real-world mig
 - Deletes TypeScript-redundant tags (`@function`, `@async`, `@class`, `@enum`, …) and JSDoc-only tags (`@typedef`, `@callback`, `@type`).
 - Moves `@property` descriptions onto the members they document — on an `interface` or a `type` over an object literal — rather than deleting prose that exists nowhere else. See below.
 
+- Wraps an `@example` body in a ```` ```typescript ```` fence when leaving it bare would break TSDoc parsing. See below.
+
 Content inside fenced code blocks (```` ```…``` ````) is never modified, so `@example` code is preserved verbatim.
+
+### `@example` bodies are fenced only when they need it
+
+An unfenced example is the single largest source of TSDoc errors in real code,
+and none of them are about the documentation being wrong. A `{` in sample code
+is read as the start of an inline tag and its `}` as the end of one, so a
+comment that reads perfectly fails `check` with `tsdoc-malformed-inline-tag` and
+`tsdoc-escape-right-brace`. The same goes for `<`, `>`, and an `@` anywhere —
+including inside a word, as in an email address.
+
+Only a body containing one of those is fenced. A body of plain calls and URLs is
+left exactly as written, because the point is to fix a parse error, not to
+impose a house style. Measured against the hand migration on a real repo, that
+reproduces the human's decision on **101 of 102** examples; the one difference
+is an example fenced that did not have to be, which is the safe direction to
+err — an unfenced body that needed a fence is a `check` failure, while a fenced
+one that did not is valid TSDoc rendering sample code as sample code.
+
+A body that already contains a fence is left alone entirely, including one that
+opens with a prose caption and fences only the code below it. Hazards inside an
+inline code span (`` `{ retries: 3 }` ``) are not hazards — TSDoc reads a code
+span literally — so a caption mentioning `@param` is prose, and stays prose.
 
 ### `@property` is never thrown away
 
