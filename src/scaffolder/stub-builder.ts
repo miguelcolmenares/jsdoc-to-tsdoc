@@ -20,7 +20,11 @@ import {
   inferHookSummary,
   inferNounSummary,
 } from "@/scaffolder/name-inference";
-import type { ExportedDeclaration, ExportParameter } from "@/scanner";
+import {
+  isFunctionLikeKind,
+  type ExportedDeclaration,
+  type ExportParameter,
+} from "@/scanner";
 
 /**
  * The marker appended to every generated stub, so inferred prose can be found
@@ -109,13 +113,7 @@ function tagLinesFor(declaration: ExportedDeclaration): readonly string[] {
     ...paramLines(declaration.parameters),
   ];
 
-  const isFunctionLike =
-    declaration.kind === "function" ||
-    declaration.kind === "hook" ||
-    declaration.kind === "server-action" ||
-    declaration.kind === "react-component";
-
-  if (isFunctionLike && declaration.hasReturnValue) {
+  if (isFunctionLikeKind(declaration.kind) && declaration.hasReturnValue) {
     lines.push("@returns TODO(tsdoc): describe the return value.");
   }
 

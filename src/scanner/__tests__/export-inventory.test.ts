@@ -399,10 +399,100 @@ describe("collectExportedDeclarations", () => {
     const declaration = findByName(source, "pick.ts", "pick");
     expect(declaration.typeParameters).toEqual(["T", "K"]);
     expect(declaration.parameters).toEqual([
-      { name: "value", isOptional: false },
-      { name: "fallback", isOptional: true },
-      { name: "extra", isOptional: true },
+      { name: "value", isOptional: false, isSynthesized: false },
+      { name: "fallback", isOptional: true, isSynthesized: false },
+      { name: "extra", isOptional: true, isSynthesized: false },
     ]);
+  });
+
+  it("drops an explicit this annotation from the parameter list", () => {
+    const source =
+      "export function handle(this: HTMLElement, event: Event): void {}";
+
+    const declaration = findByName(source, "handle.ts", "handle");
+    expect(declaration.parameters).toEqual([
+      { name: "event", isOptional: false, isSynthesized: false },
+    ]);
+  });
+
+  it("numbers positional labels after dropping the this annotation", () => {
+    // `this` occupies a parameter slot in the AST, so counting it would push the
+    // first real parameter to index 1 and label it `arg1` instead of `options`.
+    const source =
+      "export function format(this: Formatter, { pretty }: Config): string { return ''; }";
+
+    const declaration = findByName(source, "format.ts", "format");
+    expect(declaration.parameters).toEqual([
+      { name: "options", isOptional: false, isSynthesized: true },
+    ]);
+  });
+
+  it("separates a signature that was never read from one declaring nothing", () => {
+    const readable = findByName(
+      "export function read(): string { return ''; }",
+      "a.ts",
+      "read",
+    );
+    expect(readable.hasSignature).toBe(true);
+    expect(readable.parameters).toEqual([]);
+
+    const unreadable = findByName(
+      "export const useHash = createHook(defaults);",
+      "a.ts",
+      "useHash",
+    );
+    expect(unreadable.kind).toBe("hook");
+    expect(unreadable.hasSignature).toBe(false);
+    expect(unreadable.parameters).toEqual([]);
+  });
+
+  it("marks a destructured parameter's name as synthesized", () => {
+    const source =
+      "export function Card({ title, href }: CardProps) { return null; }";
+
+    const declaration = findByName(source, "card.tsx", "Card");
+    expect(declaration.parameters).toEqual([
+      { name: "props", isOptional: false, isSynthesized: true },
+    ]);
+  });
+
+  it("attaches a `//` prose run, stopping at a blank line", () => {
+    const source = [
+      "// Detached note.",
+      "",
+      "// Fetches the user by ID",
+      "// and returns null when absent.",
+      "export function getUser(id: string) { return id; }",
+    ].join("\n");
+
+    const declaration = findByName(source, "user.ts", "getUser");
+    expect(declaration.hasDocComment).toBe(false);
+    expect(declaration.comment).toEqual({
+      kind: "line",
+      text: "// Fetches the user by ID\n// and returns null when absent.",
+      line: 3,
+    });
+  });
+
+  it("exposes the text of an attached doc comment", () => {
+    const source = ["/** Adds. */", "export function add(a: number) { return a; }"].join(
+      "\n",
+    );
+
+    const declaration = findByName(source, "add.ts", "add");
+    expect(declaration.comment).toEqual({
+      kind: "doc",
+      text: "/** Adds. */",
+      line: 1,
+    });
+  });
+
+  it("reports a plain block comment as documenting nothing", () => {
+    const source = ["/* Not TSDoc. */", "export const answer = 42;"].join("\n");
+
+    const declaration = findByName(source, "answer.ts", "answer");
+    expect(declaration.hasDocComment).toBe(false);
+    expect(declaration.comment?.kind).toBe("block");
   });
 
   it("reports no return value for void and Promise<void> signatures", () => {

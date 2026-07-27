@@ -27,6 +27,29 @@ export type ExportKind =
   | "class"
   | "enum";
 
+const FUNCTION_LIKE_KINDS: ReadonlySet<ExportKind> = new Set<ExportKind>([
+  "function",
+  "hook",
+  "server-action",
+  "react-component",
+]);
+
+/**
+ * Reports whether a kind describes something callable.
+ *
+ * @remarks
+ * `@param` and `@returns` only mean anything on a callable, so every command
+ * that reasons about those tags — `scaffold` when emitting them, the classifier
+ * when checking for them — has to draw this line. Drawing it once keeps them
+ * from disagreeing about which exports are supposed to carry them.
+ *
+ * @param kind - The declaration kind to test.
+ * @returns `true` for functions, hooks, Server Actions, and React components.
+ */
+export function isFunctionLikeKind(kind: ExportKind): boolean {
+  return FUNCTION_LIKE_KINDS.has(kind);
+}
+
 /**
  * A single parameter of an exported function-like declaration.
  */
@@ -35,6 +58,19 @@ export interface ExportParameter {
   readonly name: string;
   /** Whether the parameter is optional or has a default. */
   readonly isOptional: boolean;
+  /**
+   * Whether {@link ExportParameter.name} was invented for a destructuring
+   * pattern rather than written in the source.
+   *
+   * @remarks
+   * A synthesized name is good enough to scaffold a `@param` tag, but it is not
+   * evidence about what the source actually declares: `({ title, href }: Props)`
+   * reports one parameter called `props`, while its documentation may legitimately
+   * describe `title` and `href`. Anything that compares documentation against the
+   * signature has to know the difference, or it would report accurate docs as
+   * contradicting the code.
+   */
+  readonly isSynthesized: boolean;
 }
 
 const SERVER_ACTION_PARAMS = ["prevState", "formData"] as const;
@@ -121,6 +157,25 @@ export function returnsJsx(node: ts.SignatureDeclaration): boolean {
 }
 
 /**
+ * Reports whether a parameter is the `this` type annotation rather than a real
+ * parameter.
+ *
+ * @remarks
+ * `function handle(this: HTMLElement, event: Event)` declares one parameter;
+ * `this` is a type annotation that callers never pass. TypeScript still models
+ * it as a parameter node, so counting it made `scaffold` write
+ * `@param this - TODO(tsdoc): describe this.` into real code, and made the
+ * classifier report a correct comment as missing it. `this` is reserved, so no
+ * real parameter can carry the name.
+ *
+ * @param parameter - The parameter node to inspect.
+ * @returns `true` for the `this` pseudo-parameter.
+ */
+function isThisParameter(parameter: ts.ParameterDeclaration): boolean {
+  return ts.isIdentifier(parameter.name) && parameter.name.text === "this";
+}
+
+/**
  * Extracts the parameter names of a function-like declaration.
  *
  * @remarks
@@ -128,31 +183,36 @@ export function returnsJsx(node: ts.SignatureDeclaration): boolean {
  * the conventional `props` / `options` placeholder rather than by inventing one
  * name per destructured field.
  *
+ * The `this` annotation is dropped before anything else, so it neither appears
+ * as a parameter nor shifts the positional labels of the ones that follow.
+ *
  * @param node - The function-like declaration.
  * @returns One entry per declared parameter, in source order.
  */
 export function readParameters(
   node: ts.SignatureDeclaration,
 ): readonly ExportParameter[] {
-  return node.parameters.map((parameter, index) => {
-    const isOptional =
-      parameter.questionToken !== undefined ||
-      parameter.initializer !== undefined;
+  return node.parameters
+    .filter((parameter) => !isThisParameter(parameter))
+    .map((parameter, index) => {
+      const isOptional =
+        parameter.questionToken !== undefined ||
+        parameter.initializer !== undefined;
 
-    if (ts.isIdentifier(parameter.name)) {
-      return { name: parameter.name.text, isOptional };
-    }
+      if (ts.isIdentifier(parameter.name)) {
+        return { name: parameter.name.text, isOptional, isSynthesized: false };
+      }
 
-    // Destructured binding: `{ title, href }: Props`. Name it after the type
-    // when it looks like a props object, else fall back to a positional label.
-    const typeText = parameter.type?.getText() ?? "";
-    const name = /Props$/.test(typeText)
-      ? "props"
-      : index === 0
-        ? "options"
-        : `arg${String(index)}`;
-    return { name, isOptional };
-  });
+      // Destructured binding: `{ title, href }: Props`. Name it after the type
+      // when it looks like a props object, else fall back to a positional label.
+      const typeText = parameter.type?.getText() ?? "";
+      const name = /Props$/.test(typeText)
+        ? "props"
+        : index === 0
+          ? "options"
+          : `arg${String(index)}`;
+      return { name, isOptional, isSynthesized: true };
+    });
 }
 
 /**

@@ -1,17 +1,20 @@
 /**
- * Enumeration of a source file's exported declarations and whether each already
- * carries a TSDoc comment.
+ * Enumeration of a source file's exported declarations, along with what
+ * documentation each one already carries.
  *
  * @remarks
  * `scaffold` needs three facts per export: where to insert a stub, what shape the
  * export is (so the right template applies), and whether a doc comment is already
- * present. All three come from the TypeScript compiler API rather than regular
- * expressions, so `export` keywords inside strings, template literals, or nested
- * scopes are never mistaken for real declarations.
+ * present. The classifier needs two more from the same walk — the attached
+ * comment itself, and whether a signature could be read at all — so it can tell
+ * documentation that contradicts the code from documentation about code the
+ * scanner never saw. All of it comes from the TypeScript compiler API rather
+ * than regular expressions, so `export` keywords inside strings, template
+ * literals, or nested scopes are never mistaken for real declarations.
  *
- * This module resolves *how* a declaration reaches the module surface; the shape
- * of each declaration comes from `declaration-shape`, and the stub position from
- * `insertion-location`.
+ * This module resolves _how_ a declaration reaches the module surface; the shape
+ * of each declaration comes from `declaration-shape`, and the stub position and
+ * attached comment from `insertion-location`.
  *
  * @since 0.1.0
  */
@@ -25,11 +28,12 @@ import {
   type DeclarationShape,
 } from "@/scanner/declaration-shape";
 import {
-  hasLeadingDocComment,
   locateInsertion,
+  readLeadingComment,
+  type LeadingComment,
 } from "@/scanner/insertion-location";
 
-export type { ExportKind, ExportParameter };
+export type { ExportKind, ExportParameter, LeadingComment };
 
 /**
  * An exported declaration discovered in a source file.
@@ -48,6 +52,17 @@ export interface ExportedDeclaration {
   readonly kind: ExportKind;
   /** Whether a `/** *\/` doc comment is already attached. */
   readonly hasDocComment: boolean;
+  /**
+   * The comment attached to the declaration, whatever its kind, or `undefined`
+   * when nothing is attached.
+   *
+   * @remarks
+   * {@link ExportedDeclaration.hasDocComment} answers the only question
+   * `scaffold` asks. Classification needs more: the text of a doc comment, to
+   * compare its tags against the signature, and the presence of `//` prose,
+   * which is documentation a human wrote even though TSDoc does not see it.
+   */
+  readonly comment: LeadingComment | undefined;
   /** Offset at which a doc comment for this declaration should be inserted. */
   readonly insertPos: number;
   /**
@@ -75,6 +90,11 @@ export interface ExportedDeclaration {
   readonly typeParameters: readonly string[];
   /** Whether the declaration returns a value (drives whether to emit `@returns`). */
   readonly hasReturnValue: boolean;
+  /**
+   * Whether {@link ExportedDeclaration.parameters} was read from a callable
+   * node, rather than left empty because no signature was reachable.
+   */
+  readonly hasSignature: boolean;
 }
 
 /**
@@ -134,11 +154,13 @@ export function collectExportedDeclarations(
       sourceFile,
       statement,
     );
+    const comment = readLeadingComment(sourceFile, statement);
     results.push({
       name: shape.name,
       names: shape.names,
       kind: shape.kind,
-      hasDocComment: hasLeadingDocComment(sourceFile, statement),
+      hasDocComment: comment?.kind === "doc",
+      comment,
       insertPos,
       insertEnd,
       indent,
@@ -147,6 +169,7 @@ export function collectExportedDeclarations(
       parameters: shape.parameters,
       typeParameters: shape.typeParameters,
       hasReturnValue: shape.hasReturnValue,
+      hasSignature: shape.hasSignature,
     });
   };
 

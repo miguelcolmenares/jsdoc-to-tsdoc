@@ -22,7 +22,7 @@ It exists because the ecosystem has the _pieces_ (`@microsoft/tsdoc` parser,
 rule) but **no tool orchestrates the end-to-end migration** we did by hand
 across several real Next.js repos. The workflow it automates is four steps:
 
-```
+```text
 init  →  convert  →  scaffold  →  escalate
 (bootstrap) (JSDoc→TSDoc)  (stub docs)  (warn→error)
 ```
@@ -34,15 +34,18 @@ init  →  convert  →  scaffold  →  escalate
 | Command   | State        | What it does |
 |-----------|--------------|--------------|
 | `init`    | **shipped**  | Generates/merges `tsdoc.json`, patches the ESLint flat config, reports deps to install. |
-| `scan`    | **shipped**  | Read-only inventory of what `convert` would change. |
+| `scan`    | **shipped**  | Read-only inventory of what `convert` would change, plus `--classify`: documentation topology, confidence levels, and the `--fail-on-missing` / `--fail-on-stale` gates. |
 | `convert` | **shipped**  | Transforms existing JSDoc comments into TSDoc syntax (10-rule pipeline). |
 | `scaffold`| **shipped**  | Generates TSDoc stubs for undocumented exports (the ~80% of real-world work). |
 | `escalate`| **shipped**  | Bumps `tsdoc-require-2/require` from `warn` → `error`, gated on a preflight ESLint run. |
 | `check`   | **shipped**  | CI gate — validates comments with the official `@microsoft/tsdoc` parser, reports undocumented exports and leftover JSDoc. |
 
 Domains present: `parser`, `scanner`, `transformer`, `scaffolder`, `generator`,
-`escalator`, `validator`, `reporter`, `writer`, `commands`. See `PLAN.md` → _Implementation Status_ for the
+`escalator`, `validator`, `classifier`, `reporter`, `writer`, `commands`. See `PLAN.md` → _Implementation Status_ for the
 running tally and `PLAN.md` → _Development Roadmap_ for phase order.
+
+**Picking work up again?** Go to §11 — it carries what to do next and why, and
+§12 carries the decisions and traps behind the code that is already here.
 
 ---
 
@@ -52,7 +55,7 @@ running tally and `PLAN.md` → _Development Roadmap_ for phase order.
 `services/`. Each domain owns a barrel `index.ts` that is its only public
 contract; internal files are private and renameable.
 
-```
+```text
 src/
 ├── cli.ts                # citty entry point + subcommand dispatch (has the shebang)
 ├── index.ts             # programmatic library surface (re-exports each domain)
@@ -294,4 +297,280 @@ npm run check:tsdoc    # builds, then runs the CLI's own `check` over this repo
 | Which TSDoc tags are standard vs custom | `src/generator/tsdoc-tags.ts` |
 | Output formatting (diffs, tables, JSON/MD) | `src/reporter/` |
 | Roadmap / scope / phases | `PLAN.md` |
-```
+
+---
+
+## 11. Resuming work after a context reset (read this first)
+
+This section is the handoff. When a session is compacted or a new one starts,
+read §2, then this, and you have enough to continue without re-deriving the
+state of the repo from its git history.
+
+**Update it as the last step of every iteration**, together with `PLAN.md` and
+`CHANGELOG.md`. An iteration is not finished until the decisions it produced are
+written down here — the context that produced them is gone by the next session.
+
+### The loop we follow
+
+Develop locally → update **all** docs and `PLAN.md` → `/prepare-pr` →
+`/create-github-pr` → address review, iterating until a review adds no new
+comments → `/finalize-github-pr`. Then pick the next item and repeat.
+
+**Work the checklist in `PLAN.md` → _Definition of Done_ before asking for
+review.** It is not generic hygiene: every item on it is something that was
+omitted once and caught by a reviewer instead of a gate. §12 below records what
+each omission cost; the checklist is the version you can act on beforehand.
+
+The package is **not** declared ready to publish until it has been run end to
+end against the real repositories the tool was designed from (see §8 and
+`PLAN.md` → _Fixture Strategy_): `nextjs-boilerplate`, `homecare-nextjs`,
+`assistedliving-nextjs`. Passing tests is not the bar; delivering real value on
+a real codebase is.
+
+### In flight
+
+Nothing open. PR #19 is merged; start from _Next up_ below.
+
+**Wait for a clean Copilot round before merging, even when the PR looks done.**
+PR #19 was deliberately parked for one while the quota was out, and that round
+and the two after it each found something — a docstring contradicting the design
+it documented, then a Markdown nit whose class turned out to include a broken
+`AGENTS.md`. The reviews on #16, #17, #18 and #19 all found defects the author
+had missed, including two false-positive classes that survived a deliberate
+hunt for exactly those. The cloud alternative (`/code-review ultra`) failed
+twice with 30-minute timeouts and cannot be relied on as a substitute.
+
+### Next up
+
+Remaining v0.1.0 scope, in the order that unblocks the most work. The full list
+with checkboxes is `PLAN.md` → _In Scope (v0.1.0)_.
+
+1. **`@property` → inline interface member docs** — the last structural
+   transform. The redundant block is removed today; splitting it onto members
+   is what remains.
+2. **`convert --promote-line-comments`** — the `line-comments` topology it needs
+   now exists, so `scan --classify` already reports exactly which files it
+   would act on.
+3. **Interactive mode** (`--interactive`, phase 7). `@clack/prompts` is already
+   a dependency and is **not used anywhere** — either this lands or the
+   dependency comes out, because today every consumer installs it for nothing.
+4. **`--commit-per-file`** for reviewable PRs.
+5. **Fixtures from the three real repos** (phase 9), then the end-to-end
+   dogfood (phase 10), then publish (phase 11).
+
+Done since this section was written: `scan --classify`, `--fail-on-missing`,
+`--fail-on-stale` (PR #19).
+
+---
+
+## 12. Iteration log (decisions that outlive the context window)
+
+Newest first. Each entry records what shipped and, more importantly, **the
+non-obvious things** — a decision and its reasoning, or a trap that cost real
+time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
+
+### PR #19 — `scan --classify`, confidence levels and the gap gates
+
+- **The trap the whole design is built around.** `readParameters` _invents_ a
+  name for a destructured binding (`props`, `options`, `argN`). Comparing
+  documentation against it naively reports `@param title` on
+  `function Card({ title, href }: CardProps)` as contradicting the signature —
+  a false positive on the single most common shape in the codebases this tool
+  targets. `ExportParameter.isSynthesized` now records the difference, and
+  parameter staleness is **not judged at all** for such signatures.
+- **Conservative beats complete, for a report.** A classification that flags
+  accurate documentation gets ignored, and takes its true findings with it. The
+  same reasoning suspends parameter _gaps_ for destructured signatures once the
+  comment documents any parameter, and skips `@param` judgement entirely on
+  non-callable exports.
+- **A file gets one bucket, and it must name the next action.** Severity is
+  ordered by how much human input the fix needs — `stale` (someone must read
+  it) > `no-docs` (invent prose, then review) > `line-comments` (prose exists,
+  promote it) > `partial` > `valid` — rather than by how common a topology is.
+- **Files that export nothing are counted apart.** Folding them into `valid`
+  would overstate how much of a project is ready to convert. On this repo they
+  were more than half the files before test paths were excluded.
+- **Dogfooding caught the same class of bug as PR #17.** `scan --classify`
+  reported a test helper as undocumented, which ESLint and `check` both exempt.
+  Classification now excludes test paths by default (`--include-tests` opts in);
+  the default `scan` inventory still keeps them, because `convert` does rewrite
+  JSDoc in tests. When adding a command that judges _documentation coverage_,
+  check whether `init`'s generated config already excuses the paths.
+- **Review round 1 found two false verdicts, both confirmed by reproducing them.**
+  The `@returns` gap check used a raw regex over the comment text instead of
+  going through `mapCommentLines`, so an `@returns` inside an `@example` fence
+  satisfied it and hid a real gap — a direct violation of the rule in §4.3.
+  It now reads `getBlockTags`, which is already fence-aware and tested. And a
+  run of `//` lines was classified as prose even when every line was a tooling
+  directive, so `// eslint-disable-next-line` above an undocumented export read
+  as "prose to promote". `LeadingComment` gained a `directive` kind for that;
+  `hasLeadingDocComment` still keys on `doc` alone, so `scaffold`'s contract
+  with the presence rule is untouched.
+- **Round 2 added no threads but one suppressed note, which was right again.**
+  The directive list enumerated `@ts-expect-error|ignore|nocheck` and so missed
+  `@ts-check`, and it missed triple-slash directives entirely. Sweeping the
+  class turned up `// #region` as well, which the note did not mention.
+  Families are now matched by prefix (`@ts-[\w-]+`) rather than enumerated —
+  listing members of a family is precisely how the gap appeared. **Always read
+  the suppressed notes** (§9): they have now been the sharpest finding on two
+  of the last three PRs.
+- **Round 3 found a real one, and the spec settled it.** `documentedNames`
+  scanned each line once from its start, so a single-line comment
+  (`/** Adds. @param a - … @param b - … *\/`) yielded **no** tags at all — not
+  just the first, as reported — and every parameter came back as an
+  undocumented gap. Rather than argue about whether a mid-line tag counts,
+  `@microsoft/tsdoc` was asked directly: it reads both params and the
+  `@returns`. The readers now scan the whole line. `getBlockTags` was left
+  alone — the conversion rules rewrite a line _by its leading tag_, which is a
+  different question — and `getCommentTags` was added for "does this comment
+  document X at all".
+- **A cloud review found two the sweeps missed, both false positives.**
+  (1) A hook recognized by its _name_ but produced by a factory or bound to an
+  alias (`export const useHash = createHook(defaults);`) reports no parameters,
+  and "declares none" was treated as evidence — so every `@param` on it came
+  back as contradicting the signature. `hasSignature` now separates "nothing
+  was read" from "nothing is declared"; only the second is evidence.
+  (2) TypeScript models an explicit `this` annotation as a parameter, so
+  `readParameters` counted it. That was **not** confined to the classifier:
+  `scaffold` was writing `@param this - TODO(tsdoc): describe this.` into real
+  source, and `check` accepted it because the syntax is legal TSDoc. A shared
+  reader means a defect in it is a defect in every command that reads it.
+  Both had survived a deliberate hunt for false positives that probed generics,
+  arrow consts, anonymous defaults and rest parameters — a reminder that the
+  author is the worst person to audit their own blind spots.
+- **A test that survives the revert is proving nothing.** The first version of
+  the `this`-annotation test asserted through the classifier, where the
+  destructuring guard suppressed the very difference it meant to pin; it passed
+  against the broken build. Assert at the layer that owns the behaviour.
+- **Validated against a pre-migration commit, not just the migrated repos.**
+  The three real repos are already migrated, so they only measure the end
+  state. `nextjs-boilerplate` at `b803d9c` (the parent of the migration merge)
+  reports 55 valid / 7 partial / 13 no-docs against 67 / 8 / 0 after — the
+  classification reproduces the work the migration actually did. Its blind spot
+  is bounded and measured: 26 % of function-like exports destructure and have
+  staleness suspended, leaving 67 declarations genuinely examined, so the zero
+  stale findings are a real result rather than a silent no-op.
+- **Round 4 was about a docstring, and it was still worth taking.**
+  `readLeadingComment` was summarized as reading "the comment that documents a
+  declaration" while deliberately returning `directive` and `block` comments,
+  which document nothing — the exact distinction rounds 1 and 2 were spent
+  building. A summary that contradicts the design invites the next reader to
+  "fix" the function to match it. The remarks now say attachment is a position
+  rather than a meaning, and record why filtering cannot happen there: the
+  callers disagree about what counts, so deciding once would make all of them
+  inherit one caller's definition.
+- **Round 5 was a Markdown nit that uncovered a broken document.** The finding
+  was one unlabelled fence in `README.md`. Sweeping the class across every
+  Markdown file — the habit round 2 taught — turned up an unpaired ` ``` ` in
+  this file, left after a table in §10. Everything below it, meaning §11 (the
+  handoff) and §12 (this log), rendered as one code block on GitHub, and
+  markdownlint had been skipping both sections for the same reason. Agents read
+  these files as raw text, so the defect was invisible to exactly the readers
+  they are written for. **Check how the handoff renders, not only what it
+  says.**
+- **Round 7 caught the domain that shipped unreachable.** `classifier` had a
+  barrel, tests, docs and a command using it, but no re-export from
+  `src/index.ts` — so it was invisible to every library consumer while
+  `src/index.ts` claimed to re-export each domain. Nothing enforced that
+  contract, which is why six earlier rounds and the author all missed it.
+  `src/__tests__/public-surface.test.ts` now pins the exported names, and the
+  entry point says which domains are deliberately absent (`reporter`, `writer`)
+  so the next reader does not have to guess whether an omission is a bug.
+  **A new domain is not done when its barrel exists.**
+- **Round 8: module headers describe the module as it was, not as it is.**
+  `scan.ts` still called itself "read-only inventory of what `convert` would
+  change" after the PR gave it a second mode and two CI gates. Sweeping every
+  header the PR touched found two more that had quietly narrowed:
+  `insertion-location.ts` ("whether one is already there" — it now labels four
+  kinds of comment) and `export-inventory.ts` (framed entirely around
+  `scaffold`, though the classifier is now a second consumer). **When a module
+  gains a capability, its header is part of the change.** This is the same
+  defect as round 4's docstring, and it recurred because it was fixed as an
+  instance rather than swept as a class.
+- **A sweep has to match the semantic class, not the literal one.** After round
+  5 the fences were swept for _unlabelled_, so two `PLAN.md` blocks tagged
+  ```` ```bash ```` that hold nothing but terminal output survived. The rule
+  that settles it: `bash` when the block is commands to run, `text` when it is
+  what the terminal printed. Blocks that lead with `$ npx …` keep `bash`.
+- **Settled a `PLAN.md` contradiction:** the gates live on `scan`, not `check`.
+  `check` already exits `3` for undocumented exports, so `--fail-on-missing`
+  there would be a no-op; `scan` is otherwise read-only and gains a CI role.
+- **`isFunctionLikeKind` is now shared** with the scaffolder, so the two cannot
+  disagree about which exports are supposed to carry `@param` / `@returns`.
+
+### PR #18 — `@packageDocumentation` emitted once per comment
+
+- **The bug no gate could catch.** `@fileoverview` and `@module` were each
+  translated independently, so a comment carrying both was rewritten declaring
+  the modifier **twice**. The TSDoc parser does not reject a duplicate modifier,
+  so neither `check` nor `eslint-plugin-tsdoc` would ever report it. Only
+  reading the output found it.
+- **How it was found, and what that says about the transformer.** Running the
+  rule pipeline over ~25 adversarial JSDoc inputs and diffing the
+  `@microsoft/tsdoc` parse of each comment _before vs. after_ conversion found
+  **zero** introduced violations. The transformer is sound. That is also why the
+  deferred "validate each converted comment before writing it" idea looks weak:
+  a guard with no demonstrable trigger, whose tests could only assert a no-op.
+- **A substring pre-filter next to a regex is a drift hazard.** The pre-check
+  that skips the pre-existence scan fails _open_ into the exact duplicate-tag
+  bug being fixed, so the regex is built from the tag constant and the two
+  cannot disagree.
+- **Measure before accepting a performance note.** The reported "measurable
+  per-comment overhead" was real but ≈1% of `convert`'s work: 0.33 ms of extra
+  traversal against a 4.66 ms rule pipeline inside a ~25 ms run over 94 files.
+  TypeScript comment extraction dominates everything else.
+
+### PR #17 — `check` command (phase 6)
+
+- **`TSDocConfigFile.loadForFolder` is the wrong door.** It walks up until it
+  meets a `package.json`/`tsconfig.json` and only then looks for `tsdoc.json`;
+  failing that it reports `hasErrors` with "File not found". Using it made
+  **every project without a `tsdoc.json` exit 2** — the normal state before
+  `init` runs. Probing `<cwd>/tsdoc.json` directly keeps "no config yet" apart
+  from "broken config". `extends` still resolves, because `loadFile` handles it.
+- **`stat` succeeds on a file the process cannot read.** So EACCES surfaces
+  inside `loadFile`, which _throws_ — escaping as exit `1` instead of the
+  documented exit `2`. The only way to make `stat` itself fail is a parent
+  directory without execute permission; that is what the regression test uses.
+- **Shared constants beat parallel logic.** `check` was reporting test files
+  that the ESLint config `init` generates exempts — the product contradicting
+  itself. `TEST_FILE_GLOBS` is now one constant used by both.
+- **Ask the other command instead of re-deriving.** Whether a file still holds
+  legacy JSDoc is decided by asking `convert` if it would rewrite it, so the two
+  cannot drift on what "converted" means.
+
+### PR #16 — `escalate` + preflight (phase 8)
+
+- **Never lint with an injected config.** The preflight resolves the _target
+  project's_ ESLint and runs it with the project's own configuration — no
+  `overrideConfig`. Anything else manufactures violations the user's pipeline
+  would never report, and the verdict has to equal CI's to be worth anything.
+- **Preflight runs for `warn` targets too**, because pipelines using
+  `--max-warnings 0` break on an `off → warn` change just as hard.
+- **Text-patching a flat config must ignore comments.** A regex matched the rule
+  _inside a comment_, so `escalate` reported `"warn" → "error"` over a config it
+  had not touched — a false pass. Fixed with a character-level, length-preserving
+  comment mask (`src/generator/config-source.ts`); offsets stay interchangeable
+  with the original text. Known limit: regex literals are not tokenized, so `//`
+  inside one masks the rest of the line — it fails closed.
+- **Count, do not flag.** "Rule is disabled everywhere" was reported for a config
+  that mixed `off` with an unparseable key, sending the user after the wrong
+  problem. Counting rule keys separates "disabled" from "unreadable".
+
+### Process lessons (apply to every iteration)
+
+- **Verify every review claim empirically before acting on it.** Twice a claim
+  turned out to understate the problem, and once the accurate finding was the
+  one Copilot filed as _low confidence_ in the review body rather than as a
+  thread. Read those too (§9).
+- **Prove the net bites.** After fixing, reintroduce the bug and confirm the new
+  tests fail. On PR #17 this caught a real hole: the first regression test
+  covered only one of the two code paths and passed against the broken build.
+- **Sweep for the defect class, not the reported instance.** The comment-mask
+  fix surfaced a second case the review never mentioned — one that an existing
+  test had pinned as _correct_.
+- **The GitHub reviews API misleads in two specific ways.** It is paginated
+  (`--paginate` is required), and your own replies are recorded as reviews by
+  the repo owner with empty bodies — so a poll must filter on author **and**
+  commit. Also: Copilot reviews the commit that was head when it ran; pushing
+  afterwards does **not** re-trigger it, you must re-request explicitly.

@@ -7,6 +7,7 @@ const declaration = (
   overrides: Partial<ExportedDeclaration> & Pick<ExportedDeclaration, "name" | "kind">,
 ): ExportedDeclaration => ({
   hasDocComment: false,
+  comment: undefined,
   insertPos: 0,
   insertEnd: 0,
   indent: "",
@@ -14,6 +15,7 @@ const declaration = (
   parameters: [],
   typeParameters: [],
   hasReturnValue: false,
+  hasSignature: true,
   names: [overrides.name],
   ownsLine: true,
   ...overrides,
@@ -39,8 +41,8 @@ describe("buildStub", () => {
         name: "pick",
         kind: "function",
         parameters: [
-          { name: "value", isOptional: false },
-          { name: "fallback", isOptional: true },
+          { name: "value", isOptional: false, isSynthesized: false },
+          { name: "fallback", isOptional: true, isSynthesized: false },
         ],
       }),
     );
@@ -49,6 +51,21 @@ describe("buildStub", () => {
     expect(stub).toContain(
       "@param fallback - TODO(tsdoc): describe fallback (optional).",
     );
+  });
+
+  it("never emits @param for a this type annotation", () => {
+    // `readParameters` drops it, so a stub can no longer write
+    // `@param this - TODO(tsdoc): describe this.` into a user's source.
+    const stub = buildStub(
+      declaration({
+        name: "handle",
+        kind: "function",
+        parameters: [{ name: "event", isOptional: false, isSynthesized: false }],
+      }),
+    );
+
+    expect(stub).not.toContain("@param this");
+    expect(stub).toContain("@param event -");
   });
 
   it("emits @typeParam for generics", () => {
@@ -91,7 +108,7 @@ describe("buildStub", () => {
       declaration({
         name: "HeroSection",
         kind: "react-component",
-        parameters: [{ name: "props", isOptional: false }],
+        parameters: [{ name: "props", isOptional: false, isSynthesized: false }],
         hasReturnValue: true,
       }),
     );
@@ -105,8 +122,8 @@ describe("buildStub", () => {
         name: "submitContactForm",
         kind: "server-action",
         parameters: [
-          { name: "prevState", isOptional: false },
-          { name: "formData", isOptional: false },
+          { name: "prevState", isOptional: false, isSynthesized: false },
+          { name: "formData", isOptional: false, isSynthesized: false },
         ],
         hasReturnValue: true,
       }),
@@ -127,7 +144,7 @@ describe("buildStub", () => {
         name: "identity",
         kind: "function",
         typeParameters: ["T"],
-        parameters: [{ name: "value", isOptional: false }],
+        parameters: [{ name: "value", isOptional: false, isSynthesized: false }],
         hasReturnValue: true,
       }),
     );
@@ -151,8 +168,8 @@ describe("buildStub", () => {
         name: "submitContactForm",
         kind: "server-action",
         parameters: [
-          { name: "prevState", isOptional: false },
-          { name: "formData", isOptional: false },
+          { name: "prevState", isOptional: false, isSynthesized: false },
+          { name: "formData", isOptional: false, isSynthesized: false },
         ],
         hasReturnValue: true,
       }),
@@ -180,7 +197,7 @@ describe("buildStub", () => {
         name: "nested",
         kind: "function",
         indent: "  ",
-        parameters: [{ name: "id", isOptional: false }],
+        parameters: [{ name: "id", isOptional: false, isSynthesized: false }],
       }),
     );
 

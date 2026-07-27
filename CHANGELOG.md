@@ -75,8 +75,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that exits `3` when the repo is not locked in yet, without running ESLint),
   `--severity` to walk an escalation back to `warn`, `--skip-preflight`, and
   `--report` (`json` / `md`).
+- `classifier` domain: classifies every export as `valid`, `partial`,
+  `line-comments`, `no-docs` or `stale`, and aggregates to one verdict plus a
+  confidence level per file. Stale detection is conservative by design — a
+  destructured parameter has no name in the source, so `@param title` on
+  `function Card({ title }: CardProps)` cannot be told apart from a stale tag,
+  and parameter staleness is not judged for those signatures rather than
+  guessed at. A report that flags accurate documentation gets ignored, taking
+  its true findings with it. Reachable from the package root alongside every
+  other analysis domain; a test now pins that surface, so a domain can no longer
+  ship with a barrel but no way for a library consumer to reach it.
+- `scan --classify`: documentation topology report with the recommended action
+  per bucket. A file lands in the most severe topology among its exports, since
+  that is the one naming the next step. Files exporting nothing are counted
+  apart from valid ones, and test paths are skipped by default (as `check`
+  already does) because the ESLint config `init` writes disables both TSDoc
+  rules for them; `--include-tests` opts in. `--report=json` carries the full
+  per-declaration detail. `--lite` narrows only the conversion inventory, so
+  passing it alongside `--classify` warns on stderr instead of being dropped in
+  silence.
+- `scan --fail-on-missing` / `scan --fail-on-stale`: CI gates that exit `3` on
+  undocumented exports or on documentation that contradicts its signature. Both
+  imply `--classify`. They live on `scan` rather than `check`, which already
+  exits `3` for undocumented exports.
 
 ### Fixed
+
+- `scaffold` no longer emits `@param this` for a function declaring an explicit
+  `this` type annotation. TypeScript models it as a parameter, so stubs were
+  written into real source documenting an argument callers never pass, and
+  `check` accepted them because the syntax is legal TSDoc.
 
 - `convert` no longer emits a duplicate `@packageDocumentation` when a comment
   carries more than one file-level tag. JSDoc routinely pairs them —

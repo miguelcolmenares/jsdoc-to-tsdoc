@@ -6,23 +6,26 @@
 >
 > **Implementation status (v0.1.0-dev):** the whole
 > `init → convert → scaffold → escalate` workflow is implemented, tested, and
-> runnable, and the `check` CI gate validates the result against the official
-> TSDoc parser. See [Implementation Status](#implementation-status) below.
+> runnable; the `check` CI gate validates the result against the official TSDoc
+> parser, and `scan --classify` reports where a project actually stands before
+> any of it runs. See [Implementation Status](#implementation-status) below.
 
 ## Implementation Status
 
-Fifth development increment — the project foundation, the `convert`/`scan`
+Sixth development increment — the project foundation, the `convert`/`scan`
 vertical slice, the `init` bootstrap command, the `scaffold` stub generator
 (the ~80 % of real-world migration work identified in the learnings), the
-`escalate` lock-in step that closes the workflow, and the `check` CI gate that
-validates the result. Every subcommand in the CLI contract now exists. All
-quality gates pass locally (typecheck, lint, tests, build, bundle size), and the
-CLI now gates its own source with its own `check` command.
+`escalate` lock-in step that closes the workflow, the `check` CI gate that
+validates the result, and the `classifier` domain behind `scan --classify` that
+reports what a project's documentation actually looks like before any of it
+runs. Every subcommand in the CLI contract now exists. All quality gates pass
+locally (typecheck, lint, tests, build, bundle size), and the CLI now gates its
+own source with its own `check` command.
 
 ### Shipped
 
 | Area | Detail |
-|------|--------|
+| ------ | -------- |
 | **Foundation** | ESM package (`bin: jsdoc-to-tsdoc`), TypeScript `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`, `@/` path alias, unbuild bundling, Vitest, CI matrix (Node 20.19 + 22 + 24 · Ubuntu + macOS + Windows) with a gzipped bundle-size gate |
 | **Dogfooding** | ESLint flat config runs `tsdoc/syntax` + `tsdoc-require-2/require` at `error` over the CLI's own source (`require-param` / `require-returns` `off`, matching the learnings) |
 | **`parser`** | `comment-lines` (fence-aware, format-preserving line mapper), `tag-registry` (the full JSDoc → TSDoc mapping tables), `jsdoc-parser` (tag/brace inspection) |
@@ -32,9 +35,10 @@ CLI now gates its own source with its own `check` command.
 | **`generator`** | project-layout detection (ESLint flat config, `tsconfig`, package manager, installed deps), custom-tag classification against the TSDoc standard, `tsdoc.json` generation/merging, comment-aware reading of flat-config text, and idempotent ESLint flat-config patching |
 | **`validator`** | doc-comment validation against the official `@microsoft/tsdoc` parser, configured from the project's own `tsdoc.json` so custom tags (`@since`) are not reported as undefined |
 | **`escalator`** | preflight lint run (resolves and runs the *project's own* ESLint with the *project's own* config, collecting every presence-rule message whatever its severity) and a text patch of the rule's severity that only rewrites enabled assignments |
+| **`classifier`** | per-export documentation topology (valid / partial / line-comments / no-docs / stale), conservative stale detection that never judges a destructured signature, and aggregation to one verdict plus a confidence level per file |
 | **`reporter`** | colored unified diffs, bordered summary tables, and machine-readable JSON / Markdown output |
 | **`writer`** | async file writes |
-| **`commands`** | `init` (`tsdoc.json` + ESLint patch, `--dry-run` / `--strict` / `--install` / `--report`), `scan` (read-only inventory), `convert` (`--dry-run` / `--preview` / `--check` / `--lite` / `--only` / `--exclude` / `--report`), `scaffold` (`--dry-run` / `--preview` / `--check` / `--only` / `--exclude` / `--report`), `escalate` (`--dry-run` / `--preview` / `--check` / `--severity` / `--skip-preflight` / `--report`), and `check` (`--syntax-only` / `--include-tests` / `--only` / `--exclude` / `--report`) wired through citty |
+| **`commands`** | `init` (`tsdoc.json` + ESLint patch, `--dry-run` / `--strict` / `--install` / `--report`), `scan` (read-only inventory, plus `--classify` / `--fail-on-missing` / `--fail-on-stale` / `--include-tests`), `convert` (`--dry-run` / `--preview` / `--check` / `--lite` / `--only` / `--exclude` / `--report`), `scaffold` (`--dry-run` / `--preview` / `--check` / `--only` / `--exclude` / `--report`), `escalate` (`--dry-run` / `--preview` / `--check` / `--severity` / `--skip-preflight` / `--report`), and `check` (`--syntax-only` / `--include-tests` / `--only` / `--exclude` / `--report`) wired through citty |
 
 Conversions implemented (from [Mechanical Transformations](#mechanical-transformations-still-core-to-the-tool)
 and the real-world learnings): `{Type}`-brace stripping, tag renames
@@ -68,14 +72,23 @@ generates disables both TSDoc rules for them, and a broken `tsdoc.json` exits `2
 rather than reporting every custom tag as undefined. The CLI gates its own source
 with it (`npm run check:tsdoc`).
 
-Coverage: 447 tests, ~95 % overall (100 % on the transformer rules and the
-generator domain; ~97 % on the escalator and validator, ~98 % on the scaffolder).
+Classification is deliberately conservative, because a report that cries wolf
+about accurate documentation gets ignored and takes its true findings with it.
+The load-bearing case: the scanner invents a name for a destructured parameter
+(`props`, `options`, `argN`), so comparing `@param title` against it would
+report correct documentation on nearly every React component as stale. Parameter
+staleness is therefore not judged at all for destructured signatures, and
+parameter gaps only once such a comment documents no parameter whatsoever.
+
+Coverage: 493 tests, ~95.7 % overall (100 % on the transformer rules, the
+generator domain and the classifier; ~97 % on the escalator and validator,
+~98 % on the scaffolder).
 
 ### Deferred (next increments)
+
 - Structural `@property` → inline interface-member docs (the redundant
   `@property` block is currently removed, which is the correct action; splitting
   it onto interface members is the remaining structural step).
-- `scan --classify` topology report and confidence levels.
 - Interactive mode, `--commit-per-file`, and `--promote-line-comments`.
 - Reuse the `@microsoft/tsdoc` validation pass inside `convert`, so a
   transformed comment is proven valid before it is written.
@@ -94,7 +107,7 @@ generator domain; ~97 % on the escalator and validator, ~98 % on the scaffolder)
 #### Microsoft Official Ecosystem (strong)
 
 | Package | Weekly Downloads | Role |
-|---------|-----------------|------|
+| --------- | ----------------- | ------ |
 | `@microsoft/tsdoc` | 49M | Core parser — reads and validates TSDoc comments |
 | `@microsoft/tsdoc-config` | 23.8M | Loads `tsdoc.json` (custom tags like `@since`) |
 | `eslint-plugin-tsdoc` | 4.3M | ESLint rule that validates syntax (`tsdoc/syntax`) |
@@ -103,21 +116,21 @@ generator domain; ~97 % on the escalator and validator, ~98 % on the scaffolder)
 #### Enforcement / Linting (good, growing)
 
 | Package | Weekly Downloads | Role |
-|---------|-----------------|------|
+| --------- | ----------------- | ------ |
 | `eslint-plugin-tsdoc-require-2` | 1.3K | Enforces that exports have TSDoc + specific tags |
 | `@guardian/eslint-plugin-tsdoc-required` | 1.2K | Basic export comment enforcement |
 
 #### Documentation Generation (good)
 
 | Package | Weekly Downloads | Role |
-|---------|-----------------|------|
+| --------- | ----------------- | ------ |
 | TypeDoc | Standard | HTML/JSON API docs from TSDoc |
 | `tsdoc-markdown` | 8.8K | Markdown generation from TSDoc |
 
 #### VS Code Extensions (weak / dead)
 
 | Extension | Installs | Status |
-|-----------|----------|--------|
+| ----------- | ---------- | -------- |
 | TSDoc Comment (kingsimba) | 9.7K | Last commit 5 years ago. Converts `//` to `/** */`. |
 | tsDoc (jlsilva) | 3.2K | v0.0.1, empty shell. |
 | TSDoc Generator (1yoouoo) | 757 | Requires ChatGPT API key, interfaces/types only. |
@@ -145,7 +158,7 @@ progression are the other two. All three must ship together to be useful.
 ### Mechanical Transformations (still core to the tool)
 
 | JSDoc Pattern | TSDoc Equivalent | Automation Complexity |
-|---------------|-----------------|----------------------|
+| --------------- | ----------------- | ---------------------- |
 | `@param {string} name Description` | `@param name - Description` | Simple — regex/AST strip |
 | `@returns {boolean} Description` | `@returns Description` | Simple — regex/AST strip |
 | `@fileoverview Description` | `@packageDocumentation` + summary paragraph | Medium — restructure |
@@ -172,7 +185,7 @@ Data from the three completed migrations that inform this plan.
 ### Migration Scope by Repo
 
 | Repo | JSDoc conversions | **New TSDoc stubs added** | Total files touched | ESLint plugins added |
-|------|-------------------|---------------------------|---------------------|----------------------|
+| ------ | ------------------- | --------------------------- | --------------------- | ---------------------- |
 | `nextjs-boilerplate` | ~5 | 14 | 14 | `tsdoc` + `tsdoc-require-2` |
 | `homecare-nextjs` | ~8 | 26 | 26 | same |
 | `assistedliving-nextjs` | ~10 | 47 | 47 | same |
@@ -201,7 +214,7 @@ positives that block adoption.
 The workflow that consistently succeeded:
 
 | Phase | Rule severity | Commit type |
-|-------|---------------|-------------|
+| ------- | --------------- | ------------- |
 | 1. Bootstrap + convert | `"warn"` | `chore: add tsdoc plugins and convert existing JSDoc` |
 | 2. Fix / scaffold missing | `"warn"` | `docs: add missing TSDoc for exports` |
 | 3. Lock in | `"error"` | `chore: escalate tsdoc-require to error` |
@@ -231,7 +244,7 @@ The scaffolding step must recognize these idioms — they made up ~80 % of the
 87 new stubs we wrote:
 
 | Export shape | Stub template |
-|--------------|--------------|
+| -------------- | -------------- |
 | `export default function ComponentName({...}: Props)` | Summary derived from name + `@param props - Component props` |
 | `export function actionName(prevState, formData)` (Server Action) | Summary "Server Action …" + per-param docs |
 | `export interface XProps` | Header + inline `/** */` per field |
@@ -256,7 +269,7 @@ Instead of a single monolithic flow, the CLI exposes verbs that mirror the
 four-step workflow. Each is independently runnable so users can adopt
 incrementally (or re-run one phase after edits).
 
-```
+```bash
 $ npx jsdoc-to-tsdoc <command> [options]
 
 Commands:
@@ -276,7 +289,7 @@ Global options:
 
 ### Example: `init`
 
-```
+```bash
 $ npx jsdoc-to-tsdoc init
 
   jsdoc-to-tsdoc v0.1.0 · init
@@ -324,7 +337,7 @@ $ npx jsdoc-to-tsdoc init
 
 ### Example: `scan`
 
-```
+```bash
 $ npx jsdoc-to-tsdoc scan
 
   jsdoc-to-tsdoc v0.1.0 · scan
@@ -348,7 +361,7 @@ $ npx jsdoc-to-tsdoc scan
 
 ### Example: `escalate`
 
-```
+```bash
 $ npx jsdoc-to-tsdoc escalate
 
   jsdoc-to-tsdoc v0.1.0 · escalate
@@ -370,7 +383,7 @@ Folders are DDD-lite domains; filenames follow the kebab-case rule defined in
 folder ships a barrel `index.ts` that re-exports its public API — internal
 files are private and can be renamed without breaking consumers.
 
-```
+```text
 src/
 ├── cli.ts                            # citty entry point + subcommand dispatch
 ├── commands/                         # One file per subcommand (citty default export)
@@ -519,7 +532,7 @@ The entry file `dist/cli.mjs` must start with `#!/usr/bin/env node`.
 **Packaging constraints:**
 
 | Concern | Decision |
-|---------|----------|
+| --------- | ---------- |
 | **Bundler** | `unbuild` or `tsup` — outputs ESM (+ CJS if needed), tree-shakes, single file |
 | **Bundle size target** | **< 500 KB gzipped** (npx re-downloads on cache miss) |
 | **TypeScript as peer** | The user already has it — never bundle the ~50 MB compiler |
@@ -541,7 +554,7 @@ Beyond the built-in `--dry-run` semantics of `scan`, every mutating command
 exposes a consistent set of flags:
 
 | Flag | Applies to | Purpose |
-|------|-----------|---------|
+| ------ | ----------- | --------- |
 | `--preview` | `convert`, `scaffold` | Print colored unified diff per file, do not write |
 | `--interactive` | `convert`, `scaffold` | Prompt per file: **a**ccept · **s**kip · **e**dit · **q**uit |
 | `--check` | `convert`, `escalate` | CI mode — exit `3` if any file would change (mirrors `prettier --check`) |
@@ -551,13 +564,22 @@ exposes a consistent set of flags:
 | `--commit-per-file` | `convert`, `scaffold` | Auto `git commit` per file — produces reviewable PRs |
 | `--report=<fmt>` | `scan`, `check`, `convert` | `json` · `md` · `table` — written to stdout (redirect with `>` for tooling / PR bodies) |
 | `--fail-on-missing` | `scan` | Exit `3` if any public export lacks TSDoc — gap-analysis gate (matches CI exit-code contract) |
+| `--fail-on-stale` | `scan` | Exit `3` if any comment contradicts its signature |
+| `--classify` | `scan` | Report documentation topology and confidence instead of the conversion inventory |
 | `--severity=<level>` | `escalate` | Override progressive default (`warn` or `error`) |
 
 **Example CI flow:**
 
 ```bash
-npx jsdoc-to-tsdoc check --report=json --fail-on-missing > tsdoc-report.json
+# Gate the migration itself.
+npx jsdoc-to-tsdoc check --report=json > tsdoc-report.json
+# Gate the documentation gap separately — the confidence gates live on `scan`.
+npx jsdoc-to-tsdoc scan --classify --fail-on-stale --report=json > tsdoc-topology.json
 ```
+
+> The gates belong to `scan`, not `check`. `check` already exits `3` on
+> undocumented exports, so a `--fail-on-missing` there would be a no-op, while
+> `scan` is otherwise read-only and gains its CI role from them.
 
 **Example interactive local flow:**
 
@@ -591,22 +613,44 @@ comments it does not understand.
 6. **Bilingual / mixed language** — some Silver Assist projects have Spanish
    prose mixed with English JSDoc tags
 
-**Classification via `scan --classify`:**
+**Classification via `scan --classify`** — as shipped:
 
+```text
+Documentation analysis — 127 file(s) scanned
+┌───────────────┬───────┐
+│ Valid TSDoc   │    84 │
+│ Partial docs  │    12 │
+│ Line comments │     8 │
+│ No docs       │    19 │
+│ Stale docs    │     4 │
+│ No exports    │     0 │
+└───────────────┴───────┘
+  Valid TSDoc       84 file(s) → ready for `convert`
+  Partial docs      12 file(s) → `convert`, then fill the gaps
+  Line comments      8 file(s) → prose to promote into `/** */`
+  No docs           19 file(s) → run `scaffold`
+  Stale docs         4 file(s) → manual review required
+Confidence: HIGH 84 · MEDIUM 12 · LOW 27 · STALE 4
+
+Stale documentation — review these by hand:
+  src/utils.ts:12 greet
+    @param 'name' is not a parameter of greet (found: userId)
 ```
-📊 Documentation Analysis — 127 files scanned
 
-  ✅ VALID_JSDOC       84 files  → ready for `convert`
-  ⚠️  PARTIAL_JSDOC    12 files  → `convert` + gap report
-  💬 LINE_COMMENTS      8 files  → `convert --promote-line-comments`
-  📭 NO_DOCS           19 files  → `scaffold` recommended
-  🔴 STALE_DOCS         4 files  → manual review required
+A file lands in exactly one bucket, and it is the **most severe** topology
+among its exports — the one that names the next action. Severity is ordered by
+how much human input the fix needs: `stale` has to be read and corrected by
+someone who knows the intent, `no-docs` needs prose invented and then reviewed,
+`line-comments` already has prose to reuse, `partial` needs a few tags.
 
-Confidence:  HIGH 84 · MEDIUM 20 · LOW 23
+Files that export nothing are counted apart rather than folded into `valid`,
+which would overstate how much of the project is ready to convert. Test paths
+are excluded by default (`--include-tests` opts in), because the ESLint config
+`init` writes turns both TSDoc rules off for them.
 
-Next step:
-  npx jsdoc-to-tsdoc convert --only "$(cat .tsdoc-high-confidence.txt)"
-```
+The human report shows the summary plus the stale findings, which are the only
+category a person must act on directly; `--report=json` carries the full
+per-declaration detail, gaps included, for tooling.
 
 **Inference rules per topology:**
 
@@ -654,7 +698,7 @@ Every inferred summary carries a `TODO(tsdoc)` marker so devs can
 
 **Stale docs** → never auto-rewrite. Report in `scan`:
 
-```
+```text
 🔴 src/utils.ts:12  greet()
    @param 'name' not in signature (found: 'userId')
    Suggestion: manual review — likely stale documentation
@@ -666,7 +710,7 @@ Every file in the classification report carries a confidence label that
 drives the recommended action:
 
 | Level | Signal | Default action |
-|-------|--------|----------------|
+| ------- | -------- | ---------------- |
 | **HIGH** | Complete JSDoc consistent with signature | Auto-convert |
 | **MEDIUM** | Partial JSDoc, clear TS types | Convert + gap warnings |
 | **LOW** | No docs, only types | Scaffold + `TODO(tsdoc)` markers |
@@ -701,7 +745,7 @@ friends) and adapted for a pure Node CLI.
 ### Guiding Principles
 
 | Principle | Rule |
-|-----------|------|
+| ----------- | ------ |
 | **SRP** | One module = one responsibility. Rules, templates, and reporters are independent files. A file that exceeds ~150 lines is a smell. |
 | **DDD-lite** | Folder = domain (`scanner/`, `parser/`, `transformer/`, `scaffolder/`, `escalator/`, `reporter/`), never tech layer (❌ `utils/`, `helpers/`, `services/`). |
 | **Barrel exports** | Every domain folder ships an `index.ts` that re-exports its public API. Consumers import from the folder, never from internal files. |
@@ -722,7 +766,7 @@ friends) and adapted for a pure Node CLI.
 
 Every domain folder follows the same shape:
 
-```
+```text
 src/transformer/
 ├── index.ts                    # Public API: `export { runPipeline, type Rule }`
 ├── pipeline.ts                 # Composition (private module)
@@ -750,6 +794,60 @@ import { removeTypeBraces } from "@/transformer/rules/remove-type-braces";
 
 The barrel is the contract; internal files can be renamed or split without
 breaking consumers.
+
+### Definition of Done
+
+A change is not finished when its tests pass. Every item below was omitted at
+least once and caught in review rather than by a gate, so each one names the
+concrete failure that put it here.
+
+**Adding a domain**
+
+- [ ] Barrel `index.ts` with a `@packageDocumentation` header stating what the
+      domain answers.
+- [ ] **Re-exported from `src/index.ts`**, or deliberately absent with the
+      reason written in that file's header. `classifier` shipped with a barrel,
+      tests, docs and a command consuming it, but no path from the package root
+      — invisible to every library consumer while the entry point claimed to
+      re-export each domain. `src/__tests__/public-surface.test.ts` pins the
+      exported names, so this now fails a test instead of waiting for a
+      reviewer.
+- [ ] Tests in `__tests__/`, asserting at the layer that owns the behaviour. A
+      test that still passes when the fix is reverted is proving nothing.
+
+**Changing what a module does**
+
+- [ ] Its file header describes the module as it is now, not as it was. Three
+      headers had quietly narrowed: `scan.ts` still called itself an inventory
+      after gaining a second mode and two CI gates, `insertion-location.ts`
+      still promised a boolean after it began labelling four kinds of comment,
+      and `export-inventory.ts` was framed around `scaffold` alone after the
+      classifier became a second consumer.
+- [ ] Any docstring that a reader could act on still matches the design. A
+      summary that contradicts the code invites the next reader to "fix" the
+      code to match the summary.
+
+**Changing the CLI surface**
+
+- [ ] `README.md` usage and options table, including how a new flag interacts
+      with existing ones. `--lite` was accepted and silently ignored alongside
+      `--classify`, so a CI job could read the output as the narrower set it
+      asked for.
+- [ ] `PLAN.md` — the *In Scope (v0.1.0)* checkbox, and any example output in
+      this file that the change makes stale.
+- [ ] `CHANGELOG.md` under *Unreleased*.
+- [ ] `AGENTS.md` §11 (handoff and what is next) and §12 (the decisions and
+      traps this iteration produced).
+
+**Before asking for review**
+
+- [ ] `npm run check` from the repo root — typecheck, lint, tests, and the
+      `check` dogfood over the CLI's own source.
+- [ ] **Fix the class, not the instance.** Every defect above recurred at least
+      once because it was fixed where it was reported. When a review finds one,
+      sweep every place the same shape could exist — and match the *semantic*
+      class: sweeping Markdown fences for "unlabelled" left the ones mislabelled
+      `bash` untouched, and they came back the next round.
 
 ### TSDoc-First (dogfooding)
 
@@ -785,7 +883,7 @@ Rules enforced on the CLI's own codebase (stricter than the defaults shipped
 to consumers):
 
 | Rule | Setting on the CLI | Default for consumers |
-|------|-------------------|-----------------------|
+| ------ | ------------------- | ----------------------- |
 | `tsdoc/syntax` | `error` | `error` |
 | `tsdoc-require-2/require` | `error` | `warn` (progressive) |
 | `tsdoc-require-2/require-param` | `error` | `off` (opt-in) |
@@ -846,7 +944,7 @@ Same conventions as the Next.js consumer projects, adapted for public OSS
 Every push/PR to `main` must pass locally **and** in CI:
 
 | Check | Command |
-|-------|---------|
+| ------- | --------- |
 | Type check | `tsc --noEmit` |
 | Lint | `eslint .` |
 | TSDoc lint (dogfood) | `jsdoc-to-tsdoc check` (once bootstrapped) |
@@ -876,12 +974,14 @@ step matters — an advertised-but-missing flag is a documented past mistake (se
 `AGENTS.md` -> Lessons learned).
 
 Bootstrapping & config:
+
 - [x] Detect project layout (tsconfig, eslint flat config, package manager)
 - [x] **Auto-install `eslint-plugin-tsdoc` + `eslint-plugin-tsdoc-require-2`** *(promoted from Out of Scope)*
 - [x] **Auto-patch `eslint.config.mjs`** with correct rules and known-safe defaults *(promoted)*
 - [x] Detect custom tags → generate `tsdoc.json`
 
 Conversion (existing JSDoc → TSDoc):
+
 - [x] Remove `{type}` braces from `@param` and `@returns`
 - [x] Add hyphen separator to `@param` descriptions
 - [x] Remove redundant JSDoc tags (`@function`, `@async`, `@class`, `@enum`)
@@ -893,6 +993,7 @@ Conversion (existing JSDoc → TSDoc):
       the remaining structural step
 
 Scaffolding (new TSDoc for undocumented exports):
+
 - [x] Enumerate exports lacking TSDoc via TS Compiler API
 - [x] Template-based stubs for React components, Server Actions, hooks,
       interfaces, type aliases, generic exports *(promoted from Out of Scope)*
@@ -900,11 +1001,13 @@ Scaffolding (new TSDoc for undocumented exports):
 - [ ] Interactive mode to confirm/edit generated summaries
 
 Enforcement progression:
+
 - [x] `init --progressive` (default) → starts at `warn`
 - [x] `init --strict` → starts at `error`
 - [x] `escalate` command → warn → error with preflight check
 
 Reporting & CI:
+
 - [x] Dry-run mode with unified diff for every command
 - [x] `--report=<fmt>` (`json` / `md` / `table`) written to stdout for every command
 - [x] `check` command → exit `3` on rule violations (per exit-code contract),
@@ -914,11 +1017,12 @@ Reporting & CI:
 - [x] **`--only` / `--exclude` glob filters** for targeted runs
 - [x] **`--lite` mode** — only `@param` / `@returns` hygiene, leave prose untouched
 - [ ] **`--commit-per-file`** for reviewable PRs
-- [ ] **`--fail-on-missing` / `--fail-on-stale`** confidence gates
-- [ ] **`scan --classify`** — topology report (VALID / PARTIAL / LINE_COMMENTS / NO_DOCS / STALE)
+- [x] **`--fail-on-missing` / `--fail-on-stale`** confidence gates *(on `scan`)*
+- [x] **`scan --classify`** — topology report (VALID / PARTIAL / LINE_COMMENTS / NO_DOCS / STALE)
 - [ ] **`convert --promote-line-comments`** — wrap `//` prose into `/** */`
 
 Distribution:
+
 - [x] **Runnable via `npx jsdoc-to-tsdoc` with zero global install** *(see [Distribution](#distribution-via-npx))*
 - [x] **Bundle target < 500 KB gzipped** (unbuild/tsup, ESM only)
 - [x] **TypeScript as peer dependency** (never bundle the compiler)
@@ -926,6 +1030,7 @@ Distribution:
       Node 20.12; ESLint 10 requires `^20.19`), well-defined exit codes (0/1/2/3)
 
 Codebase discipline:
+
 - [x] **CLI is TSDoc-strict from day one** — `tsdoc/syntax` and
       `tsdoc-require-2/require` run at `error` over its own source in CI; once
       `check` ships it dogfoods that too *(see [Code Architecture & Standards](#code-architecture--standards))*
@@ -952,7 +1057,7 @@ Fixtures are stored in `tests/fixtures/<repo>/<before|after>/` and cover the
 end-to-end pipeline (init + convert + scaffold + escalate).
 
 | Fixture set | Source | Files | Notable patterns |
-|-------------|--------|-------|------------------|
+| ------------- | -------- | ------- | ------------------ |
 | `nextjs-boilerplate` | rebased `feature/tsdoc-migration` | 14 | React components, hooks, CCDS lib |
 | `homecare-nextjs` | merged squash on `dev` | 26 | Same + WP GraphQL types |
 | `assistedliving-nextjs` | merged squash on `stg` | 47 | Same + Server Actions, extensive interfaces |
@@ -965,7 +1070,7 @@ without contacting the source projects.
 ## Development Roadmap
 
 | Phase | Description | Status |
-|-------|-------------|--------|
+| ------- | ------------- | -------- |
 | 0 | Project plan and gap analysis | **Done** |
 | 0.5 | **Plan revision from real-world learnings** | **Done (this doc)** |
 | 1 | Core scanner + comment extractor + export inventory | **Done** — `export-inventory.ts` classifies exports and locates insertion points |
@@ -974,6 +1079,7 @@ without contacting the source projects.
 | 4 | `tsdoc.json` + ESLint config generator/patcher | **Done** — `generator` domain + `init` command |
 | 5 | **Scaffolder templates** (components, actions, hooks, interfaces) | **Done** — `scaffolder` domain + `scaffold` command |
 | 6 | CLI subcommand shell (`init`, `scan`, `convert`, `scaffold`, `escalate`, `check`) | **Done** — all six subcommands ship |
+| 6.5 | **Classifier domain + `scan --classify`** and the confidence gates | **Done** — `classifier` domain, `--fail-on-missing` / `--fail-on-stale` |
 | 7 | Interactive wizard (`@clack/prompts`) | Not started |
 | 8 | **Escalator + preflight ESLint check** | **Done** — `escalator` domain + `escalate` command |
 | 9 | Fixture-based snapshot tests (3 real repos) | **Partial** — unit + integration tests done (447 tests, ~95 %); repo fixtures pending |

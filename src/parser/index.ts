@@ -12,7 +12,13 @@ export {
   type CommentLineMapper,
 } from "@/parser/comment-lines";
 
-export { getBlockTags, hasTypeBraces } from "@/parser/jsdoc-parser";
+export {
+  getBlockTags,
+  getCommentTags,
+  getDocumentedParams,
+  getDocumentedTypeParams,
+  hasTypeBraces,
+} from "@/parser/jsdoc-parser";
 
 export {
   ACCESS_MODIFIERS,

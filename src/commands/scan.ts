@@ -1,27 +1,51 @@
 /**
  * @packageDocumentation
- * `scan` subcommand — read-only inventory of what `convert` would change.
+ * `scan` subcommand — read-only analysis of a project's documentation, in two
+ * modes. By default it inventories what `convert` would change; with
+ * `--classify` it reports how well each export is documented, how far that can
+ * be trusted, and the next action per file. `--fail-on-missing` and
+ * `--fail-on-stale` turn the second mode into a CI gate that exits `3`.
+ *
+ * Neither mode ever writes.
  *
  * @since 0.1.0
  */
 
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { relative, resolve } from "node:path";
 
 import { defineCommand } from "citty";
 
+import { classifyFile } from "@/classifier";
+import {
+  actionLines,
+  confidenceLine,
+  missingCount,
+  staleCount,
+  staleFindings,
+  summarizeClassification,
+  topologyRows,
+  type ClassifiedFile,
+  type ClassifySummary,
+} from "@/commands/classify-report";
 import { convertSourceText } from "@/commands/convert-file";
 import { reportCommandFailure } from "@/commands/command-failure";
 import { parseReportFormat, splitGlobs } from "@/commands/options";
+import { TEST_FILE_GLOBS } from "@/generator";
 import {
   createColors,
   formatTable,
   shouldUseColor,
   toJsonReport,
   toMarkdownTable,
+  type Colors,
   type SummaryRow,
 } from "@/reporter";
-import { extractJsDocComments, findSourceFiles } from "@/scanner";
+import {
+  collectExportedDeclarations,
+  extractJsDocComments,
+  findSourceFiles,
+} from "@/scanner";
 
 interface ScanTotals {
   readonly filesScanned: number;
@@ -61,17 +85,64 @@ export default defineCommand({
       type: "string",
       description: "Machine-readable output: json | md.",
     },
+    classify: {
+      type: "boolean",
+      description:
+        "Report documentation topology and confidence instead of the conversion inventory.",
+    },
+    "fail-on-missing": {
+      type: "boolean",
+      description: "Exit 3 when any export has no TSDoc comment (implies --classify).",
+    },
+    "fail-on-stale": {
+      type: "boolean",
+      description:
+        "Exit 3 when any comment contradicts its signature (implies --classify).",
+    },
+    "include-tests": {
+      type: "boolean",
+      description:
+        "Classify test files too, which `init` exempts from the TSDoc rules.",
+    },
   },
   async run({ args }) {
     try {
       const cwd = resolve(String(args.cwd ?? "."));
       const lite = Boolean(args.lite);
       const reportFormat = parseReportFormat(args.report);
+      const failOnMissing = Boolean(args["fail-on-missing"]);
+      const failOnStale = Boolean(args["fail-on-stale"]);
+      // The gates read a classification, so asking for one implies producing it.
+      const classify = Boolean(args.classify) || failOnMissing || failOnStale;
+
+      // Classification judges how well exports are documented, and the ESLint
+      // config `init` writes turns both TSDoc rules off for test paths — so
+      // reporting them would be reporting work the tool's own scaffolding
+      // excuses. The default inventory keeps them, because `convert` does
+      // rewrite JSDoc in tests.
+      const excludeTests =
+        classify && !args["include-tests"] ? TEST_FILE_GLOBS : [];
+
+      // `--lite` narrows the conversion inventory, which `--classify` does not
+      // produce. Dropping it without a word would let a CI job read the numbers
+      // as the narrower set it asked for.
+      if (classify && lite) {
+        process.stderr.write(
+          "scan: --lite narrows the conversion inventory and has no effect with --classify.\n",
+        );
+      }
 
       const files = await findSourceFiles(cwd, {
         only: splitGlobs(args.only),
-        exclude: splitGlobs(args.exclude),
+        exclude: [...splitGlobs(args.exclude), ...excludeTests],
       });
+
+      if (classify) {
+        await runClassify(
+          { cwd, files, reportFormat, failOnMissing, failOnStale },
+        );
+        return;
+      }
 
       let filesWithJsDoc = 0;
       let commentsTotal = 0;
@@ -130,3 +201,117 @@ export default defineCommand({
     }
   },
 });
+
+/** What a classification run needs to know. */
+interface ClassifyRun {
+  readonly cwd: string;
+  readonly files: readonly string[];
+  readonly reportFormat: "json" | "md" | undefined;
+  readonly failOnMissing: boolean;
+  readonly failOnStale: boolean;
+}
+
+/**
+ * Classifies every file and emits the topology report.
+ *
+ * @param run - The run parameters.
+ */
+async function runClassify(run: ClassifyRun): Promise<void> {
+  const classified: ClassifiedFile[] = [];
+
+  for (const file of run.files) {
+    const source = await readFile(file, "utf8");
+    const classification = classifyFile(
+      collectExportedDeclarations(source, file),
+    );
+    if (classification !== undefined) {
+      classified.push({ path: relative(run.cwd, file), classification });
+    }
+  }
+
+  const summary = summarizeClassification(classified, run.files.length);
+  const colors = createColors(
+    run.reportFormat === undefined &&
+      shouldUseColor(Boolean(process.stdout.isTTY)),
+  );
+
+  emitClassification(summary, run.reportFormat, colors);
+
+  const missing = missingCount(summary);
+  const stale = staleCount(summary);
+  if ((run.failOnMissing && missing > 0) || (run.failOnStale && stale > 0)) {
+    process.exitCode = 3;
+  }
+}
+
+/**
+ * Writes the classification summary in the requested format.
+ *
+ * @param summary - The aggregated run result.
+ * @param format - The `--report` format, or `undefined` for human output.
+ * @param colors - Style functions for the terminal.
+ */
+function emitClassification(
+  summary: ClassifySummary,
+  format: "json" | "md" | undefined,
+  colors: Colors,
+): void {
+  if (format === "json") {
+    process.stdout.write(
+      `${toJsonReport({
+        command: "scan",
+        mode: "classify",
+        filesScanned: summary.filesScanned,
+        filesWithoutExports: summary.filesWithoutExports,
+        declarationsClassified: summary.declarationsClassified,
+        byTopology: summary.byTopology,
+        byConfidence: summary.byConfidence,
+        files: summary.files.map(({ path, classification }) => ({
+          path,
+          topology: classification.topology,
+          confidence: classification.confidence,
+          declarations: classification.declarations,
+        })),
+      })}\n`,
+    );
+    return;
+  }
+
+  const rows: SummaryRow[] = topologyRows(summary).map(({ label, value }) => ({
+    label,
+    value,
+  }));
+
+  if (format === "md") {
+    process.stdout.write(`${toMarkdownTable("Topology", rows, "Files")}\n`);
+    return;
+  }
+
+  process.stdout.write(
+    `${colors.bold(`Documentation analysis — ${String(summary.filesScanned)} file(s) scanned`)}\n`,
+  );
+  process.stdout.write(`${formatTable(rows, colors)}\n`);
+  for (const line of actionLines(summary, colors)) {
+    process.stdout.write(`${line}\n`);
+  }
+  process.stdout.write(
+    `${colors.dim(`Confidence: ${confidenceLine(summary)}`)}\n`,
+  );
+
+  const stale = staleFindings(summary);
+  if (stale.length === 0) {
+    return;
+  }
+
+  process.stdout.write(
+    `\n${colors.bold("Stale documentation — review these by hand:")}\n`,
+  );
+  for (const { path, declaration } of stale) {
+    process.stdout.write(
+      `  ${colors.yellow(`${path}:${String(declaration.line)}`)} ${declaration.name}\n`,
+    );
+    for (const reason of declaration.stale) {
+      process.stdout.write(`    ${colors.dim(reason)}\n`);
+    }
+  }
+}

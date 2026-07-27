@@ -2,8 +2,14 @@
  * @packageDocumentation
  * Programmatic entry point for jsdoc-to-tsdoc.
  *
- * Re-exports the public surface of each domain so the package can be consumed
- * as a library in addition to the `jsdoc-to-tsdoc` CLI binary.
+ * Re-exports the public surface of every domain that answers a question about
+ * source code, so the package can be consumed as a library in addition to the
+ * `jsdoc-to-tsdoc` CLI binary. `reporter` and `writer` are deliberately absent:
+ * they render to a terminal and write to disk for the CLI, and a library
+ * consumer supplies its own output and I/O.
+ *
+ * A domain added without a re-export here is invisible to library consumers,
+ * which is what `public-surface.test.ts` pins.
  *
  * @since 0.1.0
  */
@@ -11,6 +17,16 @@
 /** The current package version. */
 export const VERSION = "0.1.0";
 
+export {
+  classifyDeclaration,
+  classifyFile,
+  confidenceOf,
+  TOPOLOGIES,
+  type Confidence,
+  type DeclarationClassification,
+  type FileClassification,
+  type Topology,
+} from "@/classifier";
 export {
   checkSourceText,
   type CheckProblem,

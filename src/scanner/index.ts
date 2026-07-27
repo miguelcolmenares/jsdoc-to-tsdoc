@@ -20,7 +20,10 @@ export {
   type ExportedDeclaration,
   type ExportKind,
   type ExportParameter,
+  type LeadingComment,
 } from "@/scanner/export-inventory";
+
+export { isFunctionLikeKind } from "@/scanner/declaration-classifier";
 
 export {
   createPathFilter,
