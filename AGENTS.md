@@ -438,6 +438,16 @@ time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
   `jsdoc-parser` were swept for the same reason, since `leadingTag` and
   `getBlockTags` had been case-insensitive all along and the readers were the
   outliers.
+- **A fixture set that the tool has already converted proves nothing.** The
+  scratchpad copy of the six real files was converted in place by an earlier
+  run, so re-validating against it reported `Nothing to convert — already
+  TSDoc-clean` and a clean `check`. That reads exactly like success. Only the
+  file count gave it away, and it was wrong too — the path was passed
+  positionally when `convert` takes `--cwd`, so the run had scanned this repo.
+  **Re-extract the inputs from the pinned commits for every validation run**;
+  this is why the real-repo fixtures belong in the repo (`PLAN.md` phase 9)
+  rather than in a mutable working copy. Same shape as the absent-assertion
+  trap above: a green result that is green for the wrong reason.
 - **The perf note was worth taking, and worth measuring.** `collectMemberTargets`
   parses the file a second time, and the result is only ever read to place a
   `@property`. A substring guard on `@prop` skips it: a full `convert` pass over

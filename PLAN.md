@@ -1069,14 +1069,21 @@ Snapshot tests are seeded from the three real migrations already completed.
 Fixtures are stored in `tests/fixtures/<repo>/<before|after>/` and cover the
 end-to-end pipeline (init + convert + scaffold + escalate).
 
-| Fixture set | Source | Files | Notable patterns |
-| ------------- | -------- | ------- | ------------------ |
-| `nextjs-boilerplate` | rebased `feature/tsdoc-migration` | 14 | React components, hooks, CCDS lib |
-| `homecare-nextjs` | merged squash on `dev` | 26 | Same + WP GraphQL types |
-| `assistedliving-nextjs` | merged squash on `stg` | 47 | Same + Server Actions, extensive interfaces |
+| Fixture set | Source | Pre-migration commit | Files | Notable patterns |
+| ------------- | -------- | ---------------------- | ------- | ------------------ |
+| `nextjs-boilerplate` | rebased `feature/tsdoc-migration` | `b803d9c` | 14 | React components, hooks, CCDS lib |
+| `homecare-nextjs` | merged squash on `dev` | `9d155e7` | 26 | Same + WP GraphQL types |
+| `assistedliving-nextjs` | merged squash on `stg` | `f1f10ba` | 47 | Same + Server Actions, extensive interfaces |
 
 The repo owner has these commits locally and can extract before/after pairs
 without contacting the source projects.
+
+**Always extract the "before" side fresh from the pinned commit** —
+`git -C <repo> show <commit>:<path>` — rather than reusing a working copy. A
+copy the CLI has already converted still passes `convert` and `check`; it
+reports "nothing to convert" and reads exactly like a successful run. Until
+these fixtures land in `tests/fixtures/`, every manual validation run has to
+re-extract its own inputs.
 
 ---
 

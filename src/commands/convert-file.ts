@@ -66,6 +66,33 @@ function memberComment(description: string, indent: string): string {
 }
 
 /**
+ * Indexes a declaration's members by the name a `@property` tag would use.
+ *
+ * @remarks
+ * Built once per comment so resolving a tag is a lookup rather than a scan of
+ * every member — a comment documenting a wide interface carries a tag per
+ * member, and pairing them by scanning grows with the product of the two.
+ *
+ * @param members - The members of the declaration below the comment.
+ * @returns Each name mapped to the first member that declares it.
+ */
+function byName(
+  members: readonly MemberTarget[],
+): ReadonlyMap<string, MemberTarget> {
+  const index = new Map<string, MemberTarget>();
+  for (const member of members) {
+    // First declaration wins. A repeated key is invalid TypeScript, but the
+    // scanner parses without type checking and so reports both; letting the
+    // later one overwrite would move a description past the member a reader
+    // pairs it with.
+    if (!index.has(member.name)) {
+      index.set(member.name, member);
+    }
+  }
+  return index;
+}
+
+/**
  * Decides what to do with each `@property` tag on one comment.
  *
  * @remarks
@@ -97,9 +124,10 @@ function planProperties(
   const removable: string[] = [];
   const insertions: SourceEdit[] = [];
   const written = new Set<string>();
+  const index = byName(members);
 
   for (const tag of tags) {
-    const member = members.find((candidate) => candidate.name === tag.name);
+    const member = index.get(tag.name);
     if (member === undefined) {
       continue;
     }

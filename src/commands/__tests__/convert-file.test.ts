@@ -287,6 +287,29 @@ describe("convertSourceText and @property", () => {
     expect(result.output.toLowerCase()).not.toContain("@property");
   });
 
+  // Indexing the members by name replaced a scan that returned the first
+  // match. A repeated key is invalid TypeScript, but nothing here type checks,
+  // so both members reach the index and the tie has to break the same way.
+  it("resolves a repeated member key to the first declaration", () => {
+    const input = lines(
+      "/**",
+      " * Shape.",
+      " *",
+      " * @property id - The id",
+      " */",
+      "export interface Thing {",
+      "  id: string;",
+      "  id: number;",
+      "}",
+    );
+
+    const result = convertSourceText(input, "thing.ts", { lite: false });
+
+    expect(result.membersDocumented).toBe(1);
+    expect(result.output).toContain("  /** The id */\n  id: string;");
+    expect(result.output).toContain("\n  id: number;");
+  });
+
   it("documents the members of a type alias over a type literal", () => {
     const input = lines(
       "/**",
