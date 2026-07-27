@@ -24,8 +24,13 @@ export type LeadingCommentKind = "doc" | "line" | "directive" | "block";
 
 // Instructions to other tools, not prose. Reporting `// eslint-disable-next-line`
 // as documentation to promote would send someone to a declaration that has none.
+//
+// Two forms: a triple-slash directive (`/// <reference … />`), and the `//`
+// pragmas below. `@ts-` and `@jsx` are matched by prefix rather than by listing
+// each one, so `@ts-check` and `@ts-expect-error` are covered by the same
+// branch — enumerating them was how `@ts-check` came to be missed.
 const DIRECTIVE =
-  /^\/\/[ \t]*(?:eslint-(?:disable|enable)|@ts-(?:expect-error|ignore|nocheck)|prettier-ignore|biome-ignore|(?:istanbul|c8|v8)[ \t]+ignore|webpackChunkName)/;
+  /^\/\/(?:\/[ \t]*<|[ \t]*(?:eslint-(?:disable|enable)|@ts-[\w-]+|@jsx[A-Za-z]*|prettier-ignore|biome-ignore|dprint-ignore|deno-lint-ignore|noinspection|#(?:end)?region|(?:istanbul|c8|v8)[ \t]+ignore|webpackChunkName))/;
 
 /**
  * The comment attached to a declaration.

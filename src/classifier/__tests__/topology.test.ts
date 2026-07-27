@@ -288,14 +288,31 @@ describe("classifyDeclaration", () => {
 
   // A tooling instruction occupies the same position as prose but documents
   // nothing; reporting it as "prose to promote" sends someone to a declaration
-  // that has none.
-  it("treats a run of tooling directives as no documentation", () => {
+  // that has none. Matched by prefix where a family exists (`@ts-…`), because
+  // enumerating members of one is how `@ts-check` came to be missed.
+  it.each([
+    ["an eslint disable", "// eslint-disable-next-line no-console"],
+    ["a triple-slash reference", '/// <reference types="node" />'],
+    ["a @ts-check pragma", "// @ts-check"],
+    ["a @ts-expect-error", "// @ts-expect-error legacy shape"],
+    ["a folding marker", "// #region helpers"],
+    ["a JetBrains hint", "// noinspection JSUnusedGlobalSymbols"],
+  ])("treats %s as no documentation", (_label, directive) => {
     const source = [
-      "// eslint-disable-next-line @typescript-eslint/no-unsafe-return",
+      directive,
       "export function getUser(id: string): string { return id; }",
     ].join("\n");
 
     expect(classify(source, "getUser").topology).toBe("no-docs");
+  });
+
+  it("keeps a triple-slash comment carrying prose as prose", () => {
+    const source = [
+      "/// Fetches the user by ID.",
+      "export function getUser(id: string): string { return id; }",
+    ].join("\n");
+
+    expect(classify(source, "getUser").topology).toBe("line-comments");
   });
 
   it("still counts prose that is followed by a directive", () => {

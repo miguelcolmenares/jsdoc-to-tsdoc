@@ -389,6 +389,14 @@ time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
   as "prose to promote". `LeadingComment` gained a `directive` kind for that;
   `hasLeadingDocComment` still keys on `doc` alone, so `scaffold`'s contract
   with the presence rule is untouched.
+- **Round 2 added no threads but one suppressed note, which was right again.**
+  The directive list enumerated `@ts-expect-error|ignore|nocheck` and so missed
+  `@ts-check`, and it missed triple-slash directives entirely. Sweeping the
+  class turned up `// #region` as well, which the note did not mention.
+  Families are now matched by prefix (`@ts-[\w-]+`) rather than enumerated —
+  listing members of a family is precisely how the gap appeared. **Always read
+  the suppressed notes** (§9): they have now been the sharpest finding on two
+  of the last three PRs.
 - **Validated against a pre-migration commit, not just the migrated repos.**
   The three real repos are already migrated, so they only measure the end
   state. `nextjs-boilerplate` at `b803d9c` (the parent of the migration merge)
