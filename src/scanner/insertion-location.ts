@@ -1,9 +1,17 @@
 /**
- * Where a generated doc comment must be spliced into a source file, and whether
- * one is already there.
+ * Where a generated doc comment must be spliced into a source file, and what
+ * comment — if any — already sits in that position.
  *
  * @remarks
- * Both questions are answered from the source file's line map rather than by
+ * "Already documented" is the coarsest of several answers this module gives.
+ * The slot above a declaration can hold a doc comment, a run of `//` prose that
+ * `convert` could promote, a tooling directive that documents nothing, or a
+ * plain block comment; callers need to tell those apart, so
+ * {@link readLeadingComment} labels the comment rather than reducing it to a
+ * boolean. {@link hasLeadingDocComment} is that boolean, for the callers that
+ * only need the presence rule's answer.
+ *
+ * Every question is answered from the source file's line map rather than by
  * slicing text per declaration, so a file with many exports stays linear.
  *
  * @since 0.1.0

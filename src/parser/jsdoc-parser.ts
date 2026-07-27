@@ -2,10 +2,11 @@
  * Lightweight structural inspection of a `/** *\/` comment.
  *
  * @remarks
- * These helpers answer coarse questions about a comment — which block tags it
- * contains, whether it carries type-brace annotations — without a full AST.
- * They power classification in `scan` and the "will this change?" preview in
- * `convert`. Deeper structural editing is the transformer pipeline's job.
+ * These helpers answer coarse questions about a comment — which tags it
+ * contains, which parameters and type parameters it documents by name, whether
+ * it carries type-brace annotations — without a full AST. They power
+ * classification in `scan` and the "will this change?" preview in `convert`.
+ * Deeper structural editing is the transformer pipeline's job.
  *
  * @since 0.1.0
  */

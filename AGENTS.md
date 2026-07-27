@@ -472,6 +472,16 @@ time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
   entry point says which domains are deliberately absent (`reporter`, `writer`)
   so the next reader does not have to guess whether an omission is a bug.
   **A new domain is not done when its barrel exists.**
+- **Round 8: module headers describe the module as it was, not as it is.**
+  `scan.ts` still called itself "read-only inventory of what `convert` would
+  change" after the PR gave it a second mode and two CI gates. Sweeping every
+  header the PR touched found two more that had quietly narrowed:
+  `insertion-location.ts` ("whether one is already there" — it now labels four
+  kinds of comment) and `export-inventory.ts` (framed entirely around
+  `scaffold`, though the classifier is now a second consumer). **When a module
+  gains a capability, its header is part of the change.** This is the same
+  defect as round 4's docstring, and it recurred because it was fixed as an
+  instance rather than swept as a class.
 - **A sweep has to match the semantic class, not the literal one.** After round
   5 the fences were swept for _unlabelled_, so two `PLAN.md` blocks tagged
   ```` ```bash ```` that hold nothing but terminal output survived. The rule

@@ -1,17 +1,20 @@
 /**
- * Enumeration of a source file's exported declarations and whether each already
- * carries a TSDoc comment.
+ * Enumeration of a source file's exported declarations, along with what
+ * documentation each one already carries.
  *
  * @remarks
  * `scaffold` needs three facts per export: where to insert a stub, what shape the
  * export is (so the right template applies), and whether a doc comment is already
- * present. All three come from the TypeScript compiler API rather than regular
- * expressions, so `export` keywords inside strings, template literals, or nested
- * scopes are never mistaken for real declarations.
+ * present. The classifier needs two more from the same walk — the attached
+ * comment itself, and whether a signature could be read at all — so it can tell
+ * documentation that contradicts the code from documentation about code the
+ * scanner never saw. All of it comes from the TypeScript compiler API rather
+ * than regular expressions, so `export` keywords inside strings, template
+ * literals, or nested scopes are never mistaken for real declarations.
  *
- * This module resolves *how* a declaration reaches the module surface; the shape
- * of each declaration comes from `declaration-shape`, and the stub position from
- * `insertion-location`.
+ * This module resolves _how_ a declaration reaches the module surface; the shape
+ * of each declaration comes from `declaration-shape`, and the stub position and
+ * attached comment from `insertion-location`.
  *
  * @since 0.1.0
  */

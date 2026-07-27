@@ -1,6 +1,12 @@
 /**
  * @packageDocumentation
- * `scan` subcommand — read-only inventory of what `convert` would change.
+ * `scan` subcommand — read-only analysis of a project's documentation, in two
+ * modes. By default it inventories what `convert` would change; with
+ * `--classify` it reports how well each export is documented, how far that can
+ * be trusted, and the next action per file. `--fail-on-missing` and
+ * `--fail-on-stale` turn the second mode into a CI gate that exits `3`.
+ *
+ * Neither mode ever writes.
  *
  * @since 0.1.0
  */
