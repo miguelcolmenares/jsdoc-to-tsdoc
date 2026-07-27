@@ -60,8 +60,8 @@ src/
 ├── cli.ts                # citty entry point + subcommand dispatch (has the shebang)
 ├── index.ts             # programmatic library surface (re-exports each domain)
 ├── commands/            # one file per subcommand (citty default export) + convert-file orchestrator
-├── parser/              # comment-line traversal, JSDoc→TSDoc tag registry, comment inspection
-├── scanner/             # TS-compiler-API comment extraction, file discovery, glob path filter
+├── parser/              # comment-line traversal, JSDoc→TSDoc tag registry, comment/@property inspection
+├── scanner/             # TS-compiler-API comment extraction, export/member inventory, file discovery, globs
 ├── transformer/         # the deterministic rule pipeline + rules/
 ├── scaffolder/          # name→prose inference + TSDoc stub rendering for undocumented exports
 ├── generator/           # init's building blocks: project detection, tag classification, tsdoc.json, eslint patcher
@@ -72,11 +72,16 @@ src/
 ```
 
 **Data-flow of a `convert`:** `scanner.extractJsDocComments` (via
-`ts.getLeadingCommentRanges`) → for each comment `transformer.runPipeline`
-(ordered rules over the comment text) → `scanner.applyEdits` (one left-to-right
-pass over the original text, joined once) → `writer` or `reporter`. The shared orchestrator is
-[`src/commands/convert-file.ts`](./src/commands/convert-file.ts) (pure, no I/O),
-reused by both `scan` (counting) and `convert` (writing).
+`ts.getLeadingCommentRanges`) + `scanner.collectMemberTargets` (the members of
+the declaration under each comment) → for each comment, decide what its
+`@property` tags may become, then `transformer.runPipeline` (ordered rules over
+the comment text, plus that decision) → `scanner.applyEdits` (one left-to-right
+pass over the original text, joined once, mixing comment rewrites with
+zero-width member insertions) → `writer` or `reporter`. The shared orchestrator
+is [`src/commands/convert-file.ts`](./src/commands/convert-file.ts) (pure, no
+I/O), reused by both `scan` (counting) and `convert` (writing). It is the only
+layer holding both the comment and the AST, which is why the `@property`
+decision lives there and not in a rule.
 
 **Data-flow of a `scaffold`:** `scanner.collectExportedDeclarations` (via the TS
 compiler API — classifies each export, records its insertion offset and indent,
@@ -114,9 +119,14 @@ problems, `2` when `tsdoc.json` is unreadable. See
 1. **Subcommand model, not one flow** (`citty`). Each verb mirrors a real
    migration step and is independently re-runnable.
 2. **Rule-based deterministic pipeline.** Every transform is an independent,
-   pure `Rule` (`name`, `summary`, `liteSafe`, `apply(comment) => comment`).
-   Same input → same output. No time, randomness, or I/O in the pipeline. Order
-   matters and is fixed in [`transformer/rules/index.ts`](./src/transformer/rules/index.ts).
+   pure `Rule` (`name`, `summary`, `liteSafe`,
+   `apply(comment, context) => comment`). Same input → same output. No time,
+   randomness, or I/O in the pipeline. Order matters and is fixed in
+   [`transformer/rules/index.ts`](./src/transformer/rules/index.ts).
+   A rule sees the comment and the `RuleContext` — never the code the comment
+   documents. Where a decision depends on that code, the caller makes it and
+   passes the answer in; `RuleContext.removableProperties` is the one case so
+   far, and its absence must always mean "change nothing".
 3. **Fence-aware, format-preserving edits.** Rules operate through
    [`parser/comment-lines.ts`](./src/parser/comment-lines.ts) (`mapCommentLines`),
    which hands each rule only the _content_ of a line (after ` * `), never the
