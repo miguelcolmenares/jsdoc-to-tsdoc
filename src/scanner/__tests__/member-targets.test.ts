@@ -126,6 +126,21 @@ describe("collectMemberTargets", () => {
     ]);
   });
 
+  // Filtering every member away leaves the same situation as a declaration
+  // with no members, so it must be absent rather than present and empty.
+  it("omits a declaration whose members are all unnameable", () => {
+    const text = source(
+      "/**",
+      " * Map-like.",
+      " */",
+      "export interface Bag {",
+      "  [key: string]: unknown;",
+      "}",
+    );
+
+    expect(collectMemberTargets(text, "bag.ts").size).toBe(0);
+  });
+
   it("handles several documented declarations in one file", () => {
     const text = source(
       "/**",

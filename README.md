@@ -130,7 +130,7 @@ Deterministic, formatting-preserving transformations derived from real-world mig
 - Converts `@module` / `@fileoverview` → `@packageDocumentation`, at most once per
   comment even when several file-level tags appear together (their prose is kept).
 - Deletes TypeScript-redundant tags (`@function`, `@async`, `@class`, `@enum`, …) and JSDoc-only tags (`@typedef`, `@callback`, `@type`).
-- Moves `@property` descriptions onto the interface members they document, rather than deleting prose that exists nowhere else. See below.
+- Moves `@property` descriptions onto the members they document — on an `interface` or a `type` over an object literal — rather than deleting prose that exists nowhere else. See below.
 
 Content inside fenced code blocks (```` ```…``` ````) is never modified, so `@example` code is preserved verbatim.
 

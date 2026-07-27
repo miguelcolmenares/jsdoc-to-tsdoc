@@ -173,17 +173,46 @@ export function getDocumentedTypeParams(comment: string): readonly string[] {
   return documentedNames(comment, TYPE_PARAM_NAME);
 }
 
-// A `@property` tag that opens its line: the tag, an optional `{type}`, the
-// member name — possibly bracketed, defaulted, or dotted — and the description
-// after an optional hyphen separator.
+// Any `@property` tag that opens its line: the tag, an optional `{type}`, an
+// optional name token, and the rest as the description.
+//
+// The name is captured as a whole token rather than matched against an
+// identifier pattern. JSDoc permits shapes TypeScript identifiers do not —
+// `[optional]`, `[withDefault=1]`, `['quoted-key']` — and a name pattern that
+// rejected one of them would make the tag invisible here, which is the one
+// outcome that loses its description. Being generous costs a name that is
+// merely odd; being strict costs the prose.
+// The lookahead keeps a lone `-` out of the name: with no name at all
+// (`@property - Some prose`), the separator is the next token and would
+// otherwise be read as the member's name.
 const PROPERTY_LINE =
-  /^@(?:property|prop)\s+(?:\{[^}]*\}\s*)?\[?\s*([A-Za-z_$][\w$]*(?:\.[\w$]+)*)(?:\s*=[^\]]*)?\]?\s*(?:-\s*)?(.*)$/;
+  /^@(?:property|prop)\b[ \t]*(?:\{[^}]*\}[ \t]*)?(\[[^\]]*\]|(?!-(?:[ \t]|$))\S+)?[ \t]*(?:-[ \t]*)?(.*)$/;
+
+/**
+ * Reduces a JSDoc name token to the member name it refers to.
+ *
+ * @param token - The raw token as written after the tag.
+ * @returns The bare name, with optional brackets, a default value, and
+ * surrounding quotes removed.
+ */
+function memberName(token: string): string {
+  const unbracketed = /^\[(.*)\]$/.exec(token)?.[1] ?? token;
+  const [beforeDefault = ""] = unbracketed.split("=");
+  return beforeDefault.trim().replace(/^["'`]|["'`]$/g, "");
+}
 
 /**
  * A `@property` tag together with the content lines it occupies.
  */
 export interface PropertyTag {
-  /** The member name the tag documents, as written. */
+  /**
+   * The member name the tag documents, normalized from the JSDoc spelling.
+   *
+   * @remarks
+   * Empty when the tag names nothing at all. Such a tag is still reported
+   * rather than skipped: it may carry a description, and a description this
+   * reader does not return is one the removal rule cannot know to preserve.
+   */
   readonly name: string;
   /** The description, with any continuation lines folded into one. */
   readonly description: string;
@@ -204,10 +233,15 @@ export interface PropertyTag {
  * caller needs the description and the exact lines to remove — derived here,
  * once, rather than re-derived by whoever removes them.
  *
- * Only a tag that *opens* its line is reported. A `@property` sitting mid-line
- * has no unambiguous end, so folding a description out of it would be a guess,
- * and a wrong guess here destroys the prose it was meant to rescue. Such a tag
- * is left for the caller to keep in place.
+ * Every tag that *opens* its line is reported, whatever it names — including
+ * one that names nothing. The reader is the removal rule's only account of
+ * where `@property` prose lives, so a tag missing from this list is a tag the
+ * rule cannot know to preserve.
+ *
+ * A `@property` sitting mid-line is the one exception. It has no unambiguous
+ * end, so folding a description out of it would be a guess, and a wrong guess
+ * here destroys the prose the move exists to rescue; the rule leaves such a
+ * line alone instead.
  *
  * A continuation line — one that follows a tag and starts neither a new tag nor
  * a blank — belongs to that tag's description and is folded into it.
@@ -249,9 +283,9 @@ export function readPropertyTags(comment: string): readonly PropertyTag[] {
     const match = PROPERTY_LINE.exec(trimmed);
     if (match) {
       close();
-      const [, name = "", description = ""] = match;
+      const [, token = "", description = ""] = match;
       open = {
-        name,
+        name: memberName(token),
         parts: description.trim() === "" ? [] : [description.trim()],
         line: context.index,
         end: context.index,

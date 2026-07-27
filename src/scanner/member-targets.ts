@@ -99,8 +99,10 @@ function describeMember(
  * documents — and later sightings are ignored. Reversing that would resolve a
  * comment above an interface to the interface's first member.
  *
- * Comments over a declaration with no named members are absent from the map
- * rather than present and empty: "nothing to move this onto" and "everything is
+ * Comments over a declaration with no member a `@property` could name are
+ * absent from the map rather than present and empty — whether the declaration
+ * has no members at all or only members without plain names, such as an
+ * interface of index signatures. "Nothing to move this onto" and "everything is
  * already documented" lead to opposite decisions, and a caller must not be able
  * to confuse them.
  *
@@ -143,12 +145,18 @@ export function collectMemberTargets(
       if (members === undefined) {
         continue;
       }
-      targets.set(
-        range.pos,
-        members
-          .map((member) => describeMember(member, sourceFile))
-          .filter((target): target is MemberTarget => target !== undefined),
-      );
+      const describable = members
+        .map((member) => describeMember(member, sourceFile))
+        .filter((target): target is MemberTarget => target !== undefined);
+      // An interface of nothing but index signatures declares no member a
+      // `@property` could name, which is the same situation as a declaration
+      // with no members at all. Recording it as an empty list would contradict
+      // the contract below and invite a caller to read "no relocation target"
+      // as "every member is documented".
+      if (describable.length === 0) {
+        continue;
+      }
+      targets.set(range.pos, describable);
     }
     node.forEachChild(visit);
   };

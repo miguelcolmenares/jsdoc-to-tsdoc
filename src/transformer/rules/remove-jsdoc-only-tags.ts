@@ -20,8 +20,10 @@ import type { Rule } from "@/transformer/pipeline";
  * @returns A Markdown list item naming the member in code style.
  */
 function asListItem(name: string, description: string): string {
-  return `- \`${name}\` — ${description}`;
+  return name === "" ? description : `- \`${name}\` — ${description}`;
 }
+
+const PROPERTY_TAGS = ["@property", "@prop"];
 
 /**
  * Removes JSDoc-only tags — `@typedef`, `@callback`, `@type` — and resolves
@@ -42,7 +44,13 @@ function asListItem(name: string, description: string): string {
  * migrating by hand writes for a shape with no members to document, such as the
  * element type of an exported array literal.
  *
- * A tag carrying no description is deleted either way: there is nothing to keep.
+ * A tag carrying no description is deleted either way: there is nothing to
+ * keep. A tag carrying a description but naming nothing keeps the description
+ * as plain prose, since there is no member to name in a list item.
+ *
+ * A `@property` the reader did not account for is left untouched rather than
+ * falling through to the blanket JSDoc-only deletion, so no path through this
+ * rule can delete a description that nothing established was safe to lose.
  *
  * Continuation lines are folded into the item or removed with it, so a
  * description wrapped across lines neither loses its tail nor leaves one behind
@@ -93,6 +101,13 @@ export const removeJsdocOnlyTags: Rule = {
         return null;
       }
       const tag = leadingTag(content);
+      // A `@property` line reaching here was not in the reader's account of
+      // where the prose lives, so nothing has established that deleting it is
+      // safe. `JSDOC_ONLY_TAGS` lists the tag, and falling through to that
+      // branch would delete the description this rule exists to preserve.
+      if (tag && PROPERTY_TAGS.includes(tag)) {
+        return content;
+      }
       if (tag && JSDOC_ONLY_TAGS.includes(tag)) {
         return null;
       }

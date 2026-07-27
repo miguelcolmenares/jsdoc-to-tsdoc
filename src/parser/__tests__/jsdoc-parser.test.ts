@@ -96,12 +96,18 @@ describe("readPropertyTags", () => {
     });
   });
 
+  // The name is read as a whole token rather than matched against an
+  // identifier pattern: a spelling this reader misses is a description the
+  // removal rule cannot know to preserve, which is the failure being fixed.
   it("accepts the JSDoc spellings the tag appears in", () => {
     const input = comment(
       "/**",
       " * @property {string} typed - Has a type brace",
       " * @property [optional] - Bracketed",
       " * @property [withDefault=1] - Bracketed with a default",
+      " * @property ['quoted-key'] - Bracketed and quoted",
+      " * @property \"double-quoted\" - Quoted alone",
+      " * @property nested.field - Dot notation",
       " * @prop aliased - The @prop alias",
       " * @property noSeparator The hyphen is optional in JSDoc",
       " */",
@@ -111,8 +117,18 @@ describe("readPropertyTags", () => {
       ["typed", "Has a type brace"],
       ["optional", "Bracketed"],
       ["withDefault", "Bracketed with a default"],
+      ["quoted-key", "Bracketed and quoted"],
+      ["double-quoted", "Quoted alone"],
+      ["nested.field", "Dot notation"],
       ["aliased", "The @prop alias"],
       ["noSeparator", "The hyphen is optional in JSDoc"],
+    ]);
+  });
+
+  it("reports a tag that names nothing but carries prose", () => {
+    const input = comment("/**", " * @property - Just a description", " */");
+    expect(readPropertyTags(input)).toEqual([
+      { name: "", description: "Just a description", line: 1, lineCount: 1 },
     ]);
   });
 

@@ -411,9 +411,8 @@ src/
 │   │   ├── remove-type-braces.ts
 │   │   ├── add-hyphen-separator.ts
 │   │   ├── convert-file-overview.ts
-│   │   ├── remove-jsdoc-only-tags.ts # @typedef/@callback/@type; resolves @property
 │   │   ├── remove-redundant-tags.ts
-│   │   ├── remove-jsdoc-only-tags.ts
+│   │   ├── remove-jsdoc-only-tags.ts # @typedef/@callback/@type; resolves @property
 │   │   ├── convert-access-tags.ts
 │   │   ├── split-remarks.ts
 │   │   ├── __tests__/

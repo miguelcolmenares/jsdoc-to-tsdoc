@@ -348,6 +348,33 @@ describe("removeJsdocOnlyTags", () => {
     );
   });
 
+  // The regression this pins: a name spelling the reader does not return is a
+  // description the rule would delete through the JSDoc-only branch.
+  it("preserves a description whose name uses a non-identifier spelling", () => {
+    const input = comment(
+      "/**",
+      " * @property ['foo-bar'] - Still real documentation",
+      " */",
+    );
+    expect(apply(removeJsdocOnlyTags, input)).toBe(
+      comment("/**", " * - `foo-bar` \u2014 Still real documentation", " */"),
+    );
+  });
+
+  it("keeps prose from a tag that names nothing, without a bare list item", () => {
+    const input = comment("/**", " * @property - Just a description", " */");
+    expect(apply(removeJsdocOnlyTags, input)).toBe(
+      comment("/**", " * Just a description", " */"),
+    );
+  });
+
+  // A mid-line tag has no unambiguous end, so the reader skips it. It must then
+  // survive rather than fall through to the blanket JSDoc-only deletion.
+  it("never deletes a @property the reader did not account for", () => {
+    const input = "/** Summary. @property id - The id. */";
+    expect(apply(removeJsdocOnlyTags, input)).toBe(input);
+  });
+
   it("drops a @typedef line", () => {
     const input = comment("/**", " * @typedef {Object} Foo", " */");
     expect(apply(removeJsdocOnlyTags, input)).toBe(comment("/**", " */"));

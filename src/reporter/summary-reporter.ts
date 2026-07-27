@@ -83,7 +83,7 @@ export function formatConvertSummary(
   // and a reader scanning the summary should see it happened.
   const moved =
     membersDocumented > 0
-      ? ` ${String(membersDocumented)} @property description(s) moved onto interface members.`
+      ? ` ${String(membersDocumented)} @property description(s) moved onto the members they document.`
       : "";
   return colors.bold(
     `${verb} ${commentsChanged} comment(s) across ${filesChanged}/${filesScanned} file(s).${moved}`,

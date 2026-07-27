@@ -103,8 +103,10 @@ describe("formatConvertSummary", () => {
       },
       plain,
     );
+    // Worded for members generally: the relocation also covers a type alias
+    // over a type literal, which "interface members" would exclude.
     expect(summary).toContain(
-      "7 @property description(s) moved onto interface members",
+      "7 @property description(s) moved onto the members they document",
     );
   });
 });
