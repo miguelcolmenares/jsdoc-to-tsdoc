@@ -44,6 +44,9 @@ Domains present: `parser`, `scanner`, `transformer`, `scaffolder`, `generator`,
 `escalator`, `validator`, `reporter`, `writer`, `commands`. See `PLAN.md` → _Implementation Status_ for the
 running tally and `PLAN.md` → _Development Roadmap_ for phase order.
 
+**Picking work up again?** Go to §11 — it carries what to do next and why, and
+§12 carries the decisions and traps behind the code that is already here.
+
 ---
 
 ## 3. Architecture at a glance
@@ -295,3 +298,137 @@ npm run check:tsdoc    # builds, then runs the CLI's own `check` over this repo
 | Output formatting (diffs, tables, JSON/MD) | `src/reporter/` |
 | Roadmap / scope / phases | `PLAN.md` |
 ```
+
+---
+
+## 11. Resuming work after a context reset (read this first)
+
+This section is the handoff. When a session is compacted or a new one starts,
+read §2, then this, and you have enough to continue without re-deriving the
+state of the repo from its git history.
+
+**Update it as the last step of every iteration**, together with `PLAN.md` and
+`CHANGELOG.md`. An iteration is not finished until the decisions it produced are
+written down here — the context that produced them is gone by the next session.
+
+### The loop we follow
+
+Develop locally → update **all** docs and `PLAN.md` → `/prepare-pr` →
+`/create-github-pr` → address review, iterating until a review adds no new
+comments → `/finalize-github-pr`. Then pick the next item and repeat.
+
+The package is **not** declared ready to publish until it has been run end to
+end against the real repositories the tool was designed from (see §8 and
+`PLAN.md` → _Fixture Strategy_): `nextjs-boilerplate`, `homecare-nextjs`,
+`assistedliving-nextjs`. Passing tests is not the bar; delivering real value on
+a real codebase is.
+
+### Next up
+
+Remaining v0.1.0 scope, in the order that unblocks the most work. The full list
+with checkboxes is `PLAN.md` → _In Scope (v0.1.0)_.
+
+1. **`scan --classify`** — topology report + confidence levels. Stale-doc
+   detection is the substance: no command does it today, and
+   `--fail-on-stale` and `--promote-line-comments` both depend on it.
+2. **`@property` → inline interface member docs** — the last structural
+   transform. The redundant block is removed today; splitting it onto members
+   is what remains.
+3. **`--fail-on-missing` / `--fail-on-stale`** — cheap once classification exists.
+4. **`convert --promote-line-comments`** — needs the `line-comments` topology.
+5. **Interactive mode** (`--interactive`, phase 7). `@clack/prompts` is already
+   a dependency and is **not used anywhere** — either this lands or the
+   dependency comes out, because today every consumer installs it for nothing.
+6. **Fixtures from the three real repos** (phase 9), then the end-to-end
+   dogfood (phase 10), then publish (phase 11).
+
+### Known inconsistency to settle
+
+`PLAN.md` assigns `--fail-on-missing` to `scan` in the _Operational Modes_
+table but writes `check --report=json --fail-on-missing` in the CI example three
+paragraphs earlier. Pick one before implementing, and fix the other.
+
+---
+
+## 12. Iteration log (decisions that outlive the context window)
+
+Newest first. Each entry records what shipped and, more importantly, **the
+non-obvious things** — a decision and its reasoning, or a trap that cost real
+time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
+
+### PR #18 — `@packageDocumentation` emitted once per comment
+
+- **The bug no gate could catch.** `@fileoverview` and `@module` were each
+  translated independently, so a comment carrying both was rewritten declaring
+  the modifier **twice**. The TSDoc parser does not reject a duplicate modifier,
+  so neither `check` nor `eslint-plugin-tsdoc` would ever report it. Only
+  reading the output found it.
+- **How it was found, and what that says about the transformer.** Running the
+  rule pipeline over ~25 adversarial JSDoc inputs and diffing the
+  `@microsoft/tsdoc` parse of each comment *before vs. after* conversion found
+  **zero** introduced violations. The transformer is sound. That is also why the
+  deferred "validate each converted comment before writing it" idea looks weak:
+  a guard with no demonstrable trigger, whose tests could only assert a no-op.
+- **A substring pre-filter next to a regex is a drift hazard.** The pre-check
+  that skips the pre-existence scan fails *open* into the exact duplicate-tag
+  bug being fixed, so the regex is built from the tag constant and the two
+  cannot disagree.
+- **Measure before accepting a performance note.** The reported "measurable
+  per-comment overhead" was real but ≈1% of `convert`'s work: 0.33 ms of extra
+  traversal against a 4.66 ms rule pipeline inside a ~25 ms run over 94 files.
+  TypeScript comment extraction dominates everything else.
+
+### PR #17 — `check` command (phase 6)
+
+- **`TSDocConfigFile.loadForFolder` is the wrong door.** It walks up until it
+  meets a `package.json`/`tsconfig.json` and only then looks for `tsdoc.json`;
+  failing that it reports `hasErrors` with "File not found". Using it made
+  **every project without a `tsdoc.json` exit 2** — the normal state before
+  `init` runs. Probing `<cwd>/tsdoc.json` directly keeps "no config yet" apart
+  from "broken config". `extends` still resolves, because `loadFile` handles it.
+- **`stat` succeeds on a file the process cannot read.** So EACCES surfaces
+  inside `loadFile`, which *throws* — escaping as exit `1` instead of the
+  documented exit `2`. The only way to make `stat` itself fail is a parent
+  directory without execute permission; that is what the regression test uses.
+- **Shared constants beat parallel logic.** `check` was reporting test files
+  that the ESLint config `init` generates exempts — the product contradicting
+  itself. `TEST_FILE_GLOBS` is now one constant used by both.
+- **Ask the other command instead of re-deriving.** Whether a file still holds
+  legacy JSDoc is decided by asking `convert` if it would rewrite it, so the two
+  cannot drift on what "converted" means.
+
+### PR #16 — `escalate` + preflight (phase 8)
+
+- **Never lint with an injected config.** The preflight resolves the *target
+  project's* ESLint and runs it with the project's own configuration — no
+  `overrideConfig`. Anything else manufactures violations the user's pipeline
+  would never report, and the verdict has to equal CI's to be worth anything.
+- **Preflight runs for `warn` targets too**, because pipelines using
+  `--max-warnings 0` break on an `off → warn` change just as hard.
+- **Text-patching a flat config must ignore comments.** A regex matched the rule
+  *inside a comment*, so `escalate` reported `"warn" → "error"` over a config it
+  had not touched — a false pass. Fixed with a character-level, length-preserving
+  comment mask (`src/generator/config-source.ts`); offsets stay interchangeable
+  with the original text. Known limit: regex literals are not tokenized, so `//`
+  inside one masks the rest of the line — it fails closed.
+- **Count, do not flag.** "Rule is disabled everywhere" was reported for a config
+  that mixed `off` with an unparseable key, sending the user after the wrong
+  problem. Counting rule keys separates "disabled" from "unreadable".
+
+### Process lessons (apply to every iteration)
+
+- **Verify every review claim empirically before acting on it.** Twice a claim
+  turned out to understate the problem, and once the accurate finding was the
+  one Copilot filed as *low confidence* in the review body rather than as a
+  thread. Read those too (§9).
+- **Prove the net bites.** After fixing, reintroduce the bug and confirm the new
+  tests fail. On PR #17 this caught a real hole: the first regression test
+  covered only one of the two code paths and passed against the broken build.
+- **Sweep for the defect class, not the reported instance.** The comment-mask
+  fix surfaced a second case the review never mentioned — one that an existing
+  test had pinned as *correct*.
+- **The GitHub reviews API misleads in two specific ways.** It is paginated
+  (`--paginate` is required), and your own replies are recorded as reviews by
+  the repo owner with empty bodies — so a poll must filter on author **and**
+  commit. Also: Copilot reviews the commit that was head when it ran; pushing
+  afterwards does **not** re-trigger it, you must re-request explicitly.
