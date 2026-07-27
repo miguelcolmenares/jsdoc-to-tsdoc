@@ -379,6 +379,24 @@ time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
   the default `scan` inventory still keeps them, because `convert` does rewrite
   JSDoc in tests. When adding a command that judges *documentation coverage*,
   check whether `init`'s generated config already excuses the paths.
+- **Review round 1 found two false verdicts, both confirmed by reproducing them.**
+  The `@returns` gap check used a raw regex over the comment text instead of
+  going through `mapCommentLines`, so an `@returns` inside an `@example` fence
+  satisfied it and hid a real gap — a direct violation of the rule in §4.3.
+  It now reads `getBlockTags`, which is already fence-aware and tested. And a
+  run of `//` lines was classified as prose even when every line was a tooling
+  directive, so `// eslint-disable-next-line` above an undocumented export read
+  as "prose to promote". `LeadingComment` gained a `directive` kind for that;
+  `hasLeadingDocComment` still keys on `doc` alone, so `scaffold`'s contract
+  with the presence rule is untouched.
+- **Validated against a pre-migration commit, not just the migrated repos.**
+  The three real repos are already migrated, so they only measure the end
+  state. `nextjs-boilerplate` at `b803d9c` (the parent of the migration merge)
+  reports 55 valid / 7 partial / 13 no-docs against 67 / 8 / 0 after — the
+  classification reproduces the work the migration actually did. Its blind spot
+  is bounded and measured: 26 % of function-like exports destructure and have
+  staleness suspended, leaving 67 declarations genuinely examined, so the zero
+  stale findings are a real result rather than a silent no-op.
 - **Settled a `PLAN.md` contradiction:** the gates live on `scan`, not `check`.
   `check` already exits `3` for undocumented exports, so `--fail-on-missing`
   there would be a no-op; `scan` is otherwise read-only and gains a CI role.

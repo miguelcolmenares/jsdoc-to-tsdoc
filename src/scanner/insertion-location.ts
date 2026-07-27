@@ -16,9 +16,16 @@ import * as ts from "typescript";
  *
  * - `doc` — a `/** *\/` comment, the only kind that documents it for TSDoc.
  * - `line` — one or more `//` lines, prose that `convert` could promote.
+ * - `directive` — `//` lines that are all tooling instructions, which document
+ *   nothing despite occupying the same position as prose.
  * - `block` — a plain `/* *\/` comment, which documents nothing.
  */
-export type LeadingCommentKind = "doc" | "line" | "block";
+export type LeadingCommentKind = "doc" | "line" | "directive" | "block";
+
+// Instructions to other tools, not prose. Reporting `// eslint-disable-next-line`
+// as documentation to promote would send someone to a declaration that has none.
+const DIRECTIVE =
+  /^\/\/[ \t]*(?:eslint-(?:disable|enable)|@ts-(?:expect-error|ignore|nocheck)|prettier-ignore|biome-ignore|(?:istanbul|c8|v8)[ \t]+ignore|webpackChunkName)/;
 
 /**
  * The comment attached to a declaration.
@@ -116,8 +123,12 @@ export function readLeadingComment(
     .map((range) => sourceText.slice(range.pos, range.end));
   const start = ranges[first];
 
+  // A run counts as prose the moment one of its lines is not a directive: a
+  // note followed by an `// eslint-disable-next-line` is still documentation.
+  const isDirective = run.every((line) => DIRECTIVE.test(line));
+
   return {
-    kind: "line",
+    kind: isDirective ? "directive" : "line",
     text: run.join("\n"),
     line: lineOf(start === undefined ? nearest.pos : start.pos),
   };

@@ -133,16 +133,45 @@ describe("classifyDeclaration", () => {
   it("still reports a destructured signature documenting nothing as partial", () => {
     const source = [
       "/**",
-      " * Renders a card.",
+      " * Builds a URL.",
       " *",
-      " * @returns The card element.",
+      " * @returns The URL.",
       " */",
-      "export function Card({ title }: CardProps) { return <div />; }",
+      "export function build({ host }: Options): string { return host; }",
     ].join("\n");
 
-    const result = classify(source, "Card", "card.tsx");
+    const result = classify(source, "build");
     expect(result.topology).toBe("partial");
-    expect(result.gaps).toEqual(["@param props is not documented"]);
+    expect(result.gaps).toEqual(["@param options is not documented"]);
+  });
+
+  // Measured on the three real migrations: only 7 of 44 hand-reviewed component
+  // files document `@returns`. Requiring it turned three quarters of every real
+  // component into a reported gap, against codebases whose own lint passes.
+  it("does not require @param or @returns on a React component", () => {
+    const source = [
+      "/**",
+      " * Skeleton loading state for the city page.",
+      " */",
+      "export default function CityPageLoading() { return <div />; }",
+    ].join("\n");
+
+    const result = classify(source, "CityPageLoading", "loading.tsx");
+    expect(result.topology).toBe("valid");
+    expect(result.gaps).toEqual([]);
+  });
+
+  it("still requires @typeParam on a generic React component", () => {
+    const source = [
+      "/**",
+      " * Renders a list.",
+      " */",
+      "export function List<T>({ items }: ListProps<T>) { return <div />; }",
+    ].join("\n");
+
+    expect(classify(source, "List", "list.tsx").gaps).toEqual([
+      "@typeParam T is not documented",
+    ]);
   });
 
   it("accepts dot notation as documenting the object parameter", () => {
@@ -221,6 +250,62 @@ describe("classifyDeclaration", () => {
     ].join("\n");
 
     expect(classify(source, "getUser").topology).toBe("no-docs");
+  });
+
+  it("does not let a fenced @returns satisfy the gap check", () => {
+    const source = [
+      "/**",
+      " * Adds one.",
+      " *",
+      " * @param a - The addend.",
+      " *",
+      " * @example",
+      " * ```ts",
+      " * @returns not a real tag here",
+      " * ```",
+      " */",
+      "export function inc(a: number): number { return a + 1; }",
+    ].join("\n");
+
+    expect(classify(source, "inc").gaps).toEqual([
+      "@returns is not documented",
+    ]);
+  });
+
+  it("accepts the un-converted @return spelling as documented", () => {
+    const source = [
+      "/**",
+      " * Adds one.",
+      " *",
+      " * @param a - The addend.",
+      " * @return The sum.",
+      " */",
+      "export function inc(a: number): number { return a + 1; }",
+    ].join("\n");
+
+    expect(classify(source, "inc").topology).toBe("valid");
+  });
+
+  // A tooling instruction occupies the same position as prose but documents
+  // nothing; reporting it as "prose to promote" sends someone to a declaration
+  // that has none.
+  it("treats a run of tooling directives as no documentation", () => {
+    const source = [
+      "// eslint-disable-next-line @typescript-eslint/no-unsafe-return",
+      "export function getUser(id: string): string { return id; }",
+    ].join("\n");
+
+    expect(classify(source, "getUser").topology).toBe("no-docs");
+  });
+
+  it("still counts prose that is followed by a directive", () => {
+    const source = [
+      "// Fetches the user by ID.",
+      "// eslint-disable-next-line @typescript-eslint/no-unsafe-return",
+      "export function getUser(id: string): string { return id; }",
+    ].join("\n");
+
+    expect(classify(source, "getUser").topology).toBe("line-comments");
   });
 
   it("ignores tags inside a fenced example", () => {
