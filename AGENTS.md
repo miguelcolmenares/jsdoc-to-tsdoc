@@ -447,6 +447,15 @@ time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
   is bounded and measured: 26 % of function-like exports destructure and have
   staleness suspended, leaving 67 declarations genuinely examined, so the zero
   stale findings are a real result rather than a silent no-op.
+- **Round 4 was about a docstring, and it was still worth taking.**
+  `readLeadingComment` was summarized as reading "the comment that documents a
+  declaration" while deliberately returning `directive` and `block` comments,
+  which document nothing — the exact distinction rounds 1 and 2 were spent
+  building. A summary that contradicts the design invites the next reader to
+  "fix" the function to match it. The remarks now say attachment is a position
+  rather than a meaning, and record why filtering cannot happen there: the
+  callers disagree about what counts, so deciding once would make all of them
+  inherit one caller's definition.
 - **Settled a `PLAN.md` contradiction:** the gates live on `scan`, not `check`.
   `check` already exits `3` for undocumented exports, so `--fail-on-missing`
   there would be a no-op; `scan` is otherwise read-only and gains a CI role.

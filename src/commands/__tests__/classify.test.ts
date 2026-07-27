@@ -45,17 +45,37 @@ async function runHandler<T extends ArgsDef>(
   await command.run?.(context(args) as unknown as CommandContext<T>);
 }
 
+/** Captures everything written to stderr during `fn`. */
+async function captureStderr(fn: () => Promise<void>): Promise<string> {
+  const chunks: string[] = [];
+  const spy = vi
+    .spyOn(process.stderr, "write")
+    .mockImplementation((chunk: unknown): boolean => {
+      chunks.push(String(chunk));
+      return true;
+    });
+  try {
+    await fn();
+  } finally {
+    spy.mockRestore();
+  }
+  return chunks.join("");
+}
+
 /** Runs `scan` with the given args and returns stdout plus the exit code. */
 async function run(
   args: Record<string, unknown>,
-): Promise<{ output: string; exitCode: number | undefined }> {
+): Promise<{ output: string; errors: string; exitCode: number | undefined }> {
   process.exitCode = undefined;
-  const output = await captureStdout(async () => {
-    await runHandler(scanCommand, { cwd: root, ...args });
+  let output = "";
+  const errors = await captureStderr(async () => {
+    output = await captureStdout(async () => {
+      await runHandler(scanCommand, { cwd: root, ...args });
+    });
   });
   const { exitCode } = process;
   process.exitCode = undefined;
-  return { output, exitCode };
+  return { output, errors, exitCode };
 }
 
 const documented = [
@@ -193,6 +213,21 @@ describe("scan --classify", () => {
     expect(report.command).toBe("scan");
     expect(report.mode).toBeUndefined();
     expect(report.filesScanned).toBe(1);
+  });
+
+  // `--lite` only narrows the conversion inventory. Ignoring it in silence
+  // would let a CI job read the classification as the narrower set it asked for.
+  it("says so when --lite is passed alongside --classify", async () => {
+    await write("src/math.ts", documented);
+
+    const { errors, output } = await run({ classify: true, lite: true });
+
+    expect(errors).toContain("--lite");
+    expect(errors).toContain("no effect with --classify");
+    expect(output).toContain("Documentation analysis");
+
+    const quiet = await run({ classify: true });
+    expect(quiet.errors).toBe("");
   });
 });
 

@@ -62,7 +62,7 @@ npx jsdoc-to-tsdoc escalate --check
 | `--severity <level>` | `escalate` | Target severity: `error` (default) or `warn` to walk it back. |
 | `--skip-preflight` | `escalate` | Patch the config without running ESLint first. |
 | `--syntax-only` | `check` | Only validate comment syntax; ignore undocumented exports and legacy JSDoc. |
-| `--classify` | `scan` | Report documentation topology and confidence instead of the conversion inventory. |
+| `--classify` | `scan` | Report documentation topology and confidence instead of the conversion inventory. Not combinable with `--lite`, which only narrows the inventory; passing both warns and ignores `--lite`. |
 | `--fail-on-missing` | `scan` | Exit `3` when any export has no TSDoc comment (implies `--classify`). |
 | `--fail-on-stale` | `scan` | Exit `3` when any comment contradicts its signature (implies `--classify`). |
 | `--include-tests` | `check`, `scan --classify` | Also inspect the test paths `init` exempts from the TSDoc rules. |

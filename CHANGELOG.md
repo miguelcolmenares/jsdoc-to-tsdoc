@@ -89,7 +89,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   apart from valid ones, and test paths are skipped by default (as `check`
   already does) because the ESLint config `init` writes disables both TSDoc
   rules for them; `--include-tests` opts in. `--report=json` carries the full
-  per-declaration detail.
+  per-declaration detail. `--lite` narrows only the conversion inventory, so
+  passing it alongside `--classify` warns on stderr instead of being dropped in
+  silence.
 - `scan --fail-on-missing` / `scan --fail-on-stale`: CI gates that exit `3` on
   undocumented exports or on documentation that contradicts its signature. Both
   imply `--classify`. They live on `scan` rather than `check`, which already

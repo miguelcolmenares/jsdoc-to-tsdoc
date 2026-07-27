@@ -117,6 +117,15 @@ export default defineCommand({
       const excludeTests =
         classify && !args["include-tests"] ? TEST_FILE_GLOBS : [];
 
+      // `--lite` narrows the conversion inventory, which `--classify` does not
+      // produce. Dropping it without a word would let a CI job read the numbers
+      // as the narrower set it asked for.
+      if (classify && lite) {
+        process.stderr.write(
+          "scan: --lite narrows the conversion inventory and has no effect with --classify.\n",
+        );
+      }
+
       const files = await findSourceFiles(cwd, {
         only: splitGlobs(args.only),
         exclude: [...splitGlobs(args.exclude), ...excludeTests],
