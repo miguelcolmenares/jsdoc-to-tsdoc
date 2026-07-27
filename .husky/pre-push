@@ -1,0 +1,33 @@
+#!/bin/sh
+#
+# Pre-push: the full gate, including the dogfood.
+#
+# `npm run check` is typecheck + lint + the test suite + `check:tsdoc`, and that
+# last one builds the CLI and runs it against this repo's own source. So a push
+# cannot introduce a comment the tool itself would reject — which has happened,
+# and is the failure this hook exists to stop locally instead of ten minutes
+# later in CI across nine matrix jobs.
+#
+
+CYAN='\033[0;36m'
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+NC='\033[0m'
+
+echo ""
+echo "${CYAN}🔍 Running the full gate before pushing (typecheck · lint · tests · dogfood)…${NC}"
+echo ""
+
+if ! npm run check; then
+    echo ""
+    echo "${RED}🚫 PUSH BLOCKED — the gate failed.${NC}"
+    echo ""
+    echo "${CYAN}Fix it, or push once with:${NC}"
+    echo "   ${GREEN}git push --no-verify${NC}"
+    echo ""
+    exit 1
+fi
+
+echo ""
+echo "${GREEN}✅ Gate clean — pushing.${NC}"
+echo ""

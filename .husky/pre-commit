@@ -1,0 +1,35 @@
+#!/bin/sh
+#
+# Pre-commit: branch protection + formatting of staged files.
+#
+# Deliberately cheap. A commit is a checkpoint; the full gate runs on pre-push,
+# which is the point where work becomes visible to other people and to CI.
+#
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+current_branch=$(git symbolic-ref --short HEAD 2>/dev/null)
+
+protected_branches="main master"
+
+for branch in $protected_branches; do
+    if [ "$current_branch" = "$branch" ]; then
+        echo ""
+        echo "${RED}🚫 COMMIT BLOCKED!${NC}"
+        echo "${RED}❌ Direct commits to '${YELLOW}$current_branch${RED}' are not allowed.${NC}"
+        echo ""
+        echo "${CYAN}📋 Branch first. This is an OSS repo: Conventional Commits, no ticket prefix.${NC}"
+        echo "   ${GREEN}git checkout -b feature/short-description${NC}"
+        echo "   ${GREEN}git checkout -b fix/short-description${NC}"
+        echo ""
+        echo "${CYAN}   Everything reaches main through a reviewed pull request.${NC}"
+        echo ""
+        exit 1
+    fi
+done
+
+npx lint-staged
