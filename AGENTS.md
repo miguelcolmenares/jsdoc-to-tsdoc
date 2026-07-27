@@ -431,6 +431,19 @@ three. Never convert in place — see the fixture-set trap below.
   `@param`/`@returns` — occurs zero times. That reading nearly cut the feature.
   `osa` alone has 18. **Three samples that agree can still be one sample**;
   these three repos share an author and a house style.
+- **A gate satisfied with nothing is worse than a gate that fails.** Review
+  round 1 on PR #21: a bare `//` used as spacing was promotable, and it rendered
+  as an empty `/** *\/`. The presence rule accepts that, so `check` went from
+  reporting the export as undocumented to reporting **zero problems** — the tool
+  silencing its own gate with a comment that says nothing, which is worse than
+  the missing comment it replaced because now nothing points at the gap.
+  `canPromote` now requires at least one line with prose in it. The regression
+  test asserts the harm rather than the diff: it runs `checkSourceText` over the
+  output and expects the export to still be reported. **When output feeds a
+  gate, test what the gate says about it**, not only what the text looks like.
+  Swept the sibling emitters — the `@property` relocation and the list-item
+  demotion both already refuse an empty description — so promotion was the only
+  hole.
 - **The real argument for promotion was not the one in the plan.** It is not
   that `//` prose is lost — nothing deletes it. It is that `scaffold` inserts an
   inferred stub _between_ the prose and the declaration, so the file ends up

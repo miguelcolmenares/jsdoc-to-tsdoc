@@ -37,8 +37,9 @@ function uncomment(line: string): string {
  * Reports whether a run of `//` lines can safely become a block comment.
  *
  * @remarks
- * Two runs are refused, both because rewriting them would change what the code
- * does rather than how it reads.
+ * Three runs are refused. The first two would change what the code does rather
+ * than how it reads; the third would document nothing while looking as though
+ * it did.
  *
  * A run containing a tooling directive is left alone. `readLeadingComment`
  * labels a run as prose the moment one line is not a directive, so a note
@@ -51,14 +52,23 @@ function uncomment(line: string): string {
  * A run containing `*\/` is left alone because that sequence would close the
  * comment early, splicing the rest of the prose into the source as code.
  *
+ * A run with no prose in it — a bare `//` used as spacing — is left alone
+ * because promoting it produces an empty `/** *\/`. That satisfies the presence
+ * rule, so `check` stops reporting the export as undocumented and the gap
+ * becomes invisible: the tool would be silencing its own gate with a comment
+ * that says nothing. There is only something to promote when a person wrote
+ * something.
+ *
  * @param lines - The run's lines, `//` markers included.
- * @returns `true` when the run can be rewritten without changing behaviour.
+ * @returns `true` when the run can be rewritten without changing behaviour or
+ * hiding a missing comment.
  */
 export function canPromote(lines: readonly string[]): boolean {
-  return lines.every(
+  const safe = lines.every(
     (line) =>
       !isToolDirective(line) && !uncomment(line).includes(COMMENT_TERMINATOR),
   );
+  return safe && lines.some((line) => uncomment(line) !== "");
 }
 
 /**

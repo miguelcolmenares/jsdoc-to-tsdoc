@@ -105,10 +105,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it explains, so the file gains a worse summary than the one already there. The
   words are carried across unchanged — nothing is recapitalized or
   repunctuated — and the result goes through the conversion rules, so a promoted
-  comment is not something the next run rewrites again. A run holding a tooling
-  directive or a `*/` is left alone: the first stops working inside a block
-  comment, the second would close it early. Off by default. `convert` reports
-  how many runs it promoted.
+  comment is not something the next run rewrites again. Three runs are left
+  alone: one holding a tooling directive, which stops working inside a block
+  comment; one holding a `*/`, which would close the comment early; and one with
+  no prose in it, because the empty `/** */` it would produce satisfies the
+  presence rule and would stop `check` reporting the export as undocumented. Off
+  by default. `convert` reports how many runs it promoted.
 - `@property` descriptions are relocated instead of deleted. TSDoc documents a
   member with its own comment and has no `@property` tag, so the tag still goes
   — but the prose it carries now lands somewhere. It moves onto the member when

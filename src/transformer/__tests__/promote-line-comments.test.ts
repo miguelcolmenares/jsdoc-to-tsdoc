@@ -28,6 +28,19 @@ describe("canPromote", () => {
   it("refuses a run whose prose would close the comment", () => {
     expect(canPromote(["// Matches the /* … */ form."])).toBe(false);
   });
+
+  // Promoting a run with nothing in it yields an empty `/** */`, which the
+  // presence rule accepts — so `check` would stop reporting the export as
+  // undocumented without a word of documentation having been written.
+  it("refuses a run with no prose in it", () => {
+    expect(canPromote(["//"])).toBe(false);
+    expect(canPromote(["//   "])).toBe(false);
+    expect(canPromote(["//", "//"])).toBe(false);
+  });
+
+  it("accepts a run whose blank lines surround real prose", () => {
+    expect(canPromote(["//", "// Summary.", "//"])).toBe(true);
+  });
 });
 
 describe("renderPromoted", () => {

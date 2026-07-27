@@ -1,6 +1,26 @@
-import { describe, expect, it } from "vitest";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
+import { checkSourceText } from "@/commands/check-file";
 import { convertSourceText } from "@/commands/convert-file";
+import { createTsdocValidator, type TsdocValidator } from "@/validator";
+
+let root = "";
+let validator: TsdocValidator;
+
+beforeAll(async () => {
+  root = await mkdtemp(join(tmpdir(), "jtt-convertfile-"));
+  validator = await createTsdocValidator(root);
+});
+
+afterAll(async () => {
+  await rm(root, { recursive: true, force: true });
+});
+
+const all = { syntaxOnly: false };
 
 const source = [
   "/**",
@@ -448,6 +468,25 @@ describe("convertSourceText and --promote-line-comments", () => {
     expect(once.output).toContain("@param a - The first addend");
     expect(once.output).not.toContain("{number}");
     expect(twice.changed).toBe(false);
+  });
+
+  // A bare `//` used as spacing promotes to an empty `/** */`, which the
+  // presence rule accepts. `check` would then stop reporting the export as
+  // undocumented — the tool silencing its own gate with a comment that says
+  // nothing. The regression is stated as the harm, not as the diff.
+  it("leaves a run with no prose, so the export stays undocumented", () => {
+    const input = lines("//", "export const a = 1;");
+
+    const result = convertSourceText(input, "spacer.ts", {
+      lite: false,
+      promoteLineComments: true,
+    });
+
+    expect(result.commentsPromoted).toBe(0);
+    expect(result.output).toBe(input);
+    expect(checkSourceText(result.output, "spacer.ts", validator, all).counts.missing).toBe(
+      1,
+    );
   });
 
   it("promotes runs on several exports in one file", () => {

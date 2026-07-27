@@ -198,10 +198,13 @@ repunctuated:
 export const revalidate = 86400;
 ```
 
-Only a run attached to an export with no doc comment is a candidate, and two
+Only a run attached to an export with no doc comment is a candidate, and three
 kinds of run are refused outright: one containing a tooling directive
-(`// eslint-disable-next-line`), which stops working inside a block comment, and
-one containing `*/`, which would close the comment early. The promoted comment
+(`// eslint-disable-next-line`), which stops working inside a block comment; one
+containing `*/`, which would close the comment early; and one with no prose in
+it, such as a bare `//` used as spacing — the empty `/** */` it would produce
+satisfies the presence rule, so `check` would stop reporting the export as
+undocumented without a word having been written. The promoted comment
 goes through the same rules as any other, so a `@param {string}` typed out of
 habit is normalized on the way in rather than left for the next run.
 
