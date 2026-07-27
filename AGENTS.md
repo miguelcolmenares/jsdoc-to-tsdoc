@@ -323,6 +323,20 @@ end against the real repositories the tool was designed from (see §8 and
 `assistedliving-nextjs`. Passing tests is not the bar; delivering real value on
 a real codebase is.
 
+### In flight
+
+**PR #19 (`scan --classify`) is parked, not stalled.** It is complete and green
+— CI across the full matrix, 515 tests, every review thread answered and
+resolved — and is deliberately left open **waiting for the Copilot review quota
+to come back**, so it gets one more independent pass before merging. Do not
+merge it to unblock other work; branch from `main` instead.
+
+That decision came from evidence: the reviews on #16, #17, #18 and #19 each
+found defects the author had missed, including two false-positive classes that
+survived a deliberate hunt for exactly those. The cloud alternative
+(`/code-review ultra`) failed twice with 30-minute timeouts and cannot be
+relied on as a substitute.
+
 ### Next up
 
 Remaining v0.1.0 scope, in the order that unblocks the most work. The full list
