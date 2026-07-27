@@ -274,10 +274,15 @@ npm run check:tsdoc    # builds, then runs the CLI's own `check` over this repo
 
 ## 9. Working with pull requests & reviews
 
-- Automated Copilot review is (being) wired via
-  `.github/workflows/request-copilot-review.yml` to re-request on every push to
-  an open PR. Until it lands on the default branch, request Copilot manually
-  after pushing.
+- **Copilot review is requested automatically on every push** to an open PR by
+  `.github/workflows/request-copilot-review.yml`, which is live on `main`.
+  **Do not post `@copilot review` by hand.** Push, then wait: the workflow
+  appears as the `Request Copilot review` check, and the round follows. Manual
+  comments add nothing — three of them on PR #19 produced no round at all, and
+  the wait was the same either way.
+- A round is tied to the commit that was head when it ran, so a push during a
+  review means the next round covers the newer commit, not that the pending one
+  was lost.
 - When addressing review comments: fix + add a regression test, push, then
   **reply to each thread referencing the fixing commit** and **resolve the
   thread** (`resolveReviewThread` via GraphQL). Verify `0` unresolved before
