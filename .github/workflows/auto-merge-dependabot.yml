@@ -5,6 +5,11 @@ name: Auto-merge Dependabot PRs
 # GITHUB_TOKEN for Dependabot's own PRs. Major updates are left for manual
 # review, matching the "Separate major updates for careful review" intent in
 # .github/dependabot.yml.
+#
+# This workflow is only half the gate. The other half is branch protection on
+# `main`, which lists the nine `check (node … · …)` contexts as required —
+# without that, `gh pr merge --auto` has nothing to wait for. If auto-merge ever
+# starts landing red commits again, check the protection rule before this file.
 on: pull_request
 
 # Least privilege by default: no token scopes at the workflow level. Only the
@@ -33,6 +38,10 @@ jobs:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          # `--auto` asks GitHub to merge only after required status checks pass,
-          # so there is no need to poll the PR's mergeable state ourselves.
+          # `--auto` waits only for the checks branch protection marks as
+          # *required*. With none configured it merges as soon as the PR is
+          # mergeable, which is how #24 landed a lockfile that broke `npm ci`
+          # on Node 20 and 22 — the CI matrix had not finished, and nothing was
+          # waiting for it. `main` now requires all nine `check` contexts, so
+          # this line means what it always claimed to.
           gh pr merge --auto --squash "$PR_URL"
