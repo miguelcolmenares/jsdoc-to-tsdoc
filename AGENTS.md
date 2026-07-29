@@ -401,6 +401,40 @@ Newest first. Each entry records what shipped and, more importantly, **the
 non-obvious things** — a decision and its reasoning, or a trap that cost real
 time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
 
+### Auto-merge landed a red commit, and the gate it named did not exist
+
+- **`gh pr merge --auto` waits only for checks branch protection marks as
+  _required_.** `main` had **no protection at all** (`/branches/main/protection`
+  → 404, `/rulesets` → `[]`), so `--auto` merged as soon as the PR was
+  mergeable. The workflow's own comment said it waited for required checks; it
+  had never been true here. **A comment asserting a guarantee is not the
+  guarantee** — this one had been sitting there being wrong.
+- **What got through.** Dependabot's `@types/node` `^26.1.1` → `^26.1.2` (#24)
+  rewrote `package-lock.json` and dropped 27 entries: every
+  `node_modules/vitest/node_modules/@esbuild/*` platform binary, 52 → 26.
+  `npm ci` needs them under **npm 10** and refuses with `EUSAGE`; **npm 11**
+  tolerates the gap. Hence red on Node 20.19 and 22 across all three OSes,
+  green on Node 24 — it reads like a platform bug and is a package-manager one.
+- **It looked like the PR under test was at fault.** A PR's checks run against
+  its **merge with `main`**, so one bad lockfile on `main` reddens every open
+  branch at once while `main`'s own push-run stays green on the commit before.
+  When several unrelated PRs go red together, suspect the base, not the
+  branches.
+- **The local gate cannot catch this.** `pre-push` runs `npm run check`, never
+  `npm ci`, so a lockfile that no longer satisfies `npm ci` passes locally and
+  fails in CI every time.
+- **`npm install --package-lock-only` is the wrong repair.** It made it worse —
+  52 entries down to **2** — because it records only what resolves on the
+  machine running it. What works: restore the last good lock and reconcile it
+  with a full `npm install`.
+- **Branch protection now on `main`**, and the settings are deliberate, since
+  none of this is visible in the tree: all nine `check` contexts required;
+  `strict: false` (no forced rebase — PR checks already run against the merge);
+  `enforce_admins: false`, because when CI itself is what broke, an admin has to
+  be able to land the fix or the repo deadlocks; and no required reviews, since
+  GitHub forbids self-approval and a solo maintainer would be unable to merge
+  anything.
+
 ### Local hooks — and a test that failed for the wrong reason
 
 - **A devDependency can raise the floor the package promises.** `lint-staged@17`
