@@ -5,6 +5,10 @@
 # Deliberately cheap. A commit is a checkpoint; the full gate runs on pre-push,
 # which is the point where work becomes visible to other people and to CI.
 #
+# Output goes through `printf`, not `echo`. Whether `echo` expands a backslash
+# escape is implementation-defined in POSIX — it happens to work in the shells
+# we tested, and `printf` is specified.
+#
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -18,16 +22,18 @@ protected_branches="main master"
 
 for branch in $protected_branches; do
     if [ "$current_branch" = "$branch" ]; then
-        echo ""
-        echo "${RED}🚫 COMMIT BLOCKED!${NC}"
-        echo "${RED}❌ Direct commits to '${YELLOW}$current_branch${RED}' are not allowed.${NC}"
-        echo ""
-        echo "${CYAN}📋 Branch first. This is an OSS repo: Conventional Commits, no ticket prefix.${NC}"
-        echo "   ${GREEN}git checkout -b feature/short-description${NC}"
-        echo "   ${GREEN}git checkout -b fix/short-description${NC}"
-        echo ""
-        echo "${CYAN}   Everything reaches main through a reviewed pull request.${NC}"
-        echo ""
+        printf '\n'
+        printf '%b🚫 COMMIT BLOCKED!%b\n' "$RED" "$NC"
+        printf '%b❌ Direct commits to '"'"'%b%s%b'"'"' are not allowed.%b\n' \
+            "$RED" "$YELLOW" "$current_branch" "$RED" "$NC"
+        printf '\n'
+        printf '%b📋 Branch first. This is an OSS repo: Conventional Commits, no ticket prefix.%b\n' \
+            "$CYAN" "$NC"
+        printf '   %bgit checkout -b feature/short-description%b\n' "$GREEN" "$NC"
+        printf '   %bgit checkout -b fix/short-description%b\n' "$GREEN" "$NC"
+        printf '\n'
+        printf '%b   Everything reaches main through a reviewed pull request.%b\n' "$CYAN" "$NC"
+        printf '\n'
         exit 1
     fi
 done
