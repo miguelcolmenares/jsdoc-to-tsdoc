@@ -26,8 +26,17 @@ const NEEDS_FENCE = /[{}<>@]/;
 // code.
 const CODE_SPAN = /`[^`]*`/g;
 
-/** A block tag opening a line, which ends the preceding tag's body. */
-const BLOCK_TAG = /^@[a-zA-Z]/;
+// A block tag opening a line, which ends the preceding tag's body. The tag name
+// must be followed by whitespace or the end of the line, which is what tells a
+// tag apart from a decorator in sample code: `@returns Nothing.` ends the body,
+// `@Component({ … })` and `@sealed()` are part of it. Matching `@` plus a letter
+// alone stopped the body at the decorator, so a decorated example was left
+// entirely unfenced — the one thing this rule exists to prevent.
+//
+// A bare `@sealed` on its own line stays ambiguous, because that spelling is
+// both a TSDoc modifier tag and a valid decorator. It is read as a tag, which
+// ends the example early; there is nothing in the text to tell the two apart.
+const BLOCK_TAG = /^@[a-zA-Z][a-zA-Z0-9]*(?:\s|$)/;
 
 /** One content line of a comment, as the planning pass sees it. */
 interface ContentLine {

@@ -160,6 +160,55 @@ describe("fenceExampleBlocks", () => {
     expect(apply(fenceExampleBlocks, input)).toBe(input);
   });
 
+  // Review round 1: `/^@[a-zA-Z]/` treated a decorator in sample code as a
+  // block tag, so the body "ended" at the decorator, `last` fell below `first`,
+  // and the example was skipped entirely — left unfenced, still failing check.
+  it("fences an example whose code opens with a decorator", () => {
+    const input = comment(
+      "/**",
+      " * @example",
+      " * @Component({ selector: 'app-root' })",
+      " * class AppComponent {}",
+      " */",
+    );
+
+    expect(apply(fenceExampleBlocks, input)).toBe(
+      comment(
+        "/**",
+        " * @example",
+        " * ```typescript",
+        " * @Component({ selector: 'app-root' })",
+        " * class AppComponent {}",
+        " * ```",
+        " */",
+      ),
+    );
+  });
+
+  // The terminator still has to be a terminator: a real block tag ends the body
+  // and must stay outside the fence.
+  it("still ends the body at a real block tag", () => {
+    const input = comment(
+      "/**",
+      " * @example",
+      " * f({ a: 1 })",
+      " * @returns Nothing.",
+      " */",
+    );
+
+    expect(apply(fenceExampleBlocks, input)).toBe(
+      comment(
+        "/**",
+        " * @example",
+        " * ```typescript",
+        " * f({ a: 1 })",
+        " * ```",
+        " * @returns Nothing.",
+        " */",
+      ),
+    );
+  });
+
   // An inline code span makes its content literal, so TSDoc parses it cleanly.
   // Treating it as a hazard would fence a caption that is prose, not code.
   it("ignores hazards that sit inside an inline code span", () => {
