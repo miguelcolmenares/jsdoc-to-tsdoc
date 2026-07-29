@@ -2,6 +2,11 @@ dist
 coverage
 node_modules
 
+# npm owns this file. Its formatting happens to match Prettier's today, so
+# nothing changes either way — but the two rewriting the same file is a fight
+# waiting to happen, and it is not a file anyone reads.
+package-lock.json
+
 # Markdown is formatted by hand here, deliberately.
 #
 # Prettier strips the padding inside a code span, and this repo's prose is full
