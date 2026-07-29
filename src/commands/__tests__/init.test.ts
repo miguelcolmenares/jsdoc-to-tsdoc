@@ -1,4 +1,11 @@
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -122,7 +129,9 @@ describe("init command", () => {
     const tsdoc = JSON.parse(await readFile(tsdocPath, "utf8")) as {
       tagDefinitions: { tagName: string }[];
     };
-    expect(tsdoc.tagDefinitions.map((definition) => definition.tagName)).toContain("@since");
+    expect(
+      tsdoc.tagDefinitions.map((definition) => definition.tagName),
+    ).toContain("@since");
 
     const patched = await readFile(eslintPath, "utf8");
     expect(patched).toContain("eslint-plugin-tsdoc");
@@ -130,7 +139,9 @@ describe("init command", () => {
   });
 
   it("uses error severity under --strict", async () => {
-    await captureStdout(() => runHandler(initCommand, { cwd: root, strict: true }));
+    await captureStdout(() =>
+      runHandler(initCommand, { cwd: root, strict: true }),
+    );
 
     const patched = await readFile(eslintPath, "utf8");
     expect(patched).toContain('"tsdoc-require-2/require": "error"');
@@ -169,7 +180,9 @@ async function runHandler<T extends ArgsDef>(
 
 describe("installFailureMessage", () => {
   it("reports the exit code for a non-zero exit", () => {
-    expect(installFailureMessage("pnpm", 1, null)).toBe("pnpm exited with code 1");
+    expect(installFailureMessage("pnpm", 1, null)).toBe(
+      "pnpm exited with code 1",
+    );
   });
 
   it("names the signal when the process was killed", () => {

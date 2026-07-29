@@ -18,15 +18,18 @@ describe("readConfigLines", () => {
   });
 
   it("masks a whole-line comment", () => {
-    expect(codeOf('// import "x";\nconst a = 1;')).toEqual(["", "const a = 1;"]);
+    expect(codeOf('// import "x";\nconst a = 1;')).toEqual([
+      "",
+      "const a = 1;",
+    ]);
   });
 
   it("masks a trailing line comment but keeps the code before it", () => {
     // Classifying the whole line as code would let a rule assignment quoted
     // inside the comment be matched and rewritten.
-    expect(codeOf('const a = 1; // "tsdoc-require-2/require": "warn"')).toEqual([
-      "const a = 1;",
-    ]);
+    expect(codeOf('const a = 1; // "tsdoc-require-2/require": "warn"')).toEqual(
+      ["const a = 1;"],
+    );
   });
 
   it("masks every line of a multi-line block comment", () => {
@@ -67,9 +70,10 @@ describe("readConfigLines", () => {
   });
 
   it("carries an unterminated template literal across lines", () => {
-    const source = ["const t = `line one", "// still inside the template`;"].join(
-      "\n",
-    );
+    const source = [
+      "const t = `line one",
+      "// still inside the template`;",
+    ].join("\n");
     expect(masked(source)).toEqual(source.split("\n"));
   });
 

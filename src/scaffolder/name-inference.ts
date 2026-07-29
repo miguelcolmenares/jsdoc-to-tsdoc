@@ -112,15 +112,17 @@ const KNOWN_VERBS: ReadonlySet<string> = new Set([
  * ```
  */
 export function splitIdentifier(name: string): readonly string[] {
-  return name
-    .replace(/[-_]+/g, " ")
-    // Split an acronym run from a following capitalized word: HTTPResponse.
-    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
-    // Split a lowercase or digit run from a following capital: parseHtml.
-    .replace(/([a-z\d])([A-Z])/g, "$1 $2")
-    .split(/\s+/)
-    .map((word) => word.toLowerCase())
-    .filter((word) => word.length > 0);
+  return (
+    name
+      .replace(/[-_]+/g, " ")
+      // Split an acronym run from a following capitalized word: HTTPResponse.
+      .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
+      // Split a lowercase or digit run from a following capital: parseHtml.
+      .replace(/([a-z\d])([A-Z])/g, "$1 $2")
+      .split(/\s+/)
+      .map((word) => word.toLowerCase())
+      .filter((word) => word.length > 0)
+  );
 }
 
 /**
@@ -150,7 +152,9 @@ function conjugate(verb: string): string {
  * @returns The word with its first character uppercased.
  */
 function capitalize(word: string): string {
-  return word.length === 0 ? word : `${word[0]?.toUpperCase() ?? ""}${word.slice(1)}`;
+  return word.length === 0
+    ? word
+    : `${word[0]?.toUpperCase() ?? ""}${word.slice(1)}`;
 }
 
 /**

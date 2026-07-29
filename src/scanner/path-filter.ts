@@ -95,7 +95,10 @@ export function createPathFilter(filters: {
   const exclude = filters.exclude ?? [];
   return (path: string): boolean => {
     const normalized = normalizePath(path);
-    if (only.length > 0 && !only.some((glob) => matchesGlob(normalized, glob))) {
+    if (
+      only.length > 0 &&
+      !only.some((glob) => matchesGlob(normalized, glob))
+    ) {
       return false;
     }
     if (exclude.some((glob) => matchesGlob(normalized, glob))) {

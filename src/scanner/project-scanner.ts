@@ -44,7 +44,11 @@ const SOURCE_EXTENSIONS = [".ts", ".tsx", ".mts", ".cts"] as const;
  * @returns `true` for `.ts` / `.tsx` / `.mts` / `.cts` files that are not `.d.ts`.
  */
 function isSourceFile(name: string): boolean {
-  if (name.endsWith(".d.ts") || name.endsWith(".d.mts") || name.endsWith(".d.cts")) {
+  if (
+    name.endsWith(".d.ts") ||
+    name.endsWith(".d.mts") ||
+    name.endsWith(".d.cts")
+  ) {
     return false;
   }
   return SOURCE_EXTENSIONS.some((ext) => name.endsWith(ext));

@@ -84,7 +84,11 @@ export function mergeTsdocJson(
     // Only a plain object is a usable document. Arrays, `null`, and primitives
     // are valid JSON but invalid `tsdoc.json`, and assigning `$schema` /
     // `tagDefinitions` onto them would serialize to nothing — regenerate instead.
-    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    if (
+      parsed === null ||
+      typeof parsed !== "object" ||
+      Array.isArray(parsed)
+    ) {
       return generateTsdocJson(blockTags);
     }
     document = parsed as TsdocJsonDocument;

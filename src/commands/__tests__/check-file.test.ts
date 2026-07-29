@@ -121,9 +121,9 @@ describe("checkSourceText", () => {
       "",
     ].join("\n");
 
-    expect(checkSourceText(source, "math.ts", validator, all).counts.legacy).toBe(
-      0,
-    );
+    expect(
+      checkSourceText(source, "math.ts", validator, all).counts.legacy,
+    ).toBe(0);
   });
 
   it("reports only syntax under syntaxOnly", () => {

@@ -83,7 +83,9 @@ export function formatConvertSummary(
   } = params;
   const verb = wrote ? "converted" : "would convert";
   if (filesChanged === 0) {
-    return colors.green(`✓ Nothing to convert — ${filesScanned} files already TSDoc-clean.`);
+    return colors.green(
+      `✓ Nothing to convert — ${filesScanned} files already TSDoc-clean.`,
+    );
   }
   // Relocated `@property` prose is called out rather than folded into the
   // comment count: it is the one change that moves text between declarations,

@@ -27,7 +27,9 @@ export function formatFileDiff(
     return "";
   }
 
-  const patch = createPatch(relativePath, before, after, "", "", { context: 2 });
+  const patch = createPatch(relativePath, before, after, "", "", {
+    context: 2,
+  });
 
   return patch
     .split("\n")

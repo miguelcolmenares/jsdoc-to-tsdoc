@@ -122,9 +122,10 @@ export function summarizeClassification(
  * @param summary - The run summary.
  * @returns One entry per stale declaration, with the file it lives in.
  */
-export function staleFindings(
-  summary: ClassifySummary,
-): readonly { readonly path: string; readonly declaration: DeclarationClassification }[] {
+export function staleFindings(summary: ClassifySummary): readonly {
+  readonly path: string;
+  readonly declaration: DeclarationClassification;
+}[] {
   const findings: {
     readonly path: string;
     readonly declaration: DeclarationClassification;

@@ -36,11 +36,7 @@ import {
  * - `stale` — a doc comment that contradicts the signature.
  */
 export type Topology =
-  | "valid"
-  | "partial"
-  | "line-comments"
-  | "no-docs"
-  | "stale";
+  "valid" | "partial" | "line-comments" | "no-docs" | "stale";
 
 /**
  * How much the documentation can be trusted, which decides the recommended

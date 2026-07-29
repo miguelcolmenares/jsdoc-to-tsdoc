@@ -184,21 +184,25 @@ describe("scan --classify", () => {
     await write("src/math.ts", documented);
     await write("src/math.test.ts", "export function helper(): void {}\n");
 
-    const byDefault: { filesScanned: number; byTopology: Record<string, number> } =
-      JSON.parse((await run({ classify: true, report: "json" })).output);
+    const byDefault: {
+      filesScanned: number;
+      byTopology: Record<string, number>;
+    } = JSON.parse((await run({ classify: true, report: "json" })).output);
     expect(byDefault.filesScanned).toBe(1);
     expect(byDefault.byTopology["no-docs"]).toBe(0);
 
-    const withTests: { filesScanned: number; byTopology: Record<string, number> } =
-      JSON.parse(
-        (
-          await run({
-            classify: true,
-            report: "json",
-            "include-tests": true,
-          })
-        ).output,
-      );
+    const withTests: {
+      filesScanned: number;
+      byTopology: Record<string, number>;
+    } = JSON.parse(
+      (
+        await run({
+          classify: true,
+          report: "json",
+          "include-tests": true,
+        })
+      ).output,
+    );
     expect(withTests.filesScanned).toBe(2);
     expect(withTests.byTopology["no-docs"]).toBe(1);
   });
@@ -233,7 +237,10 @@ describe("scan --classify", () => {
 
 describe("scan gates", () => {
   it("--fail-on-missing exits 3 when an export has no TSDoc", async () => {
-    await write("src/math.ts", "export function inc(a: number): number { return a; }\n");
+    await write(
+      "src/math.ts",
+      "export function inc(a: number): number { return a; }\n",
+    );
 
     const { exitCode } = await run({ "fail-on-missing": true });
     expect(exitCode).toBe(3);
@@ -264,9 +271,13 @@ describe("scan gates", () => {
     await rm(join(root, "src", "greet.ts"));
     await write(
       "src/partial.ts",
-      ["/**", " * Adds.", " */", "export function inc(a: number): number { return a; }", ""].join(
-        "\n",
-      ),
+      [
+        "/**",
+        " * Adds.",
+        " */",
+        "export function inc(a: number): number { return a; }",
+        "",
+      ].join("\n"),
     );
     expect((await run({ "fail-on-stale": true })).exitCode).toBeUndefined();
   });

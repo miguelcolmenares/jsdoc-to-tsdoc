@@ -57,7 +57,8 @@ describe("createTsdocValidator", () => {
 
   it("rejects a custom tag when no tsdoc.json is present", async () => {
     const validator = await createTsdocValidator(await project());
-    const source = "/**\n * Doc.\n *\n * @since 0.1.0\n */\nexport const a = 1;\n";
+    const source =
+      "/**\n * Doc.\n *\n * @since 0.1.0\n */\nexport const a = 1;\n";
 
     const violations = validator.validate(source, "a.ts");
 
@@ -72,7 +73,8 @@ describe("createTsdocValidator", () => {
     // project's own lint accepts — the false-positive trap that would make the
     // gate unusable on the repos this tool was built for.
     const validator = await createTsdocValidator(await project(withSinceTag));
-    const source = "/**\n * Doc.\n *\n * @since 0.1.0\n */\nexport const a = 1;\n";
+    const source =
+      "/**\n * Doc.\n *\n * @since 0.1.0\n */\nexport const a = 1;\n";
 
     expect(validator.validate(source, "a.ts")).toEqual([]);
     expect(validator.configPath).toContain("tsdoc.json");

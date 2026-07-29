@@ -52,7 +52,9 @@ describe("extractJsDocComments", () => {
 describe("applyEdits", () => {
   it("replaces a single span", () => {
     const source = "/** old */\nexport const a = 1;\n";
-    const result = applyEdits(source, [{ pos: 0, end: 10, text: "/** new */" }]);
+    const result = applyEdits(source, [
+      { pos: 0, end: 10, text: "/** new */" },
+    ]);
     expect(result).toBe("/** new */\nexport const a = 1;\n");
   });
 
@@ -97,9 +99,9 @@ describe("applyEdits", () => {
   });
 
   it("throws on an inverted span", () => {
-    expect(() =>
-      applyEdits("AAAA", [{ pos: 3, end: 1, text: "x" }]),
-    ).toThrow(/inverted edit span/);
+    expect(() => applyEdits("AAAA", [{ pos: 3, end: 1, text: "x" }])).toThrow(
+      /inverted edit span/,
+    );
   });
 
   it("accepts an edit that starts exactly where the previous one ended", () => {

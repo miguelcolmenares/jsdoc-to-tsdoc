@@ -67,7 +67,11 @@ function keyOf(name: ts.PropertyName | undefined): string | undefined {
   if (name === undefined) {
     return undefined;
   }
-  if (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name)) {
+  if (
+    ts.isIdentifier(name) ||
+    ts.isStringLiteral(name) ||
+    ts.isNumericLiteral(name)
+  ) {
     return name.text;
   }
   if (ts.isComputedPropertyName(name)) {
@@ -96,8 +100,12 @@ function describeMember(
     return undefined;
   }
 
-  const insertPos = member.getStart(sourceFile, /* includeJsDocComment */ false);
-  const ranges = ts.getLeadingCommentRanges(sourceFile.text, member.getFullStart()) ?? [];
+  const insertPos = member.getStart(
+    sourceFile,
+    /* includeJsDocComment */ false,
+  );
+  const ranges =
+    ts.getLeadingCommentRanges(sourceFile.text, member.getFullStart()) ?? [];
   const hasDocComment = ranges.some((range) => {
     const text = sourceFile.text.slice(range.pos, range.end);
     return (
@@ -107,13 +115,15 @@ function describeMember(
     );
   });
 
-  const lineStart = sourceFile.getLineStarts()[
-    sourceFile.getLineAndCharacterOfPosition(insertPos).line
-  ];
+  const lineStart =
+    sourceFile.getLineStarts()[
+      sourceFile.getLineAndCharacterOfPosition(insertPos).line
+    ];
   const indent =
     lineStart === undefined
       ? ""
-      : (/^[ \t]*/.exec(sourceFile.text.slice(lineStart, insertPos))?.[0] ?? "");
+      : (/^[ \t]*/.exec(sourceFile.text.slice(lineStart, insertPos))?.[0] ??
+        "");
 
   return { name: memberKey, hasDocComment, insertPos, indent };
 }

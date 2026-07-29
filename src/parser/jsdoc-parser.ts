@@ -53,7 +53,9 @@ export function hasTypeBraces(comment: string): boolean {
   mapCommentLines(comment, (content, context) => {
     if (
       !context.inFence &&
-      /^@(?:param|returns?|property|prop|type)\s+\{[^}]*\}/i.test(content.trim())
+      /^@(?:param|returns?|property|prop|type)\s+\{[^}]*\}/i.test(
+        content.trim(),
+      )
     ) {
       found = true;
     }
@@ -91,10 +93,7 @@ const ANY_TAG = /(?:^|\s)(@[a-zA-Z]+)/g;
  * name.
  * @returns The names in source order, including any duplicates.
  */
-function documentedNames(
-  comment: string,
-  pattern: RegExp,
-): readonly string[] {
+function documentedNames(comment: string, pattern: RegExp): readonly string[] {
   const names: string[] = [];
   mapCommentLines(comment, (content, context) => {
     if (context.inFence) {
@@ -304,8 +303,12 @@ export function readPropertyTags(comment: string): readonly PropertyTag[] {
   }
 
   const tags: PropertyTag[] = [];
-  let open: { name: string; parts: string[]; line: number; end: number } | null =
-    null;
+  let open: {
+    name: string;
+    parts: string[];
+    line: number;
+    end: number;
+  } | null = null;
 
   const close = (): void => {
     if (open === null) {

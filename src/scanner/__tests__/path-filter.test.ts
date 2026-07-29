@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { createPathFilter, matchesGlob, normalizePath } from "@/scanner/path-filter";
+import {
+  createPathFilter,
+  matchesGlob,
+  normalizePath,
+} from "@/scanner/path-filter";
 
 describe("matchesGlob", () => {
   it("matches a single-segment wildcard without crossing directories", () => {

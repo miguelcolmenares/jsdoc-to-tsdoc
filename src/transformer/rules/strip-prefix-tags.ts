@@ -30,7 +30,9 @@ export const stripPrefixTags: Rule = {
       if (context.inFence) {
         return content;
       }
-      return content.replace(DESCRIPTION_PREFIX, "").replace(DESCRIPTION_BARE, "");
+      return content
+        .replace(DESCRIPTION_PREFIX, "")
+        .replace(DESCRIPTION_BARE, "");
     });
   },
 };

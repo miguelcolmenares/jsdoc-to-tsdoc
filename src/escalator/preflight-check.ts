@@ -108,7 +108,9 @@ function messageOf(error: unknown): string {
  * @param namespace - The imported module namespace.
  * @returns The constructor, or `undefined` when the module does not expose one.
  */
-function readEslintClass(namespace: unknown): LintEngineConstructor | undefined {
+function readEslintClass(
+  namespace: unknown,
+): LintEngineConstructor | undefined {
   const candidates: unknown[] = [];
   if (typeof namespace === "object" && namespace !== null) {
     const record = namespace as Record<string, unknown>;

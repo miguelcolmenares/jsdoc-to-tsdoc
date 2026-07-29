@@ -1,0 +1,13 @@
+dist
+coverage
+node_modules
+
+# Markdown is formatted by hand here, deliberately.
+#
+# Prettier strips the padding inside a code span, and this repo's prose is full
+# of code spans whose whitespace *is* the subject: `mapCommentLines` hands a rule
+# the content after the ` * ` prefix, and Prettier rewrites that to `*`, which
+# names a different string. It also rewraps a code span that spans a line break.
+# A formatter that edits documentation about whitespace is not worth the aligned
+# tables.
+*.md

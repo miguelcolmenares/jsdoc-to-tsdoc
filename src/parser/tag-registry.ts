@@ -28,12 +28,14 @@ export const TAG_RENAMES: Readonly<Record<string, string>> = Object.freeze({
  * modifier. `@access package` collapses to `@internal` since TSDoc has no
  * package-visibility concept.
  */
-export const ACCESS_MODIFIERS: Readonly<Record<string, string>> = Object.freeze({
-  private: "@internal",
-  package: "@internal",
-  protected: "@protected",
-  public: "@public",
-});
+export const ACCESS_MODIFIERS: Readonly<Record<string, string>> = Object.freeze(
+  {
+    private: "@internal",
+    package: "@internal",
+    protected: "@protected",
+    public: "@public",
+  },
+);
 
 /**
  * JSDoc tags with no meaning in TSDoc because TypeScript's own syntax already

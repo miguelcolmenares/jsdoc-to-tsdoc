@@ -282,7 +282,9 @@ export function classifyFunction(
  * @param initializer - The declarator's initializer, when present.
  * @returns `false` only for literals that can never be a function.
  */
-export function mayHoldFunction(initializer: ts.Expression | undefined): boolean {
+export function mayHoldFunction(
+  initializer: ts.Expression | undefined,
+): boolean {
   if (initializer === undefined) {
     return true;
   }

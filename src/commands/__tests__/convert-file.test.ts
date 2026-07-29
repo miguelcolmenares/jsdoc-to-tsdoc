@@ -142,7 +142,9 @@ describe("convertSourceText and @property", () => {
     expect(result.output).not.toContain("@property");
     expect(result.membersDocumented).toBe(0);
     // The member's own wording is left alone rather than overwritten.
-    expect(result.output).toContain("/** True if form submitted successfully */");
+    expect(result.output).toContain(
+      "/** True if form submitted successfully */",
+    );
   });
 
   // `export const styles = [...]` in the boilerplate: the prose describes the
@@ -161,7 +163,9 @@ describe("convertSourceText and @property", () => {
 
     // Kept as prose, not as a tag: TSDoc has no `@property`, so leaving the tag
     // would survive `convert` only to fail `check` with tsdoc-undefined-tag.
-    expect(result.output).toContain("- `id` \u2014 Unique identifier for the style");
+    expect(result.output).toContain(
+      "- `id` \u2014 Unique identifier for the style",
+    );
     expect(result.output).not.toContain("@property");
     expect(result.membersDocumented).toBe(0);
   });
@@ -181,7 +185,9 @@ describe("convertSourceText and @property", () => {
 
     const result = convertSourceText(input, "banner.ts", { lite: false });
 
-    expect(result.output).toContain("- `removedLastYear` \u2014 No longer a field");
+    expect(result.output).toContain(
+      "- `removedLastYear` \u2014 No longer a field",
+    );
     expect(result.output).not.toContain("@property");
     expect(result.membersDocumented).toBe(1);
   });
@@ -259,7 +265,9 @@ describe("convertSourceText and @property", () => {
     const result = convertSourceText(input, "keyed.ts", { lite: false });
 
     expect(result.membersDocumented).toBe(1);
-    expect(result.output).toContain('  /** The hyphenated one */\n  "foo-bar": string;');
+    expect(result.output).toContain(
+      '  /** The hyphenated one */\n  "foo-bar": string;',
+    );
   });
 
   // The guard that skips the member lookup keys on the `@prop` substring; a
@@ -344,7 +352,9 @@ describe("convertSourceText and @property", () => {
 
     const result = convertSourceText(input, "options.ts", { lite: false });
 
-    expect(result.output).toContain("  /** How many times to retry */\n  retries: number;");
+    expect(result.output).toContain(
+      "  /** How many times to retry */\n  retries: number;",
+    );
   });
 });
 
@@ -484,9 +494,10 @@ describe("convertSourceText and --promote-line-comments", () => {
 
     expect(result.commentsPromoted).toBe(0);
     expect(result.output).toBe(input);
-    expect(checkSourceText(result.output, "spacer.ts", validator, all).counts.missing).toBe(
-      1,
-    );
+    expect(
+      checkSourceText(result.output, "spacer.ts", validator, all).counts
+        .missing,
+    ).toBe(1);
   });
 
   it("promotes runs on several exports in one file", () => {

@@ -20,7 +20,10 @@ export {
   type ProblemKind,
 } from "@/commands/check-file";
 
-export { convertSourceText, type FileConversion } from "@/commands/convert-file";
+export {
+  convertSourceText,
+  type FileConversion,
+} from "@/commands/convert-file";
 
 export {
   scaffoldSourceText,

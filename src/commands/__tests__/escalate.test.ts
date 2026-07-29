@@ -175,7 +175,9 @@ describe("escalate command", () => {
 
     expect(process.exitCode).toBe(1);
     expect(stderr).toContain("Unknown --severity");
-    expect(await readConfig(root)).toContain('"tsdoc-require-2/require": "warn",');
+    expect(await readConfig(root)).toContain(
+      '"tsdoc-require-2/require": "warn",',
+    );
   });
 
   it("fails when no ESLint config is present", async () => {

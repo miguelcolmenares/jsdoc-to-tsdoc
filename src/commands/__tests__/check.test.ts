@@ -22,7 +22,8 @@ const DOCUMENTED = [
   "",
 ].join("\n");
 
-const UNDOCUMENTED = "export function subtract(a: number): number {\n  return a;\n}\n";
+const UNDOCUMENTED =
+  "export function subtract(a: number): number {\n  return a;\n}\n";
 
 /** The shape `init` generates: the loader rejects a config without `$schema`. */
 const tsdocJsonWith = (tagName: string): string =>

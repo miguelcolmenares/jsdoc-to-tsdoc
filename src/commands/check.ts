@@ -224,9 +224,7 @@ function emit(
  * @returns One row per kind, including the zeroes so a clean run still shows
  * what was actually checked.
  */
-function kindRows(
-  totals: Readonly<Record<ProblemKind, number>>,
-): SummaryRow[] {
+function kindRows(totals: Readonly<Record<ProblemKind, number>>): SummaryRow[] {
   return Object.entries(KIND_LABELS).map(([kind, label]) => ({
     label,
     value: totals[kind as ProblemKind],

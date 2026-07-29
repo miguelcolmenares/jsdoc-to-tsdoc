@@ -208,6 +208,15 @@ in `--check` mode.
 - **Commits**: Conventional Commits (`feat`/`fix`/`docs`/`refactor`/`test`/
   `chore`/`ci`), **no ticket prefix** (OSS), **no AI-attribution trailers**.
   Branches: `feature/<desc>` or `fix/<desc>`. One reviewable unit per commit.
+- **Formatting is Prettier's job for `.ts`/`.json`, and nobody's for `.md`.**
+  Markdown is in `.prettierignore` on purpose: Prettier strips the padding
+  inside a code span, and this repo's prose is full of spans whose whitespace is
+  the subject — the docs describe the content after the ` * ` prefix, which it
+  rewrites to `*`, naming a different string. Do not "fix" that ignore.
+- **Hooks enforce this locally.** `pre-commit` refuses a direct commit to
+  `main`/`master` and runs lint-staged; `pre-push` runs `npm run check` in full,
+  dogfood included, in about 11 s. `--no-verify` exists but a bypassed push is a
+  push CI will catch anyway.
 
 ---
 
@@ -391,6 +400,31 @@ Done since this section was written: `scan --classify`, `--fail-on-missing`,
 Newest first. Each entry records what shipped and, more importantly, **the
 non-obvious things** — a decision and its reasoning, or a trap that cost real
 time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
+
+### Local hooks — and a test that failed for the wrong reason
+
+- **A devDependency can raise the floor the package promises.** `lint-staged@17`
+  requires Node `>=22.22.1`; this package declares `engines.node: ">=20.19"` and
+  CI runs 20.19. Pinned to `^16.4.0` (`>=20.17`) instead of raising the engine,
+  because the floor is a promise to consumers and no dev tool gets to move it.
+  **Check `engines` on anything added to `devDependencies`,** not only on
+  runtime deps.
+- **My own test failed for a reason unrelated to what it tested.** Checking
+  whether the `lint-staged` glob reaches nested files, I appended an
+  **undocumented** export to a source file — in a repo that lints
+  `tsdoc-require-2/require` at `error`. ESLint failed, lint-staged reverted
+  everything (correctly — it is atomic), the file came back unformatted, and I
+  briefly read that as "the glob does not match". `--verbose` showed
+  `prettier --write: src/writer/file-writer.ts` all along. **A probe has to be
+  valid in every dimension the system checks**, or the failure you observe is
+  not the one you went looking for. A non-slash glob does match nested paths:
+  lint-staged matches those against the basename.
+- **`echo` was not actually broken, and the fix was still right.** Review said
+  `echo` would print `\033` literally under POSIX `sh`. Tested in `/bin/sh`,
+  `bash --posix` and `dash` — all three emitted a real ESC. But whether `echo`
+  expands backslash escapes is implementation-defined in POSIX while `printf` is
+  specified, so the hooks use `printf`. Take a correct recommendation even when
+  the reason given for it does not hold here, and say which part you verified.
 
 ### `osa-nextjs` — the first ground truth, and what it exposed
 

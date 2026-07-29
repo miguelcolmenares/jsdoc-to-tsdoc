@@ -50,7 +50,8 @@ interface FileChange {
 export default defineCommand({
   meta: {
     name: "init",
-    description: "Bootstrap tsdoc.json + ESLint rules (progressive by default).",
+    description:
+      "Bootstrap tsdoc.json + ESLint rules (progressive by default).",
   },
   args: {
     cwd: {
@@ -69,11 +70,13 @@ export default defineCommand({
     },
     strict: {
       type: "boolean",
-      description: "Start tsdoc-require-2/require at \"error\" instead of \"warn\".",
+      description:
+        'Start tsdoc-require-2/require at "error" instead of "warn".',
     },
     install: {
       type: "boolean",
-      description: "Run the package manager to install missing dev dependencies.",
+      description:
+        "Run the package manager to install missing dev dependencies.",
     },
     report: {
       type: "string",
@@ -106,14 +109,22 @@ export default defineCommand({
         ? mergeTsdocJson(tsdocBefore, blockTags)
         : generateTsdocJson(blockTags);
       if (tsdocAfter !== tsdocBefore) {
-        changes.push({ path: tsdocPath, before: tsdocBefore, after: tsdocAfter });
+        changes.push({
+          path: tsdocPath,
+          before: tsdocBefore,
+          after: tsdocAfter,
+        });
       }
 
       if (layout.eslintConfigPath) {
         const before = await readFile(layout.eslintConfigPath, "utf8");
         const patch = patchEslintFlatConfig(before, { severity });
         if (patch.ok && patch.changed) {
-          changes.push({ path: layout.eslintConfigPath, before, after: patch.content });
+          changes.push({
+            path: layout.eslintConfigPath,
+            before,
+            after: patch.content,
+          });
         } else if (!patch.ok) {
           manualEslintSnippet = patch.snippet;
         }
@@ -137,7 +148,9 @@ export default defineCommand({
             command: "init",
             wrote: !dryRun,
             severity,
-            changes: changes.map((change) => ({ path: relative(cwd, change.path) })),
+            changes: changes.map((change) => ({
+              path: relative(cwd, change.path),
+            })),
             customTags: blockTags,
             unknownTags: tagReport.unknownTags,
             packagesToInstall: packages,
@@ -218,7 +231,14 @@ function renderReport(input: RenderInput, colors: Colors): void {
     out(colors.green("✓ Already bootstrapped — no config changes needed."));
   } else if (input.dryRun) {
     for (const change of input.changes) {
-      out(formatFileDiff(relative(input.cwd, change.path), change.before, change.after, colors));
+      out(
+        formatFileDiff(
+          relative(input.cwd, change.path),
+          change.before,
+          change.after,
+          colors,
+        ),
+      );
     }
     out(colors.dim("Preview only — re-run without --dry-run to apply."));
   } else {
@@ -228,10 +248,18 @@ function renderReport(input: RenderInput, colors: Colors): void {
   }
 
   if (!input.eslintConfigFound) {
-    out(colors.yellow("No ESLint flat config found — see docs to add the TSDoc rules."));
+    out(
+      colors.yellow(
+        "No ESLint flat config found — see docs to add the TSDoc rules.",
+      ),
+    );
   }
   if (input.manualEslintSnippet !== undefined) {
-    out(colors.yellow("Could not patch ESLint config automatically. Add manually:"));
+    out(
+      colors.yellow(
+        "Could not patch ESLint config automatically. Add manually:",
+      ),
+    );
     out(input.manualEslintSnippet);
   }
 

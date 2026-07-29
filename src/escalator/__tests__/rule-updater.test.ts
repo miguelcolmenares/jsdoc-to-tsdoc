@@ -40,7 +40,9 @@ describe("updateRuleSeverity", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.content).toContain('"tsdoc-require-2/require-param": "off",');
-    expect(result.content).toContain('"tsdoc-require-2/require-returns": "off",');
+    expect(result.content).toContain(
+      '"tsdoc-require-2/require-returns": "off",',
+    );
     expect(result.occurrences).toHaveLength(1);
   });
 
@@ -109,7 +111,9 @@ describe("updateRuleSeverity", () => {
   });
 
   it("preserves single quotes and the tuple form", () => {
-    const source = config(["'tsdoc-require-2/require': ['warn', { skip: [] }],"]);
+    const source = config([
+      "'tsdoc-require-2/require': ['warn', { skip: [] }],",
+    ]);
     const result = updateRuleSeverity(source, { severity: "error" });
 
     expect(result.ok).toBe(true);

@@ -9,7 +9,10 @@ import {
   DOCUMENTED_SOURCE,
   UNDOCUMENTED_SOURCE,
 } from "@/escalator/__tests__/eslint-project";
-import { collectRuleViolations, runPreflight } from "@/escalator/preflight-check";
+import {
+  collectRuleViolations,
+  runPreflight,
+} from "@/escalator/preflight-check";
 
 const roots: string[] = [];
 
@@ -56,9 +59,9 @@ describe("collectRuleViolations", () => {
   });
 
   it("returns nothing for a clean result set", () => {
-    expect(collectRuleViolations([{ filePath: "/p/a.ts", messages: [] }])).toEqual(
-      [],
-    );
+    expect(
+      collectRuleViolations([{ filePath: "/p/a.ts", messages: [] }]),
+    ).toEqual([]);
   });
 });
 

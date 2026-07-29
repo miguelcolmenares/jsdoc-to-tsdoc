@@ -119,7 +119,8 @@ export function readLeadingComment(
   node: ts.Node,
 ): LeadingComment | undefined {
   const sourceText = sourceFile.text;
-  const ranges = ts.getLeadingCommentRanges(sourceText, node.getFullStart()) ?? [];
+  const ranges =
+    ts.getLeadingCommentRanges(sourceText, node.getFullStart()) ?? [];
 
   // Only the last comment can document the declaration; anything earlier is
   // separated from it by another comment.

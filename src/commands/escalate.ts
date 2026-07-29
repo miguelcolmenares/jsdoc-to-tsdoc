@@ -48,11 +48,7 @@ import { writeFileText } from "@/writer";
  * - `failed` — the command could not run (no config, no rule, no ESLint).
  */
 type EscalateStatus =
-  | "escalated"
-  | "would-change"
-  | "unchanged"
-  | "blocked"
-  | "failed";
+  "escalated" | "would-change" | "unchanged" | "blocked" | "failed";
 
 interface Outcome {
   readonly status: EscalateStatus;
@@ -125,7 +121,8 @@ export default defineCommand({
       const dryRun = Boolean(args["dry-run"]) || Boolean(args.preview);
       const reportFormat = parseReportFormat(args.report);
       const colors = createColors(
-        reportFormat === undefined && shouldUseColor(Boolean(process.stdout.isTTY)),
+        reportFormat === undefined &&
+          shouldUseColor(Boolean(process.stdout.isTTY)),
       );
       const severity = parseSeverity(args.severity);
 
@@ -147,7 +144,9 @@ export default defineCommand({
 
       emit(outcome, cwd, reportFormat, colors);
       const exitCode =
-        check && outcome.status === "would-change" ? 3 : EXIT_CODES[outcome.status];
+        check && outcome.status === "would-change"
+          ? 3
+          : EXIT_CODES[outcome.status];
       if (exitCode !== 0) {
         process.exitCode = exitCode;
       }
@@ -350,7 +349,9 @@ function renderJson(outcome: Outcome, cwd: string): string {
     severity: outcome.severity,
     wrote: outcome.status === "escalated",
     configPath:
-      outcome.configPath === undefined ? null : relative(cwd, outcome.configPath),
+      outcome.configPath === undefined
+        ? null
+        : relative(cwd, outcome.configPath),
     occurrences: outcome.occurrences,
     preflight: preflightPayload(outcome.preflight, cwd),
     reason: outcome.reason ?? null,
@@ -372,7 +373,9 @@ function renderMarkdown(outcome: Outcome, cwd: string): string {
     {
       label: "Config",
       value:
-        outcome.configPath === undefined ? "—" : relative(cwd, outcome.configPath),
+        outcome.configPath === undefined
+          ? "—"
+          : relative(cwd, outcome.configPath),
     },
     { label: "Assignments updated", value: outcome.occurrences.length },
   ];
