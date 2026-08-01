@@ -99,6 +99,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   imply `--classify`. They live on `scan` rather than `check`, which already
   exits `3` for undocumented exports.
 
+- `convert` fences an `@example` body when leaving it bare would break TSDoc
+  parsing. An unfenced `{` is read as the start of an inline tag and its `}` as
+  the end of one, so a comment that reads perfectly fails `check`; the same
+  applies to `<`, `>`, and an `@` anywhere, including inside a word. Only a body
+  containing one of those is touched — a body of plain calls and URLs is left as
+  written, as is any body that already contains a fence, and a hazard inside an
+  inline code span is not treated as one because TSDoc reads a code span
+  literally. Measured against a hand migration of a real repository, this
+  reproduces the human's fencing decision on 101 of 102 examples and removes 95
+  of that repository's 143 remaining errors.
 - `convert --promote-line-comments` rewrites a run of `//` prose above an
   undocumented export as the `/** */` comment it was already serving as. Without
   it, `scaffold` inserts an inferred stub between that prose and the declaration

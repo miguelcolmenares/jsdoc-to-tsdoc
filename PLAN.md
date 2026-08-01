@@ -1037,12 +1037,14 @@ Reporting & CI:
 Found by comparing the CLI against the hand migration on `osa-nextjs`
 (`feature/tsdoc-implementation`), which takes that repo from 143 remaining
 `check` errors to roughly 9. The hand migration shows the intended output for
-each, so none of them is a guess:
+each, so none of them is a guess. **48 remain:**
 
-- [ ] **Fence unfenced `@example` bodies** (72 errors) — an unfenced `{` is
-  `tsdoc-malformed-inline-tag` and its `}` is `tsdoc-escape-right-brace`. The
-  fix is a ```` ```typescript ```` fence around the example, exactly what the
-  person wrote by hand in ~15 files.
+- [x] **Fence unfenced `@example` bodies** — shipped. Removed **95** of the 143
+  (the 36 `tsdoc-malformed-inline-tag`, the 36 `tsdoc-escape-right-brace`, the 6
+  `tsdoc-escape-greater-than`, the `tsdoc-malformed-html-name`, and 16 of the 24
+  `tsdoc-at-sign-in-word` that sat inside examples), taking `osa` from 143
+  errors over 40 files to **48 over 18**. Fences only bodies TSDoc would
+  misparse, matching the human's decision on 101 of 102 examples.
 - [ ] **Backtick a bare `@` in prose** (32 errors) — `@silverassist/icons`,
   `@/lib/seo`, `@layer third-party` all read as tags to TSDoc
   (`tsdoc-at-sign-in-word`, `tsdoc-characters-after-block-tag`).
