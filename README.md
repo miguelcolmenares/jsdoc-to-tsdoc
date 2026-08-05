@@ -134,6 +134,7 @@ Deterministic, formatting-preserving transformations derived from real-world mig
 - Moves `@property` descriptions onto the members they document — on an `interface` or a `type` over an object literal — rather than deleting prose that exists nowhere else. See below.
 
 - Wraps an `@example` body in a ```` ```typescript ```` fence when leaving it bare would break TSDoc parsing. See below.
+- Backticks a bare `@` that appears mid-line in prose — a path alias (`@/lib/thing`), a scoped package (`@scope/pkg`), an address, or a decorator named in a sentence — so TSDoc reads it as text, not a tag. The tag that opens a line is left untouched, as is anything already inside a code span or a fenced block, and a standard tag name mentioned mid-prose.
 
 Content inside fenced code blocks (```` ```…``` ````) is never modified, so `@example` code is preserved verbatim.
 
