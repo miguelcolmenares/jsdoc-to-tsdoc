@@ -274,11 +274,21 @@ describe("escapeBareAtSign", () => {
     );
   });
 
-  it("keeps trailing sentence punctuation outside the backticks", () => {
+  it("keeps a trailing sentence period outside the backticks", () => {
     const input = comment("/**", " * Use the barrel at @/lib.", " */");
 
     expect(apply(escapeBareAtSign, input)).toBe(
       comment("/**", " * Use the barrel at `@/lib`.", " */"),
+    );
+  });
+
+  // A trailing slash is part of a path alias, not sentence punctuation, so it
+  // stays inside the backticks — trimming it would corrupt the token.
+  it("keeps a trailing slash inside the backticks", () => {
+    const input = comment("/**", " * Files live under @/lib/ here.", " */");
+
+    expect(apply(escapeBareAtSign, input)).toBe(
+      comment("/**", " * Files live under `@/lib/` here.", " */"),
     );
   });
 

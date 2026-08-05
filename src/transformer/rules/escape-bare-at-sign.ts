@@ -16,13 +16,18 @@ import type { Rule } from "@/transformer/pipeline";
 // `@` shapes TSDoc flags mid-prose that are not tags at all — a TypeScript path
 // alias (`@/lib/thing`) and a scoped npm package (`@scope/pkg`), both of which
 // carry `/`, `.`, or `-`. So the first character after `@` may be a letter,
-// digit, or `/`, and the run continues through path characters. Trailing
-// sentence punctuation is trimmed back off in the callback.
+// digit, or `/`, and the run continues through path characters. A trailing
+// sentence period is trimmed back off in the callback.
 const SPAN_OR_TOKEN = /`[^`]*`|@[a-zA-Z0-9/][\w/.-]*/g;
 
-// Punctuation that may cling to the end of a token from the surrounding prose
-// (`… from @/lib.` or `@scope/pkg,`) but is not part of it.
-const TRAILING_PUNCTUATION = /[.\-_/]+$/;
+// A trailing period is the one punctuation the token grammar can swallow that
+// belongs to the sentence, not the token: it is in the run's character class
+// only so `@/lib.` at a sentence end still matches. `/`, `-`, and `_` are left
+// in place — they are meaningful in a path alias or scoped package (`@/lib/`,
+// `@scope/pkg-name`), and stripping them would corrupt the very tokens the rule
+// exists to protect. Other punctuation (`,`, `)`, `"`) is not in the class, so
+// the match already stops before it.
+const TRAILING_PERIOD = /\.+$/;
 
 /**
  * Escapes every undefined `@` token on a single prose line, leaving the tag
@@ -43,9 +48,9 @@ function escapeLine(content: string): string {
     if (offset === firstNonWhitespace) {
       return match;
     }
-    // Trailing punctuation belongs to the sentence, not the token, so it stays
+    // A trailing period belongs to the sentence, not the token, so it stays
     // outside the backticks: `@/lib.` escapes to `` `@/lib`. ``
-    const token = match.replace(TRAILING_PUNCTUATION, "");
+    const token = match.replace(TRAILING_PERIOD, "");
     const trailer = match.slice(token.length);
     // Only a token TSDoc does not define is a hazard. A standard or known
     // custom tag mid-prose is left alone: wrapping it risks changing meaning
