@@ -6,6 +6,7 @@ import {
   convertFileOverview,
   escapeBareAtSign,
   fenceExampleBlocks,
+  foldDottedParam,
   removeJsdocOnlyTags,
   removeRedundantTags,
   removeTypeBraces,
@@ -376,6 +377,197 @@ describe("escapeBareAtSign", () => {
     const once = apply(escapeBareAtSign, input);
 
     expect(apply(escapeBareAtSign, once)).toBe(once);
+  });
+});
+
+describe("foldDottedParam", () => {
+  it("folds several dotted children into the parent's description", () => {
+    const input = comment(
+      "/**",
+      " * @param params - Request parameters",
+      " * @param params.endpoint - API endpoint path",
+      " * @param params.method - HTTP method",
+      " * @returns API response",
+      " */",
+    );
+
+    expect(apply(foldDottedParam, input)).toBe(
+      comment(
+        "/**",
+        " * @param params - Request parameters (endpoint: API endpoint path, method: HTTP method)",
+        " * @returns API response",
+        " */",
+      ),
+    );
+  });
+
+  it("folds a single dotted child, preserving its description", () => {
+    const input = comment(
+      "/**",
+      " * @param options - Query options",
+      " * @param options.variables - GraphQL variables",
+      " * @returns Response",
+      " */",
+    );
+
+    expect(apply(foldDottedParam, input)).toBe(
+      comment(
+        "/**",
+        " * @param options - Query options (variables: GraphQL variables)",
+        " * @returns Response",
+        " */",
+      ),
+    );
+  });
+
+  it("absorbs a wrapped child description onto one folded line", () => {
+    const input = comment(
+      "/**",
+      " * @param options - Fetch options",
+      " * @param options.revalidate - ISR seconds;",
+      " *   pass `0` to skip caching",
+      " * @returns payload",
+      " */",
+    );
+
+    expect(apply(foldDottedParam, input)).toBe(
+      comment(
+        "/**",
+        " * @param options - Fetch options (revalidate: ISR seconds; pass `0` to skip caching)",
+        " * @returns payload",
+        " */",
+      ),
+    );
+  });
+
+  it("groups children under their own parent when two objects are documented", () => {
+    const input = comment(
+      "/**",
+      " * @param a - First",
+      " * @param a.x - A x",
+      " * @param b - Second",
+      " * @param b.y - B y",
+      " */",
+    );
+
+    expect(apply(foldDottedParam, input)).toBe(
+      comment(
+        "/**",
+        " * @param a - First (x: A x)",
+        " * @param b - Second (y: B y)",
+        " */",
+      ),
+    );
+  });
+
+  it("handles two-level nesting by keeping the full child path", () => {
+    const input = comment(
+      "/**",
+      " * @param opts - Options",
+      " * @param opts.retry.max - Max retries",
+      " */",
+    );
+
+    expect(apply(foldDottedParam, input)).toBe(
+      comment(
+        "/**",
+        " * @param opts - Options (retry.max: Max retries)",
+        " */",
+      ),
+    );
+  });
+
+  it("handles JSDoc array-element syntax on the parent", () => {
+    const input = comment(
+      "/**",
+      " * @param items - The rows",
+      " * @param items[].id - Row id",
+      " */",
+    );
+
+    expect(apply(foldDottedParam, input)).toBe(
+      comment("/**", " * @param items - The rows (id: Row id)", " */"),
+    );
+  });
+
+  it("synthesizes a parent line when only children are documented", () => {
+    const input = comment(
+      "/**",
+      " * @param params.slug - Event slug",
+      " * @returns Event data",
+      " */",
+    );
+
+    expect(apply(foldDottedParam, input)).toBe(
+      comment(
+        "/**",
+        " * @param params - (slug: Event slug)",
+        " * @returns Event data",
+        " */",
+      ),
+    );
+  });
+
+  it("appends a hyphen when the parent has no description of its own", () => {
+    const input = comment(
+      "/**",
+      " * @param params",
+      " * @param params.a - First",
+      " */",
+    );
+
+    expect(apply(foldDottedParam, input)).toBe(
+      comment("/**", " * @param params - (a: First)", " */"),
+    );
+  });
+
+  it("folds a child that carries no description to its bare name", () => {
+    const input = comment(
+      "/**",
+      " * @param params - Opts",
+      " * @param params.flag",
+      " */",
+    );
+
+    expect(apply(foldDottedParam, input)).toBe(
+      comment("/**", " * @param params - Opts (flag)", " */"),
+    );
+  });
+
+  it("leaves a comment with no dotted params untouched", () => {
+    const input = comment(
+      "/**",
+      " * @param a - First",
+      " * @param b - Second",
+      " */",
+    );
+
+    expect(apply(foldDottedParam, input)).toBe(input);
+  });
+
+  it("does not touch a dotted param inside a fenced example", () => {
+    const input = comment(
+      "/**",
+      " * @example",
+      " * ```typescript",
+      " * // @param params.endpoint - path",
+      " * ```",
+      " */",
+    );
+
+    expect(apply(foldDottedParam, input)).toBe(input);
+  });
+
+  it("is idempotent", () => {
+    const input = comment(
+      "/**",
+      " * @param params - Request parameters",
+      " * @param params.endpoint - API endpoint path",
+      " */",
+    );
+    const once = apply(foldDottedParam, input);
+
+    expect(apply(foldDottedParam, once)).toBe(once);
   });
 });
 
