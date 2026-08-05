@@ -374,13 +374,13 @@ twice with 30-minute timeouts and cannot be relied on as a substitute.
 Remaining v0.1.0 scope, in the order that unblocks the most work. The full list
 with checkboxes is `PLAN.md` → _In Scope (v0.1.0)_.
 
-1. **The three rules the `osa` comparison found**, in error-count order —
-   fence unfenced `@example` bodies (72), backtick a bare `@` in prose (32),
-   fold dotted `@param params.foo` into the parent (26). Together they take
-   `osa` from 143 remaining errors to roughly 9, and the hand migration shows
-   the intended output for each. This is the highest-value work left by a wide
-   margin: it is the difference between a tool that does most of the migration
-   and one that finishes it.
+1. **The three rules the `osa` comparison found**, in the order they landed —
+   fence unfenced `@example` bodies (72 errors, #22, done), backtick a bare `@`
+   in prose (18 after fencing, #28, done), fold dotted `@param params.foo` into
+   the parent (26, #29, the one still open). The first two take `osa` from 143
+   remaining errors to 30, all of them the dotted-`@param` class and four stray
+   missing-hyphen `@param`s; #29 is the highest-value work left. The hand
+   migration shows the intended output for each.
 2. **Fixtures** (phase 9) — `osa` gives before/after pairs with a human's
    answer attached, which is what that phase was always missing.
 3. **Interactive mode** (`--interactive`, phase 7). `@clack/prompts` is already
@@ -513,12 +513,16 @@ three. Never convert in place — see the fixture-set trap below.
   human writes.
 - **The 143 that remain are three rules, not a long tail.** `@example` bodies
   that are not fenced (72 errors: an unfenced `{` is `tsdoc-malformed-inline-tag`
-  and its `}` is `tsdoc-escape-right-brace`), a bare `@` in prose (32 —
-  `@silverassist/icons`, `@/lib/seo`, `@layer third-party`), and dotted
-  `@param params.foo`, which TSDoc has no notion of (26). Four more are a
-  `@param` missing its hyphen. **The person fixed all three the same way every
-  time**, so the target output is not a guess: fence the example, wrap the `@`
-  in backticks, fold the sub-parameters into the parent's description.
+  and its `}` is `tsdoc-escape-right-brace`), dotted `@param params.foo`, which
+  TSDoc has no notion of (26), and a bare `@` in prose (18 once the fence rule
+  has absorbed the examples that held one — `@/lib/seo` path aliases,
+  `@silverassist/icons` scopes, `@layer third-party`; it is `@/` aliases in
+  re-export headers almost entirely). Four more are a `@param` missing its
+  hyphen. **The person fixed all three the same way every time**, so the target
+  output is not a guess: fence the example, wrap the `@` in backticks, fold the
+  sub-parameters into the parent's description. Landing the fence rule (#22) and
+  the bare-`@` rule (#28) takes the 143 down to the 30 dotted/hyphen `@param`
+  errors #29 still owns.
 - **A file-level bucket hid the feature's own use case.** `scan --classify`
   reported `line-comments: 0` for this repo while `convert
   --promote-line-comments` promoted **18** runs. Both are right: a file is

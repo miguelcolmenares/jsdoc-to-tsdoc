@@ -109,6 +109,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   literally. Measured against a hand migration of a real repository, this
   reproduces the human's fencing decision on 101 of 102 examples and removes 95
   of that repository's 143 remaining errors.
+
+- `convert` backticks a bare `@` that appears mid-line in prose so TSDoc stops
+  reading it as a tag — a TypeScript path alias (`@/lib/thing`), a scoped
+  package (`@scope/pkg`), an address, or a decorator named in a sentence. The
+  tag that opens a line is left untouched (it is a real block tag by position,
+  even a project custom), as is anything already inside a code span or a fenced
+  block, and a standard or known-custom tag name mid-prose. Measured against the
+  same hand migration, this clears the remaining bare-`@` class in full, taking
+  the repository from 48 errors after fencing down to 30.
 - `convert --promote-line-comments` rewrites a run of `//` prose above an
   undocumented export as the `/** */` comment it was already serving as. Without
   it, `scaffold` inserts an inferred stub between that prose and the declaration

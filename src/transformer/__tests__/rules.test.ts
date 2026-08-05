@@ -4,6 +4,7 @@ import {
   addHyphenSeparator,
   convertAccessTags,
   convertFileOverview,
+  escapeBareAtSign,
   fenceExampleBlocks,
   removeJsdocOnlyTags,
   removeRedundantTags,
@@ -220,6 +221,161 @@ describe("fenceExampleBlocks", () => {
     );
 
     expect(apply(fenceExampleBlocks, input)).toBe(input);
+  });
+});
+
+describe("escapeBareAtSign", () => {
+  it("backticks a whole npm scope named mid-sentence", () => {
+    const input = comment(
+      "/**",
+      " * Install @scope/pkg from the registry.",
+      " */",
+    );
+
+    expect(apply(escapeBareAtSign, input)).toBe(
+      comment("/**", " * Install `@scope/pkg` from the registry.", " */"),
+    );
+  });
+
+  // The dominant real-world case: a TypeScript path alias in a re-export header
+  // ("import from @/lib/thing"). `@` is followed by `/`, which TSDoc reports as
+  // tsdoc-at-sign-without-tag-name.
+  it("backticks a TypeScript path alias mid-sentence", () => {
+    const input = comment(
+      "/**",
+      " * New code should import from @/lib/ccds-api instead.",
+      " */",
+    );
+
+    expect(apply(escapeBareAtSign, input)).toBe(
+      comment(
+        "/**",
+        " * New code should import from `@/lib/ccds-api` instead.",
+        " */",
+      ),
+    );
+  });
+
+  // A path alias inside quotes on a line that opens with a real block tag: the
+  // opening `@deprecated` stays put, the aliases get escaped.
+  it("escapes path aliases after a line-opening tag, leaving the tag intact", () => {
+    const input = comment(
+      "/**",
+      ' * @deprecated Import from "@/types" not "@/types/common"',
+      " */",
+    );
+
+    expect(apply(escapeBareAtSign, input)).toBe(
+      comment(
+        "/**",
+        ' * @deprecated Import from "`@/types`" not "`@/types/common`"',
+        " */",
+      ),
+    );
+  });
+
+  it("keeps a trailing sentence period outside the backticks", () => {
+    const input = comment("/**", " * Use the barrel at @/lib.", " */");
+
+    expect(apply(escapeBareAtSign, input)).toBe(
+      comment("/**", " * Use the barrel at `@/lib`.", " */"),
+    );
+  });
+
+  // A trailing slash is part of a path alias, not sentence punctuation, so it
+  // stays inside the backticks — trimming it would corrupt the token.
+  it("keeps a trailing slash inside the backticks", () => {
+    const input = comment("/**", " * Files live under @/lib/ here.", " */");
+
+    expect(apply(escapeBareAtSign, input)).toBe(
+      comment("/**", " * Files live under `@/lib/` here.", " */"),
+    );
+  });
+
+  it("backticks a mid-word at sign, as in an email address", () => {
+    const input = comment("/**", " * Ping ops@corp for access.", " */");
+
+    expect(apply(escapeBareAtSign, input)).toBe(
+      comment("/**", " * Ping ops`@corp` for access.", " */"),
+    );
+  });
+
+  it("backticks a decorator named mid-sentence", () => {
+    const input = comment(
+      "/**",
+      " * Guarded by the @Injectable decorator.",
+      " */",
+    );
+
+    expect(apply(escapeBareAtSign, input)).toBe(
+      comment("/**", " * Guarded by the `@Injectable` decorator.", " */"),
+    );
+  });
+
+  it("wraps only the token, never the word that follows it", () => {
+    const input = comment("/**", " * Contact @support for help.", " */");
+
+    expect(apply(escapeBareAtSign, input)).toBe(
+      comment("/**", " * Contact `@support` for help.", " */"),
+    );
+  });
+
+  it("leaves a real block tag that opens its line untouched", () => {
+    const input = comment("/**", " * @returns the parsed value", " */");
+
+    expect(apply(escapeBareAtSign, input)).toBe(input);
+  });
+
+  // A line-opening token is a real block tag by position — even an unknown one,
+  // which may be a project custom the config legitimately defines.
+  it("leaves an unknown tag that opens its line untouched", () => {
+    const input = comment("/**", " * @internalNote revisit this", " */");
+
+    expect(apply(escapeBareAtSign, input)).toBe(input);
+  });
+
+  it("leaves a standard tag mentioned mid-prose alone", () => {
+    const input = comment("/**", " * See the @remarks block below.", " */");
+
+    expect(apply(escapeBareAtSign, input)).toBe(input);
+  });
+
+  it("does not touch an at sign inside an existing code span", () => {
+    const input = comment("/**", " * Use `@support` as the handle.", " */");
+
+    expect(apply(escapeBareAtSign, input)).toBe(input);
+  });
+
+  it("does not touch an at sign inside a fenced block", () => {
+    const input = comment(
+      "/**",
+      " * @example",
+      " * ```typescript",
+      " * const to = 'ops@corp';",
+      " * ```",
+      " */",
+    );
+
+    expect(apply(escapeBareAtSign, input)).toBe(input);
+  });
+
+  it("escapes a mid-line token while leaving the line's opening tag intact", () => {
+    const input = comment(
+      "/**",
+      " * @remarks Reach @support for onboarding.",
+      " */",
+    );
+
+    expect(apply(escapeBareAtSign, input)).toBe(
+      comment("/**", " * @remarks Reach `@support` for onboarding.", " */"),
+    );
+  });
+
+  it("is idempotent", () => {
+    const input = comment("/**", " * Contact @support for help.", " */");
+    const once = apply(escapeBareAtSign, input);
+
+    expect(apply(escapeBareAtSign, once)).toBe(once);
   });
 });
 

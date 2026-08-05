@@ -1037,7 +1037,8 @@ Reporting & CI:
 Found by comparing the CLI against the hand migration on `osa-nextjs`
 (`feature/tsdoc-implementation`), which takes that repo from 143 remaining
 `check` errors to roughly 9. The hand migration shows the intended output for
-each, so none of them is a guess. **48 remain:**
+each, so none of them is a guess. **30 remain**, all dotted/missing-hyphen
+`@param`:
 
 - [x] **Fence unfenced `@example` bodies** — shipped. Removed **95** of the 143
   (the 36 `tsdoc-malformed-inline-tag`, the 36 `tsdoc-escape-right-brace`, the 6
@@ -1045,9 +1046,10 @@ each, so none of them is a guess. **48 remain:**
   `tsdoc-at-sign-in-word` that sat inside examples), taking `osa` from 143
   errors over 40 files to **48 over 18**. Fences only bodies TSDoc would
   misparse, matching the human's decision on 101 of 102 examples.
-- [ ] **Backtick a bare `@` in prose** (32 errors) — `@silverassist/icons`,
-  `@/lib/seo`, `@layer third-party` all read as tags to TSDoc
-  (`tsdoc-at-sign-in-word`, `tsdoc-characters-after-block-tag`).
+- [x] **Backtick a bare `@` in prose** — shipped (#28). `@/lib/seo` path
+  aliases, `@scope/pkg` scopes, and decorators named in prose all read as tags
+  to TSDoc (`tsdoc-at-sign-without-tag-name`, `tsdoc-at-sign-in-word`); wrapping
+  just the token clears the class in full, taking `osa` from 48 to **30**.
 - [ ] **Fold dotted `@param params.foo`** (26 errors) — TSDoc has no notion of
   a dotted parameter path (`tsdoc-param-tag-with-invalid-name`); the sub-params
   belong in the parent's description.
