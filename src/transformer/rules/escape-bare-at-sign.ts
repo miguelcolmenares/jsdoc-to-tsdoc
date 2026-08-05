@@ -5,7 +5,7 @@
  * @since 0.1.0
  */
 
-import { classifyTag } from "@/generator/tsdoc-tags";
+import { classifyTag } from "@/generator";
 import { mapCommentLines } from "@/parser";
 import type { Rule } from "@/transformer/pipeline";
 
