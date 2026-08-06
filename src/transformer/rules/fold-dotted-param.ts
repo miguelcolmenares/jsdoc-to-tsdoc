@@ -25,8 +25,11 @@ import type { Rule } from "@/transformer/pipeline";
 
 // A `@param` line: the name token, then an optional `- description`. The name is
 // a single non-space token so a dotted path (`params.endpoint`) is captured
-// whole; the description runs to the end of the line.
-const PARAM_LINE = /^@param\s+(\S+)(?:\s+-\s+(.*\S))?\s*$/;
+// whole; the description runs to the end of the line. The hyphen may dangle with
+// no description after it (`@param name -`, a malformed but real JSDoc shape) —
+// that still counts as a `@param` line carrying an empty description, so the
+// parent is folded into rather than left orphaned beside a synthesized twin.
+const PARAM_LINE = /^@param\s+(\S+)(?:\s+-(?:\s+(.*\S))?)?\s*$/;
 
 // A dotted name: a parent segment (with optional JSDoc array-element syntax,
 // `items[].foo`) and the child path after the first dot.
@@ -227,12 +230,18 @@ function planFold(
       continue;
     }
 
-    const lastLine =
-      lines[parentBlock.endIndex]?.content.trim() ??
-      `@param ${parentBlock.name}`;
+    // With a description, the anchor is the raw last line (the `@param` line, or
+    // a continuation line when the description wraps). With no description, the
+    // raw line may be a bare `@param name` or a dangling `@param name -`; both
+    // normalize to `@param name` so `appendList` adds exactly one ` - `.
+    const hasDescription = parentBlock.description !== "";
+    const lastLine = hasDescription
+      ? (lines[parentBlock.endIndex]?.content.trim() ??
+        `@param ${parentBlock.name}`)
+      : `@param ${parentBlock.name}`;
     replace.set(
       parentBlock.endIndex,
-      appendList(lastLine, list, parentBlock.description !== ""),
+      appendList(lastLine, list, hasDescription),
     );
     for (const child of children) {
       for (let line = child.startIndex; line <= child.endIndex; line += 1) {

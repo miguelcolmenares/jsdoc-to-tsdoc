@@ -521,6 +521,22 @@ describe("foldDottedParam", () => {
     );
   });
 
+  // A parent whose hyphen dangles with no description (`@param params -`) is a
+  // real `@param` line, so it must be folded into — not left orphaned beside a
+  // synthesized twin — and the empty description must not double the ` - `.
+  it("folds into a parent with a dangling hyphen and no description", () => {
+    const input = comment(
+      "/**",
+      " * @param params -",
+      " * @param params.a - First",
+      " */",
+    );
+
+    expect(apply(foldDottedParam, input)).toBe(
+      comment("/**", " * @param params - (a: First)", " */"),
+    );
+  });
+
   // The anchor for a wrapped parent description is a continuation line, which
   // carries no ` - ` — the list must append there without a spurious separator.
   it("appends to a wrapped parent description without inserting a hyphen", () => {
