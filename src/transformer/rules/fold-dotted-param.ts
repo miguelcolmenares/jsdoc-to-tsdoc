@@ -10,6 +10,13 @@
  * matches what the hand migration on `osa-nextjs` did for its small parameter
  * objects, and is lossless where the human chose brevity over completeness.
  *
+ * The fold rewrites and drops whole content lines, so it only handles the block
+ * form where each `@param` opens its own line. A single-line comment that packs
+ * every tag onto one line (`/** Adds. @param p.a - … *\/`) is left untouched
+ * rather than corrupted: splicing within a line is a different rewrite than the
+ * line-plan model does, and that shape does not appear in the `osa-nextjs`
+ * ground truth the rule is measured against.
+ *
  * @since 0.1.0
  */
 

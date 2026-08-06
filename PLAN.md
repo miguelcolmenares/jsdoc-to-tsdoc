@@ -1038,7 +1038,7 @@ Found by comparing the CLI against the hand migration on `osa-nextjs`
 (`feature/tsdoc-implementation`), which takes that repo from 143 remaining
 `check` errors to roughly 9. The hand migration shows the intended output for
 each, so none of them is a guess. **4 remain**, all `@param` with no description
-a comment-only tool could recover:
+that a comment-only tool could recover:
 
 - [x] **Fence unfenced `@example` bodies** — shipped. Removed **95** of the 143
   (the 36 `tsdoc-malformed-inline-tag`, the 36 `tsdoc-escape-right-brace`, the 6

@@ -590,6 +590,16 @@ describe("foldDottedParam", () => {
 
     expect(apply(foldDottedParam, once)).toBe(once);
   });
+
+  // A single-line comment carries every tag on one content line, so the fold —
+  // which rewrites and drops whole lines — cannot splice within it. The rule
+  // leaves such a comment untouched rather than corrupt it; this is a recorded
+  // limitation (see the rule's @remarks), not silent breakage.
+  it("leaves a single-line dotted param untouched", () => {
+    const input = "/** Adds. @param params.foo - The foo. */";
+
+    expect(apply(foldDottedParam, input)).toBe(input);
+  });
 });
 
 describe("removeTypeBraces", () => {

@@ -128,7 +128,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   objects in one comment, deeper nesting, and JSDoc array-element syntax.
   Measured against the same hand migration, this clears the dotted-`@param` class
   in full, taking the repository from 30 errors down to 4 (the 4 that remain are
-  bare `@param` tags with no description a comment-only tool could recover).
+  bare `@param` tags with no description that a comment-only tool could recover).
 - `convert --promote-line-comments` rewrites a run of `//` prose above an
   undocumented export as the `/** */` comment it was already serving as. Without
   it, `scaffold` inserts an inferred stub between that prose and the declaration

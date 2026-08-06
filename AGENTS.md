@@ -586,6 +586,12 @@ three. Never convert in place — see the fixture-set trap below.
 - **Ordered after `add-hyphen-separator`** so every child already carries the
   ` - ` the fold parses, and it is `liteSafe: false` because merging child prose
   into the parent is more than the `@param`/`@returns` hygiene `--lite` promises.
+- **Block form only, by design.** The fold rewrites and drops whole content
+  lines, so it handles the layout where each `@param` opens its own line. A
+  single-line comment that packs every tag onto one line
+  (`/** Adds. @param p.a - … */`) is left untouched rather than corrupted —
+  splicing within a line is a different rewrite, and that shape does not appear
+  in the ground truth. Pinned by a regression test so the boundary is explicit.
 
 ### `@property` relocation — the tool was destroying documentation
 
