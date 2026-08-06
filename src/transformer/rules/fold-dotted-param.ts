@@ -159,7 +159,7 @@ function appendList(
   return hasDescription ? `${trimmed} ${list}` : `${trimmed} - ${list}`;
 }
 
-/** The rewrites a plan produces: line replacements and line drops. */
+/** A fold plan's rewrites: line replacements and line drops. */
 interface FoldPlan {
   readonly replace: ReadonlyMap<number, string>;
   readonly drop: ReadonlySet<number>;
