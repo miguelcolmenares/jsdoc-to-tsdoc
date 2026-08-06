@@ -557,6 +557,42 @@ three. Never convert in place — see the fixture-set trap below.
   value is what it is. The plan's `@param`/`@returns` half was dropped: zero
   real cases, and it is `scaffold`'s job.
 
+### Folding dotted `@param parent.child` — the form the hand migration chose
+
+- **The design was a read, not a guess.** JSDoc documents a destructured object
+  with dotted paths (`@param params.endpoint`); TSDoc has no such form and
+  rejects the name (`tsdoc-param-tag-with-invalid-name`). Three shapes were on
+  the table — drop the children, fold them into the parent, or promote them onto
+  the parameter's `interface`. The `osa-nextjs` hand migration decides it: across
+  **26** cases the human **folded**, appending the children to the parent's
+  description in parentheses. Promotion to the interface was never used, and
+  nothing was dropped without a trace.
+- **The human's form was inconsistent; the rule's cannot be.** With many
+  children (4–6) the human kept only the names — `@param params - Request
+  parameters (endpoint, method, body, headers, revalidateTag)` — and dropped
+  their descriptions. With one or two, they kept `name: description`
+  (`@param options - Query options (variables: GraphQL variables)`), sometimes
+  editorially shortened. No deterministic rule reproduces that judgment.
+- **The rule keeps descriptions (`name: description`), always.** Chosen over the
+  names-only form because it is **lossless** and consistent with the project's
+  own precedent — #20 refused to delete `@property` prose that lives nowhere
+  else, and a child's description is exactly that. It reproduces the human on the
+  small objects and stays valid (if longer) on the large ones. The verbose line
+  on a 6-child object is the accepted cost of not throwing documentation away.
+- **Measured 30 → 4.** Folding clears the dotted class in full. The 4 that remain
+  are `@param value` with **no description at all** (`tsdoc-param-tag-missing-hyphen`);
+  the human wrote a description from the code, which a comment-only, deterministic
+  tool cannot invent. Those are out of scope by construction, not by omission.
+- **Ordered after `add-hyphen-separator`** so every child already carries the
+  ` - ` the fold parses, and it is `liteSafe: false` because merging child prose
+  into the parent is more than the `@param`/`@returns` hygiene `--lite` promises.
+- **Block form only, by design.** The fold rewrites and drops whole content
+  lines, so it handles the layout where each `@param` opens its own line. A
+  single-line comment that packs every tag onto one line
+  (`/** Adds. @param p.a - … */`) is left untouched rather than corrupted —
+  splicing within a line is a different rewrite, and that shape does not appear
+  in the ground truth. Pinned by a regression test so the boundary is explicit.
+
 ### `@property` relocation — the tool was destroying documentation
 
 - **This was a data-loss bug wearing a feature's label.** `PLAN.md` listed it as

@@ -1037,8 +1037,8 @@ Reporting & CI:
 Found by comparing the CLI against the hand migration on `osa-nextjs`
 (`feature/tsdoc-implementation`), which takes that repo from 143 remaining
 `check` errors to roughly 9. The hand migration shows the intended output for
-each, so none of them is a guess. **30 remain**, all dotted/missing-hyphen
-`@param`:
+each, so none of them is a guess. **4 remain**, all `@param` with no description
+that a comment-only tool could recover:
 
 - [x] **Fence unfenced `@example` bodies** — shipped. Removed **95** of the 143
   (the 36 `tsdoc-malformed-inline-tag`, the 36 `tsdoc-escape-right-brace`, the 6
@@ -1050,9 +1050,12 @@ each, so none of them is a guess. **30 remain**, all dotted/missing-hyphen
   aliases, `@scope/pkg` scopes, and decorators named in prose all read as tags
   to TSDoc (`tsdoc-at-sign-without-tag-name`, `tsdoc-at-sign-in-word`); wrapping
   just the token clears the class in full, taking `osa` from 48 to **30**.
-- [ ] **Fold dotted `@param params.foo`** (26 errors) — TSDoc has no notion of
-  a dotted parameter path (`tsdoc-param-tag-with-invalid-name`); the sub-params
-  belong in the parent's description.
+- [x] **Fold dotted `@param params.foo`** — shipped (#29). TSDoc has no notion
+  of a dotted parameter path (`tsdoc-param-tag-with-invalid-name`); each child is
+  folded into the parent's description as a lossless `(child: description, …)`
+  list, matching the hand migration and clearing the class in full — `osa` from
+  30 to **4**. The 4 left are bare `@param value` with no description, which the
+  human wrote from the code and a comment-only tool cannot invent.
 
 Distribution:
 
