@@ -180,9 +180,11 @@ interface FoldPlan {
  * rewrite and which child lines to drop.
  *
  * @remarks
- * A parent's own `@param` line is the anchor the list is appended to. When a
- * comment documents children but never the parent itself, the first child's
- * line is promoted to the parent line so no documentation is lost.
+ * The anchor the list is appended to is the parent's last content line — its
+ * `@param` line when the description fits on one line, or the final continuation
+ * line when the description wraps. When a comment documents children but never
+ * the parent itself, the first child's line is promoted to the parent line so no
+ * documentation is lost.
  *
  * @param blocks - The comment's `@param` blocks.
  * @param lines - The comment's content lines, for the raw parent-line text.
@@ -269,7 +271,7 @@ function planFold(
  *   "/**\n * @param p - Opts\n * @param p.a - First\n *\/",
  *   { lite: false },
  * );
- * // → "/** @param p - Opts (a: First) *\/"
+ * // → "/**\n * @param p - Opts (a: First)\n *\/"
  * ```
  */
 export const foldDottedParam: Rule = {
