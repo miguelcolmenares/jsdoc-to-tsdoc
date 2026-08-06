@@ -521,6 +521,27 @@ describe("foldDottedParam", () => {
     );
   });
 
+  // The anchor for a wrapped parent description is a continuation line, which
+  // carries no ` - ` — the list must append there without a spurious separator.
+  it("appends to a wrapped parent description without inserting a hyphen", () => {
+    const input = comment(
+      "/**",
+      " * @param params - Query parameters that span",
+      " *   two lines of prose",
+      " * @param params.slug - Category slug",
+      " */",
+    );
+
+    expect(apply(foldDottedParam, input)).toBe(
+      comment(
+        "/**",
+        " * @param params - Query parameters that span",
+        " *   two lines of prose (slug: Category slug)",
+        " */",
+      ),
+    );
+  });
+
   it("folds a child that carries no description to its bare name", () => {
     const input = comment(
       "/**",

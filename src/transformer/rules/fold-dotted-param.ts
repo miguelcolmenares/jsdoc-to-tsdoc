@@ -132,17 +132,31 @@ function foldSegment(block: ParamBlock): string {
 }
 
 /**
- * Appends a folded child list to a parent `@param` line, inserting the `-`
- * separator when the parent has no description of its own.
+ * Appends a folded child list to a parent's last line, inserting the `-`
+ * separator only when the parent has no description of its own.
  *
- * @param parentContent - The parent line's content (with its ` * ` prefix
- * already removed), for example `@param params - Request parameters`.
+ * @remarks
+ * The anchor is the parent's last line, which is the `@param` line itself only
+ * when the description fits on one line; when it wraps, the anchor is a
+ * continuation line that carries no `-` and needs none — the separator already
+ * sits on the `@param` line above. So the decision keys off whether the parent
+ * has a description at all, not off the text of the anchor line: a parent with
+ * any description (single-line or wrapped) just gets the list appended, and only
+ * a bare `@param name` with nothing after it gains the ` - ` separator.
+ *
+ * @param anchorContent - The parent's last line content (its ` * ` prefix
+ * already removed).
  * @param list - The rendered `(child: …, …)` list.
- * @returns The rewritten parent line content.
+ * @param hasDescription - Whether the parent carries any description.
+ * @returns The rewritten anchor line content.
  */
-function appendList(parentContent: string, list: string): string {
-  const trimmed = parentContent.trim();
-  return / -\s/.test(trimmed) ? `${trimmed} ${list}` : `${trimmed} - ${list}`;
+function appendList(
+  anchorContent: string,
+  list: string,
+  hasDescription: boolean,
+): string {
+  const trimmed = anchorContent.trim();
+  return hasDescription ? `${trimmed} ${list}` : `${trimmed} - ${list}`;
 }
 
 /** The rewrites a plan produces: line replacements and line drops. */
@@ -209,7 +223,10 @@ function planFold(
     const lastLine =
       lines[parentBlock.endIndex]?.content.trim() ??
       `@param ${parentBlock.name}`;
-    replace.set(parentBlock.endIndex, appendList(lastLine, list));
+    replace.set(
+      parentBlock.endIndex,
+      appendList(lastLine, list, parentBlock.description !== ""),
+    );
     for (const child of children) {
       for (let line = child.startIndex; line <= child.endIndex; line += 1) {
         drop.add(line);
