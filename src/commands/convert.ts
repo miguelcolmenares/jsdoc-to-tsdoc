@@ -219,19 +219,24 @@ export default defineCommand({
             colors,
           )}\n`,
         );
-        process.stdout.write(
-          `${formatConvertSummary(
-            {
-              filesScanned: files.length,
-              filesChanged: applied.length,
-              commentsChanged: sums.commentsChanged,
-              membersDocumented: sums.membersDocumented,
-              commentsPromoted: sums.commentsPromoted,
-              wrote: true,
-            },
-            colors,
-          )}\n`,
-        );
+        // Only detail the conversion when something was written. With nothing
+        // accepted, `formatConvertSummary` would print "nothing to convert —
+        // already TSDoc-clean", contradicting the files the user just skipped.
+        if (applied.length > 0) {
+          process.stdout.write(
+            `${formatConvertSummary(
+              {
+                filesScanned: files.length,
+                filesChanged: applied.length,
+                commentsChanged: sums.commentsChanged,
+                membersDocumented: sums.membersDocumented,
+                commentsPromoted: sums.commentsPromoted,
+                wrote: true,
+              },
+              colors,
+            )}\n`,
+          );
+        }
         return;
       }
 

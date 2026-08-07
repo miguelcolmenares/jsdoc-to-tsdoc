@@ -39,6 +39,13 @@ describe("resolveEditor", () => {
     expect(resolveEditor()).toBe("nano");
   });
 
+  it("falls through a blank $VISUAL to a set $EDITOR", () => {
+    process.env.VISUAL = "   ";
+    process.env.EDITOR = "nano";
+
+    expect(resolveEditor()).toBe("nano");
+  });
+
   it("skips a blank variable and falls through to the default", () => {
     process.env.VISUAL = "   ";
     process.env.EDITOR = "";

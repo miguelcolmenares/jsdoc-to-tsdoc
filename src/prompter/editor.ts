@@ -13,16 +13,19 @@ import { basename, join } from "node:path";
  * Resolves the editor command, preferring `$VISUAL`, then `$EDITOR`, then `vi`.
  *
  * @remarks
- * An unset or blank variable is skipped, so `EDITOR=""` falls through to the
- * next candidate rather than launching an empty command.
+ * Each candidate is skipped when unset *or* blank, so a blank `$VISUAL` (a
+ * common shell state) falls through to a set `$EDITOR` rather than skipping
+ * straight to `vi` — the whole chain is walked, not just the first defined slot.
  *
  * @returns The editor command line to launch.
  */
 export function resolveEditor(): string {
-  const configured = process.env.VISUAL ?? process.env.EDITOR;
-  return configured !== undefined && configured.trim() !== ""
-    ? configured
-    : "vi";
+  for (const candidate of [process.env.VISUAL, process.env.EDITOR]) {
+    if (candidate !== undefined && candidate.trim() !== "") {
+      return candidate;
+    }
+  }
+  return "vi";
 }
 
 /**
