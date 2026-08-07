@@ -29,7 +29,7 @@ own source with its own `check` command.
 | **Foundation** | ESM package (`bin: jsdoc-to-tsdoc`), TypeScript `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`, `@/` path alias, unbuild bundling, Vitest, CI matrix (Node 20.19 + 22 + 24 · Ubuntu + macOS + Windows) with a gzipped bundle-size gate |
 | **Dogfooding** | ESLint flat config runs `tsdoc/syntax` + `tsdoc-require-2/require` at `error` over the CLI's own source (`require-param` / `require-returns` `off`, matching the learnings) |
 | **`parser`** | `comment-lines` (fence-aware, format-preserving line mapper), `tag-registry` (the full JSDoc → TSDoc mapping tables), `jsdoc-parser` (tag/brace inspection) |
-| **`transformer`** | 10 pure, deterministic rules + an ordered pipeline with `--lite` (`@param` / `@returns` hygiene) mode |
+| **`transformer`** | 13 pure, deterministic rules + an ordered pipeline with `--lite` (`@param` / `@returns` hygiene) mode |
 | **`scanner`** | comment extraction via the TypeScript Compiler API (`ts.getLeadingCommentRanges`), recursive source-file discovery, minimal glob matching for `--only` / `--exclude`, and `export-inventory` (classifies each export, records its stub insertion point, flags whether it is already documented, skips re-exports) |
 | **`scaffolder`** | deterministic summary inference from identifier names (verb conjugation, predicates, acronym/kebab/snake splitting) and TSDoc stub rendering per export kind; every stub carries a `TODO(tsdoc)` review marker |
 | **`generator`** | project-layout detection (ESLint flat config, `tsconfig`, package manager, installed deps), custom-tag classification against the TSDoc standard, `tsdoc.json` generation/merging, comment-aware reading of flat-config text, and idempotent ESLint flat-config patching |
@@ -47,7 +47,13 @@ and the real-world learnings): `{Type}`-brace stripping, tag renames
 `@param name - desc` hyphen, `@access` → visibility modifiers,
 `@module` / `@fileoverview` → `@packageDocumentation`, removal of
 TypeScript-redundant and JSDoc-only tags (`@function`, `@async`, `@typedef`, …),
-and relocation of `@property` descriptions onto the members they document. Fenced example code is never modified.
+and relocation of `@property` descriptions onto the members they document.
+Beyond the tag rewrites, `convert` also repairs prose that TSDoc would misparse:
+it fences an unfenced `@example` body that carries a hazard (`{`, `<`, `>`, or a
+bare `@`), backticks a bare `@` in prose (path aliases, scoped packages,
+decorators), and folds a dotted `@param parent.child` into its parent's
+description as a lossless `(child: description, …)` list. Fenced example code is
+otherwise never modified.
 
 Stubs generated (per export kind): React components, Server Actions (detected by
 the `(prevState, formData)` signature), hooks (`useX`), interfaces, type aliases,
@@ -80,15 +86,15 @@ report correct documentation on nearly every React component as stale. Parameter
 staleness is therefore not judged at all for destructured signatures, and
 parameter gaps only once such a comment documents no parameter whatsoever.
 
-Coverage: 493 tests, ~95.7 % overall (100 % on the transformer rules, the
-generator domain and the classifier; ~97 % on the escalator and validator,
-~98 % on the scaffolder).
+Coverage: 629 tests, ~95.7 % overall — 100 % on the classifier and validator,
+~99 % on the generator and scaffolder, and ~95–98 % across the transformer
+rules, parser, scanner, and escalator.
 
 ### Deferred (next increments)
 
 - Trim the blank content line a removed tag block can leave behind before the
   closing `*/`. Valid TSDoc, but untidy output the tool writes into user files.
-- Interactive mode, `--commit-per-file`, and `--promote-line-comments`.
+- Interactive mode and `--commit-per-file`.
 - Reuse the `@microsoft/tsdoc` validation pass inside `convert`, so a
   transformed comment is proven valid before it is written.
 - Fixture-based snapshot tests seeded from the three real migrations.
