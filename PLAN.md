@@ -501,7 +501,7 @@ src/
 - **TS Compiler API**: For AST traversal, comment extraction, export enumeration
 - **`@microsoft/tsdoc`** + **`@microsoft/tsdoc-config`**: Validation + `tsdoc.json` generation
 - **`eslint`** (peer): For `escalate --preflight` and `check`
-- **`@clack/prompts`**: Interactive wizard (nicer defaults than inquirer)
+- **`@clack/prompts`**: Interactive per-file review (nicer defaults than inquirer)
 - **`diff`**: Unified diffs in dry-run mode
 - **Testing**: Vitest with snapshot tests seeded from real repo fixtures
   (see [Fixture Strategy](#fixture-strategy))
