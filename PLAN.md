@@ -37,8 +37,9 @@ own source with its own `check` command.
 | **`escalator`** | preflight lint run (resolves and runs the *project's own* ESLint with the *project's own* config, collecting every presence-rule message whatever its severity) and a text patch of the rule's severity that only rewrites enabled assignments |
 | **`classifier`** | per-export documentation topology (valid / partial / line-comments / no-docs / stale), conservative stale detection that never judges a destructured signature, and aggregation to one verdict plus a confidence level per file |
 | **`reporter`** | colored unified diffs, bordered summary tables, and machine-readable JSON / Markdown output |
+| **`prompter`** | interactive per-file review (`--interactive`): a pure accept/skip/edit/quit orchestrator wired to a lazy `@clack/prompts` adapter and an `$EDITOR` launcher |
 | **`writer`** | async file writes |
-| **`commands`** | `init` (`tsdoc.json` + ESLint patch, `--dry-run` / `--strict` / `--install` / `--report`), `scan` (read-only inventory, plus `--classify` / `--fail-on-missing` / `--fail-on-stale` / `--include-tests`), `convert` (`--dry-run` / `--preview` / `--check` / `--lite` / `--only` / `--exclude` / `--report`), `scaffold` (`--dry-run` / `--preview` / `--check` / `--only` / `--exclude` / `--report`), `escalate` (`--dry-run` / `--preview` / `--check` / `--severity` / `--skip-preflight` / `--report`), and `check` (`--syntax-only` / `--include-tests` / `--only` / `--exclude` / `--report`) wired through citty |
+| **`commands`** | `init` (`tsdoc.json` + ESLint patch, `--dry-run` / `--strict` / `--install` / `--report`), `scan` (read-only inventory, plus `--classify` / `--fail-on-missing` / `--fail-on-stale` / `--include-tests`), `convert` (`--dry-run` / `--preview` / `--check` / `--lite` / `--interactive` / `--only` / `--exclude` / `--report`), `scaffold` (`--dry-run` / `--preview` / `--check` / `--interactive` / `--only` / `--exclude` / `--report`), `escalate` (`--dry-run` / `--preview` / `--check` / `--severity` / `--skip-preflight` / `--report`), and `check` (`--syntax-only` / `--include-tests` / `--only` / `--exclude` / `--report`) wired through citty |
 
 Conversions implemented (from [Mechanical Transformations](#mechanical-transformations-still-core-to-the-tool)
 and the real-world learnings): `{Type}`-brace stripping, tag renames
@@ -94,7 +95,7 @@ rules, parser, scanner, and escalator.
 
 - Trim the blank content line a removed tag block can leave behind before the
   closing `*/`. Valid TSDoc, but untidy output the tool writes into user files.
-- Interactive mode and `--commit-per-file`.
+- `--commit-per-file`.
 - Reuse the `@microsoft/tsdoc` validation pass inside `convert`, so a
   transformed comment is proven valid before it is written.
 - Fixture-based snapshot tests seeded from the three real migrations.
@@ -1017,7 +1018,7 @@ Scaffolding (new TSDoc for undocumented exports):
 - [x] Template-based stubs for React components, Server Actions, hooks,
       interfaces, type aliases, generic exports *(promoted from Out of Scope)*
 - [x] Name-based summary inference (kebab-case → prose)
-- [ ] Interactive mode to confirm/edit generated summaries
+- [x] Interactive mode to confirm/edit generated summaries *(`scaffold --interactive`)*
 
 Enforcement progression:
 
@@ -1032,7 +1033,7 @@ Reporting & CI:
 - [x] `check` command → exit `3` on rule violations (per exit-code contract),
       `2` when `tsdoc.json` cannot be read
 - [x] **`--preview` per-file diff mode** *(see [CLI UX](#cli-ux--distribution))*
-- [ ] **`--interactive` per-file review mode**
+- [x] **`--interactive` per-file review mode** — `convert` / `scaffold`, accept/skip/edit/quit
 - [x] **`--only` / `--exclude` glob filters** for targeted runs
 - [x] **`--lite` mode** — only `@param` / `@returns` hygiene, leave prose untouched
 - [ ] **`--commit-per-file`** for reviewable PRs
@@ -1129,7 +1130,7 @@ re-extract its own inputs.
 | 5 | **Scaffolder templates** (components, actions, hooks, interfaces) | **Done** — `scaffolder` domain + `scaffold` command |
 | 6 | CLI subcommand shell (`init`, `scan`, `convert`, `scaffold`, `escalate`, `check`) | **Done** — all six subcommands ship |
 | 6.5 | **Classifier domain + `scan --classify`** and the confidence gates | **Done** — `classifier` domain, `--fail-on-missing` / `--fail-on-stale` |
-| 7 | Interactive wizard (`@clack/prompts`) | Not started |
+| 7 | Interactive review (`@clack/prompts`) | **Done** — `prompter` domain + `convert`/`scaffold` `--interactive` |
 | 8 | **Escalator + preflight ESLint check** | **Done** — `escalator` domain + `escalate` command |
 | 9 | Fixture-based snapshot tests (3 real repos) | **Partial** — unit + integration tests done (567 tests, ~95 %); repo fixtures pending |
 | 10 | Dogfood on a 4th real repo end-to-end | Not started |

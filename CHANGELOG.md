@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `convert --interactive` / `scaffold --interactive` (`-i`) review each changed
+  file one at a time — showing its diff and prompting **accept · skip · edit ·
+  quit**, where _edit_ opens the proposal in `$VISUAL`/`$EDITOR` and writes back
+  what you save. The closing summary counts only the files actually written, so a
+  run where you skip half reports half. The flag needs a TTY and is rejected up
+  front alongside the non-writing flags (`--dry-run`/`--preview`, `--check`,
+  `--report`). The flow lives in a new `prompter` domain: a pure orchestrator
+  (`runInteractive`) with the terminal prompt and the editor launcher injected,
+  so accept/skip/edit/quit is tested without a real terminal.
+
 - Project foundation: TypeScript (strict), ESLint flat config with TSDoc
   dogfooding, Vitest, and unbuild bundling to a `dist/cli.mjs` ESM binary.
 - `parser` domain: JSDoc → TSDoc tag registry and a lightweight comment parser.

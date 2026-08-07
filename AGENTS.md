@@ -401,6 +401,29 @@ Newest first. Each entry records what shipped and, more importantly, **the
 non-obvious things** — a decision and its reasoning, or a trap that cost real
 time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
 
+### Interactive mode (`--interactive`, phase 7) — built, not dropped
+
+- **The issue (#31) recommended _dropping_ `@clack/prompts` and re-scoping phase
+  7 post-v0.1.0; the maintainer chose to _build_ it.** The dependency was in
+  `package.json`, unused, since the start — this is what it was there for, and
+  phase 7 was already scoped for v0.1.0. Recording the fork because the issue's
+  written recommendation and what shipped now disagree, and the next reader will
+  otherwise trust the issue.
+- **The flow is split so it can be tested without a TTY.** `prompter` is a
+  CLI-only I/O domain (deliberately outside the root barrel, like `reporter` and
+  `writer`). `runInteractive` is a **pure** orchestrator over the changed files
+  with `prompt`/`edit`/`write` injected; the `@clack/prompts` adapter and the
+  `$EDITOR` launcher are the thin, unit-untested edges. Tests drive the
+  orchestrator with a fake prompter; a real terminal is never needed.
+- **`--interactive` is rejected up front when it cannot mean anything** — with
+  the non-writing flags (`--dry-run`/`--preview`, `--check`, `--report`) or off a
+  TTY. `interactiveConflict` is a pure check so that validation is itself tested.
+- **The summary counts only what was written.** Skipped and quit-past files are
+  excluded from the comment/stub totals, so the closing line tells the truth
+  about what changed on disk, not what _would_ have.
+- **Cleanup rode along:** removed the redundant `@types/diff` devDependency
+  (`diff@9` ships its own types). `--commit-per-file` stays deferred.
+
 ### Auto-merge landed a red commit, and the gate it named did not exist
 
 - **`gh pr merge --auto` waits only for checks branch protection marks as
