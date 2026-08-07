@@ -38,6 +38,50 @@ export function parseReportFormat(value: unknown): ReportFormat | undefined {
 }
 
 /**
+ * Checks whether `--interactive` is usable given the other flags and the
+ * environment.
+ *
+ * @remarks
+ * Interactive review writes files one prompt at a time, so it is meaningless
+ * alongside the flags that never write (`--dry-run`/`--preview`, `--check`,
+ * `--report`) and impossible without a terminal to prompt on. Returning the
+ * reason as a string keeps the command layer's job to a single throw.
+ *
+ * @param context - Whether interactive was requested, which non-writing flags
+ * are set, and whether stdout is a TTY.
+ * @returns A message explaining why interactive cannot run, or `undefined` when
+ * it can (including when it was not requested at all).
+ */
+export function interactiveConflict(context: {
+  readonly interactive: boolean;
+  readonly dryRun: boolean;
+  readonly check: boolean;
+  readonly report: boolean;
+  readonly isTTY: boolean;
+}): string | undefined {
+  if (!context.interactive) {
+    return undefined;
+  }
+  const blockers: string[] = [];
+  if (context.dryRun) {
+    blockers.push("--dry-run/--preview");
+  }
+  if (context.check) {
+    blockers.push("--check");
+  }
+  if (context.report) {
+    blockers.push("--report");
+  }
+  if (blockers.length > 0) {
+    return `--interactive cannot be combined with ${blockers.join(", ")}.`;
+  }
+  if (!context.isTTY) {
+    return "--interactive needs an interactive terminal, but stdout is not a TTY.";
+  }
+  return undefined;
+}
+
+/**
  * Parses the `--severity` option into a rule severity.
  *
  * @param value - The raw option value.

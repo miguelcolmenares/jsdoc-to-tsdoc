@@ -12,11 +12,22 @@ import { defineCommand } from "citty";
 
 import { convertSourceText } from "@/commands/convert-file";
 import { reportCommandFailure } from "@/commands/command-failure";
-import { parseReportFormat, splitGlobs } from "@/commands/options";
+import {
+  interactiveConflict,
+  parseReportFormat,
+  splitGlobs,
+} from "@/commands/options";
+import {
+  editInEditor,
+  promptFileAction,
+  runInteractive,
+  type FileChange,
+} from "@/prompter";
 import {
   createColors,
   formatConvertSummary,
   formatFileDiff,
+  formatInteractiveSummary,
   shouldUseColor,
   toJsonReport,
   toMarkdownTable,
@@ -31,6 +42,28 @@ interface ChangedFile {
   readonly membersDocumented: number;
   readonly commentsPromoted: number;
   readonly appliedRules: readonly string[];
+}
+
+/** A changed file paired with the interactive review's view of it. */
+interface PendingChange {
+  readonly record: ChangedFile;
+  readonly change: FileChange;
+}
+
+/** Sums the per-file counts of a set of changed files. */
+function totals(files: readonly ChangedFile[]): {
+  commentsChanged: number;
+  membersDocumented: number;
+  commentsPromoted: number;
+} {
+  return files.reduce(
+    (accumulator, file) => ({
+      commentsChanged: accumulator.commentsChanged + file.commentsChanged,
+      membersDocumented: accumulator.membersDocumented + file.membersDocumented,
+      commentsPromoted: accumulator.commentsPromoted + file.commentsPromoted,
+    }),
+    { commentsChanged: 0, membersDocumented: 0, commentsPromoted: 0 },
+  );
 }
 
 /**
@@ -68,6 +101,11 @@ export default defineCommand({
       type: "boolean",
       description: "CI mode — exit 3 if any file would change; never writes.",
     },
+    interactive: {
+      type: "boolean",
+      description: "Review each changed file and accept/skip/edit/quit.",
+      alias: "i",
+    },
     only: {
       type: "string",
       description: 'Comma-separated globs to include (e.g. "src/lib/**").',
@@ -89,7 +127,19 @@ export default defineCommand({
       const check = Boolean(args.check);
       const dryRun = Boolean(args["dry-run"]) || Boolean(args.preview);
       const reportFormat = parseReportFormat(args.report);
+      const interactive = Boolean(args.interactive);
       const willWrite = !dryRun && !check;
+
+      const conflict = interactiveConflict({
+        interactive,
+        dryRun,
+        check,
+        report: reportFormat !== undefined,
+        isTTY: Boolean(process.stdout.isTTY),
+      });
+      if (conflict !== undefined) {
+        throw new Error(conflict);
+      }
 
       const useColor =
         reportFormat === undefined &&
@@ -101,11 +151,15 @@ export default defineCommand({
         exclude: splitGlobs(args.exclude),
       });
 
-      const changedFiles: ChangedFile[] = [];
-      const diffs: string[] = [];
-      let commentsChanged = 0;
-      let membersDocumented = 0;
-      let commentsPromoted = 0;
+      // The diff is only shown interactively or in a human-readable dry run; skip
+      // rendering it when writing straight through or emitting a machine report.
+      const needDiffs =
+        interactive || (!willWrite && reportFormat === undefined);
+
+      // Every file the run would change, collected before any decision so the
+      // interactive flow can prompt per file and the summary can be computed
+      // from whatever was actually written.
+      const pending: PendingChange[] = [];
 
       for (const file of files) {
         const before = await readFile(file, "utf8");
@@ -118,25 +172,77 @@ export default defineCommand({
         }
 
         const relativePath = relative(cwd, file);
-        changedFiles.push({
-          path: relativePath,
-          commentsChanged: conversion.commentsChanged,
-          membersDocumented: conversion.membersDocumented,
-          commentsPromoted: conversion.commentsPromoted,
-          appliedRules: conversion.appliedRules,
+        pending.push({
+          record: {
+            path: relativePath,
+            commentsChanged: conversion.commentsChanged,
+            membersDocumented: conversion.membersDocumented,
+            commentsPromoted: conversion.commentsPromoted,
+            appliedRules: conversion.appliedRules,
+          },
+          change: {
+            path: relativePath,
+            absolutePath: file,
+            proposed: conversion.output,
+            diff: needDiffs
+              ? formatFileDiff(relativePath, before, conversion.output, colors)
+              : "",
+          },
         });
-        commentsChanged += conversion.commentsChanged;
-        membersDocumented += conversion.membersDocumented;
-        commentsPromoted += conversion.commentsPromoted;
+      }
 
-        if (willWrite) {
-          await writeFileText(file, conversion.output);
-        } else if (reportFormat === undefined) {
-          diffs.push(
-            formatFileDiff(relativePath, before, conversion.output, colors),
-          );
+      if (interactive) {
+        const result = await runInteractive(
+          pending.map((item) => item.change),
+          {
+            prompt: promptFileAction,
+            edit: (change) => editInEditor(change.path, change.proposed),
+            write: (absolutePath, content) =>
+              writeFileText(absolutePath, content),
+          },
+        );
+
+        const written = new Set(result.written);
+        const applied = pending
+          .filter((item) => written.has(item.record.path))
+          .map((item) => item.record);
+        const sums = totals(applied);
+
+        process.stdout.write(
+          `${formatInteractiveSummary(
+            {
+              written: result.written.length,
+              skipped: result.skipped.length,
+              remaining: result.remaining.length,
+              quit: result.quit,
+            },
+            colors,
+          )}\n`,
+        );
+        process.stdout.write(
+          `${formatConvertSummary(
+            {
+              filesScanned: files.length,
+              filesChanged: applied.length,
+              commentsChanged: sums.commentsChanged,
+              membersDocumented: sums.membersDocumented,
+              commentsPromoted: sums.commentsPromoted,
+              wrote: true,
+            },
+            colors,
+          )}\n`,
+        );
+        return;
+      }
+
+      if (willWrite) {
+        for (const item of pending) {
+          await writeFileText(item.change.absolutePath, item.change.proposed);
         }
       }
+
+      const changedFiles = pending.map((item) => item.record);
+      const sums = totals(changedFiles);
 
       if (reportFormat === "json") {
         process.stdout.write(
@@ -144,9 +250,9 @@ export default defineCommand({
             command: "convert",
             filesScanned: files.length,
             filesChanged: changedFiles.length,
-            commentsChanged,
-            membersDocumented,
-            commentsPromoted,
+            commentsChanged: sums.commentsChanged,
+            membersDocumented: sums.membersDocumented,
+            commentsPromoted: sums.commentsPromoted,
             wrote: willWrite,
             files: changedFiles,
           })}\n`,
@@ -160,17 +266,19 @@ export default defineCommand({
           `${toMarkdownTable("File", rows, "Comments changed")}\n`,
         );
       } else {
-        for (const diff of diffs) {
-          process.stdout.write(`${diff}\n`);
+        if (!willWrite) {
+          for (const item of pending) {
+            process.stdout.write(`${item.change.diff}\n`);
+          }
         }
         process.stdout.write(
           `${formatConvertSummary(
             {
               filesScanned: files.length,
               filesChanged: changedFiles.length,
-              commentsChanged,
-              membersDocumented,
-              commentsPromoted,
+              commentsChanged: sums.commentsChanged,
+              membersDocumented: sums.membersDocumented,
+              commentsPromoted: sums.commentsPromoted,
               wrote: willWrite,
             },
             colors,
