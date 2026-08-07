@@ -42,20 +42,13 @@ interface ScaffoldedFile {
   readonly stubsAdded: number;
 }
 
-/** A scaffolded file paired with its per-kind counts and interactive view. */
-interface PendingScaffold {
-  readonly record: ScaffoldedFile;
-  readonly counts: Partial<Record<ExportKind, number>>;
-  readonly change: FileChange;
-}
-
-/** Merges the per-kind stub counts of a set of scaffolded files. */
+/** Merges per-file per-kind stub counts into one total. */
 function mergeCounts(
-  files: readonly PendingScaffold[],
+  perFile: readonly Partial<Record<ExportKind, number>>[],
 ): Partial<Record<ExportKind, number>> {
   const totals: Partial<Record<ExportKind, number>> = {};
-  for (const file of files) {
-    for (const [kind, count] of Object.entries(file.counts)) {
+  for (const counts of perFile) {
+    for (const [kind, count] of Object.entries(counts)) {
       const key = kind as ExportKind;
       totals[key] = (totals[key] ?? 0) + (count ?? 0);
     }
@@ -134,7 +127,7 @@ export default defineCommand({
         dryRun,
         check,
         report: reportFormat !== undefined,
-        isTTY: Boolean(process.stdout.isTTY),
+        isTTY: Boolean(process.stdin.isTTY && process.stdout.isTTY),
       });
       if (conflict !== undefined) {
         throw new Error(conflict);
@@ -150,11 +143,13 @@ export default defineCommand({
         exclude: splitGlobs(args.exclude),
       });
 
-      // The diff is only shown interactively or in a human-readable dry run.
-      const needDiffs =
-        interactive || (!willWrite && reportFormat === undefined);
-
-      const pending: PendingScaffold[] = [];
+      // Records and per-file counts are small and always kept; the full stubbed
+      // output is retained only when the interactive flow must defer the write.
+      // A straight write-through streams one file at a time.
+      const scaffoldedFiles: ScaffoldedFile[] = [];
+      const perFileCounts: Partial<Record<ExportKind, number>>[] = [];
+      const changes: FileChange[] = [];
+      const diffs: string[] = [];
       let exportsFound = 0;
 
       for (const file of files) {
@@ -167,37 +162,40 @@ export default defineCommand({
         }
 
         const relativePath = relative(cwd, file);
-        pending.push({
-          record: { path: relativePath, stubsAdded: scaffold.stubsAdded },
-          counts: scaffold.counts,
-          change: {
+        scaffoldedFiles.push({
+          path: relativePath,
+          stubsAdded: scaffold.stubsAdded,
+        });
+        perFileCounts.push(scaffold.counts);
+
+        if (interactive) {
+          changes.push({
             path: relativePath,
             absolutePath: file,
             proposed: scaffold.output,
-            diff: needDiffs
-              ? formatFileDiff(relativePath, before, scaffold.output, colors)
-              : "",
-          },
-        });
+            diff: formatFileDiff(relativePath, before, scaffold.output, colors),
+          });
+        } else if (willWrite) {
+          await writeFileText(file, scaffold.output);
+        } else if (reportFormat === undefined) {
+          diffs.push(
+            formatFileDiff(relativePath, before, scaffold.output, colors),
+          );
+        }
       }
 
       if (interactive) {
-        const result = await runInteractive(
-          pending.map((item) => item.change),
-          {
-            prompt: promptFileAction,
-            edit: (change) => editInEditor(change.path, change.proposed),
-            write: (absolutePath, content) =>
-              writeFileText(absolutePath, content),
-          },
-        );
+        const result = await runInteractive(changes, {
+          prompt: promptFileAction,
+          edit: (change) => editInEditor(change.path, change.proposed),
+          write: (absolutePath, content) =>
+            writeFileText(absolutePath, content),
+        });
 
         const written = new Set(result.written);
-        const applied = pending.filter((item) => written.has(item.record.path));
-        const stubsWritten = applied.reduce(
-          (sum, item) => sum + item.record.stubsAdded,
-          0,
-        );
+        const stubsWritten = scaffoldedFiles
+          .filter((file) => written.has(file.path))
+          .reduce((sum, file) => sum + file.stubsAdded, 0);
 
         process.stdout.write(
           `${formatInteractiveSummary(
@@ -212,7 +210,7 @@ export default defineCommand({
         );
         if (stubsWritten > 0) {
           process.stdout.write(
-            `${colors.bold(`Added ${String(stubsWritten)} stub(s) across ${String(applied.length)} file(s).`)}\n`,
+            `${colors.bold(`Added ${String(stubsWritten)} stub(s) across ${String(result.written.length)} file(s).`)}\n`,
           );
           process.stdout.write(
             `${colors.dim(`Review the generated prose: grep -rn "${TODO_MARKER}" .`)}\n`,
@@ -221,16 +219,7 @@ export default defineCommand({
         return;
       }
 
-      if (willWrite) {
-        for (const item of pending) {
-          await writeFileText(item.change.absolutePath, item.change.proposed);
-        }
-      }
-
-      const scaffoldedFiles: ScaffoldedFile[] = pending.map(
-        (item) => item.record,
-      );
-      const totalsByKind = mergeCounts(pending);
+      const totalsByKind = mergeCounts(perFileCounts);
       const stubsAdded = scaffoldedFiles.reduce(
         (sum, file) => sum + file.stubsAdded,
         0,
@@ -271,10 +260,8 @@ export default defineCommand({
           )}\n`,
         );
       } else {
-        if (!willWrite) {
-          for (const item of pending) {
-            process.stdout.write(`${item.change.diff}\n`);
-          }
+        for (const diff of diffs) {
+          process.stdout.write(`${diff}\n`);
         }
 
         const rows: SummaryRow[] = [

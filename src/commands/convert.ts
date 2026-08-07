@@ -44,12 +44,6 @@ interface ChangedFile {
   readonly appliedRules: readonly string[];
 }
 
-/** A changed file paired with the interactive review's view of it. */
-interface PendingChange {
-  readonly record: ChangedFile;
-  readonly change: FileChange;
-}
-
 /** Sums the per-file counts of a set of changed files. */
 function totals(files: readonly ChangedFile[]): {
   commentsChanged: number;
@@ -135,7 +129,7 @@ export default defineCommand({
         dryRun,
         check,
         report: reportFormat !== undefined,
-        isTTY: Boolean(process.stdout.isTTY),
+        isTTY: Boolean(process.stdin.isTTY && process.stdout.isTTY),
       });
       if (conflict !== undefined) {
         throw new Error(conflict);
@@ -151,15 +145,13 @@ export default defineCommand({
         exclude: splitGlobs(args.exclude),
       });
 
-      // The diff is only shown interactively or in a human-readable dry run; skip
-      // rendering it when writing straight through or emitting a machine report.
-      const needDiffs =
-        interactive || (!willWrite && reportFormat === undefined);
-
-      // Every file the run would change, collected before any decision so the
-      // interactive flow can prompt per file and the summary can be computed
-      // from whatever was actually written.
-      const pending: PendingChange[] = [];
+      // Records carry the per-file counts for the summary and reports — small
+      // and always kept. The full converted output is retained only when the
+      // interactive flow must defer the write; a straight write-through streams
+      // one file at a time. Diffs are built only where they are shown.
+      const records: ChangedFile[] = [];
+      const changes: FileChange[] = [];
+      const diffs: string[] = [];
 
       for (const file of files) {
         const before = await readFile(file, "utf8");
@@ -172,40 +164,45 @@ export default defineCommand({
         }
 
         const relativePath = relative(cwd, file);
-        pending.push({
-          record: {
-            path: relativePath,
-            commentsChanged: conversion.commentsChanged,
-            membersDocumented: conversion.membersDocumented,
-            commentsPromoted: conversion.commentsPromoted,
-            appliedRules: conversion.appliedRules,
-          },
-          change: {
+        records.push({
+          path: relativePath,
+          commentsChanged: conversion.commentsChanged,
+          membersDocumented: conversion.membersDocumented,
+          commentsPromoted: conversion.commentsPromoted,
+          appliedRules: conversion.appliedRules,
+        });
+
+        if (interactive) {
+          changes.push({
             path: relativePath,
             absolutePath: file,
             proposed: conversion.output,
-            diff: needDiffs
-              ? formatFileDiff(relativePath, before, conversion.output, colors)
-              : "",
-          },
-        });
+            diff: formatFileDiff(
+              relativePath,
+              before,
+              conversion.output,
+              colors,
+            ),
+          });
+        } else if (willWrite) {
+          await writeFileText(file, conversion.output);
+        } else if (reportFormat === undefined) {
+          diffs.push(
+            formatFileDiff(relativePath, before, conversion.output, colors),
+          );
+        }
       }
 
       if (interactive) {
-        const result = await runInteractive(
-          pending.map((item) => item.change),
-          {
-            prompt: promptFileAction,
-            edit: (change) => editInEditor(change.path, change.proposed),
-            write: (absolutePath, content) =>
-              writeFileText(absolutePath, content),
-          },
-        );
+        const result = await runInteractive(changes, {
+          prompt: promptFileAction,
+          edit: (change) => editInEditor(change.path, change.proposed),
+          write: (absolutePath, content) =>
+            writeFileText(absolutePath, content),
+        });
 
         const written = new Set(result.written);
-        const applied = pending
-          .filter((item) => written.has(item.record.path))
-          .map((item) => item.record);
+        const applied = records.filter((record) => written.has(record.path));
         const sums = totals(applied);
 
         process.stdout.write(
@@ -240,30 +237,23 @@ export default defineCommand({
         return;
       }
 
-      if (willWrite) {
-        for (const item of pending) {
-          await writeFileText(item.change.absolutePath, item.change.proposed);
-        }
-      }
-
-      const changedFiles = pending.map((item) => item.record);
-      const sums = totals(changedFiles);
+      const sums = totals(records);
 
       if (reportFormat === "json") {
         process.stdout.write(
           `${toJsonReport({
             command: "convert",
             filesScanned: files.length,
-            filesChanged: changedFiles.length,
+            filesChanged: records.length,
             commentsChanged: sums.commentsChanged,
             membersDocumented: sums.membersDocumented,
             commentsPromoted: sums.commentsPromoted,
             wrote: willWrite,
-            files: changedFiles,
+            files: records,
           })}\n`,
         );
       } else if (reportFormat === "md") {
-        const rows: SummaryRow[] = changedFiles.map((file) => ({
+        const rows: SummaryRow[] = records.map((file) => ({
           label: file.path,
           value: file.commentsChanged,
         }));
@@ -271,16 +261,14 @@ export default defineCommand({
           `${toMarkdownTable("File", rows, "Comments changed")}\n`,
         );
       } else {
-        if (!willWrite) {
-          for (const item of pending) {
-            process.stdout.write(`${item.change.diff}\n`);
-          }
+        for (const diff of diffs) {
+          process.stdout.write(`${diff}\n`);
         }
         process.stdout.write(
           `${formatConvertSummary(
             {
               filesScanned: files.length,
-              filesChanged: changedFiles.length,
+              filesChanged: records.length,
               commentsChanged: sums.commentsChanged,
               membersDocumented: sums.membersDocumented,
               commentsPromoted: sums.commentsPromoted,
@@ -289,14 +277,14 @@ export default defineCommand({
             colors,
           )}\n`,
         );
-        if (!willWrite && changedFiles.length > 0) {
+        if (!willWrite && records.length > 0) {
           process.stdout.write(
             `${colors.dim("Preview only — re-run without --dry-run/--check to apply.")}\n`,
           );
         }
       }
 
-      if (check && changedFiles.length > 0) {
+      if (check && records.length > 0) {
         process.exitCode = 3;
       }
     } catch (error) {

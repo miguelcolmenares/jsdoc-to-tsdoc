@@ -175,7 +175,7 @@ npx jsdoc-to-tsdoc check     # CI gate: validate TSDoc, exit 3 on problems
 | `--strict` | `init` | Start the presence rule at `error` instead of `warn`. |
 | `--install` | `init` | Run the detected package manager to install missing dev deps. |
 | `--check` | `convert`, `scaffold`, `escalate` | CI mode — exit `3` if anything would change; never writes. |
-| `--interactive` / `-i` | `convert`, `scaffold` | Per-file review: accept/skip/edit/quit. Needs a TTY; excludes `--dry-run`/`--check`/`--report`. |
+| `--interactive` / `-i` | `convert`, `scaffold` | Per-file review: accept/skip/edit/quit. Needs a TTY (stdin + stdout); excludes `--dry-run`/`--preview`/`--check`/`--report`. |
 | `--syntax-only` | `check` | Only validate comment syntax. |
 | `--include-tests` | `check` | Also check the test paths `init` exempts. |
 | `--lite` | `scan`, `convert` | Only `@param`/`@returns` hygiene (`Rule.liteSafe`). |

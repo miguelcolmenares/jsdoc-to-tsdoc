@@ -58,7 +58,7 @@ npx jsdoc-to-tsdoc escalate --check
 | `--strict` | `init` | Start `tsdoc-require-2/require` at `error` instead of `warn`. |
 | `--install` | `init` | Run the detected package manager to install missing dev dependencies. |
 | `--check` | `convert`, `scaffold`, `escalate` | CI mode — exit `3` if anything would change; never writes. |
-| `--interactive` / `-i` | `convert`, `scaffold` | Review each changed file — accept · skip · edit (in `$EDITOR`) · quit. Needs a TTY; not combinable with `--dry-run`/`--check`/`--report`. |
+| `--interactive` / `-i` | `convert`, `scaffold` | Review each changed file — accept · skip · edit (in `$EDITOR`) · quit. Needs a TTY (stdin and stdout); not combinable with `--dry-run`/`--preview`/`--check`/`--report`. |
 | `--lite` | `scan`, `convert` | Only `@param` / `@returns` hygiene; leave prose and structural tags. |
 | `--promote-line-comments` | `convert` | Rewrite a run of `//` prose above an undocumented export as the `/** */` comment it was already serving as. Off by default. |
 | `--severity <level>` | `escalate` | Target severity: `error` (default) or `warn` to walk it back. |

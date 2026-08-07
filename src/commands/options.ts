@@ -48,7 +48,8 @@ export function parseReportFormat(value: unknown): ReportFormat | undefined {
  * reason as a string keeps the command layer's job to a single throw.
  *
  * @param context - Whether interactive was requested, which non-writing flags
- * are set, and whether stdout is a TTY.
+ * are set, and whether the terminal is interactive (both stdin and stdout are
+ * TTYs).
  * @returns A message explaining why interactive cannot run, or `undefined` when
  * it can (including when it was not requested at all).
  */
@@ -76,7 +77,9 @@ export function interactiveConflict(context: {
     return `--interactive cannot be combined with ${blockers.join(", ")}.`;
   }
   if (!context.isTTY) {
-    return "--interactive needs an interactive terminal, but stdout is not a TTY.";
+    // The prompt reads stdin and draws on stdout, so a pipe on either end
+    // (`cat f | … -i`, `… -i | tee`) cannot be reviewed interactively.
+    return "--interactive needs an interactive terminal, but stdin or stdout is not a TTY.";
   }
   return undefined;
 }
