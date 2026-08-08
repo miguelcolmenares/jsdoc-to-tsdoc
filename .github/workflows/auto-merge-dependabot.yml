@@ -14,6 +14,11 @@ name: Auto-merge Dependabot PRs
 # (patch: 3, minor: 7). A held PR stays open for a human to review and merge —
 # nothing is rejected, only kept from merging itself too soon.
 #
+# The cooldown is scoped to the npm ecosystem, since it reads publish times from
+# the npm registry. This repo also updates `github-actions`; those deps are not
+# npm packages (the registry returns 404), so they skip the cooldown and merge
+# on the required checks as before.
+#
 # This workflow is only half the gate. The other half is branch protection on
 # `main`, which lists the nine `check (node … · …)` contexts as required —
 # without that, `gh pr merge --auto` has nothing to wait for. If auto-merge ever
@@ -62,6 +67,7 @@ jobs:
             const now = Date.now();
 
             const checked = [];
+            const skipped = [];
             const young = [];
             for (const dep of updated) {
               const name = dep.dependencyName;
@@ -77,6 +83,14 @@ jobs:
                   `https://registry.npmjs.org/${name.replace("/", "%2F")}`,
                   { headers: { "user-agent": "dependabot-cooldown" } },
                 );
+                if (res.status === 404) {
+                  // Not on npm — this repo also runs the `github-actions`
+                  // ecosystem, whose deps (`actions/checkout`, …) are not npm
+                  // packages. The npm cooldown does not apply; let the required
+                  // checks gate it instead of holding it forever.
+                  skipped.push(`${name}@${version} (not an npm package)`);
+                  continue;
+                }
                 if (!res.ok) throw new Error(`registry ${res.status}`);
                 publishedAt = (await res.json()).time?.[version];
               } catch (err) {
@@ -97,6 +111,7 @@ jobs:
 
             core.info(`Release-age cooldown threshold: ${minDays} day(s).`);
             for (const line of checked) core.info(`  ${line}`);
+            for (const line of skipped) core.info(`  skipped: ${line}`);
 
             const ok = young.length === 0;
             core.setOutput("merge", ok ? "true" : "false");

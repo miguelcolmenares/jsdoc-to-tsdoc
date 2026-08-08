@@ -428,6 +428,14 @@ time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
   yields `merge=false`, never a silent pass — an unverifiable age must not
   auto-merge. Grouped PRs (the config groups minor+patch into one) land on the
   7-day threshold because `fetch-metadata` reports the group's highest bump.
+- **npm-scoped, via a 404, not an ecosystem string (review #45).** The repo also
+  runs the `github-actions` ecosystem, whose deps (`actions/checkout`, …) are not
+  npm packages — a blanket registry lookup would 404 and, fail-closed, hold those
+  PRs forever. Rather than branch on `fetch-metadata`'s ecosystem output (whose
+  exact value — `npm` vs `npm_and_yarn` — is easy to get wrong), a registry
+  **404 is read as "not an npm package → cooldown N/A"** and the dep passes;
+  only a real npm package that is genuinely too young is held. Other HTTP/network
+  errors still fail closed.
 
 ### `--commit-per-file` — one reviewable commit per file (#41)
 
