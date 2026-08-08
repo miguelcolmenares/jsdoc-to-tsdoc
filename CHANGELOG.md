@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `convert --commit-per-file` / `scaffold --commit-per-file` commit each changed
+  file on its own, so a migration lands as one reviewable commit per file
+  (`docs: convert JSDoc to TSDoc in <path>` / `docs: add TSDoc stubs to <path>`)
+  instead of one sprawling diff. It refuses to start unless the target is a git
+  work tree with a clean tracked state — the guard runs before any write, so a
+  rejected run leaves nothing behind — and untracked files are allowed. Rejected
+  alongside the non-writing flags (`--dry-run`/`--preview`, `--check`,
+  `--report`); combines with `--interactive`, committing each accepted file
+  (including a hand `edit` in `$EDITOR`) in review order. Git runs through
+  `execFile` with an argument list and no shell, so a path with a space or a
+  shell metacharacter is committed verbatim. The closing summary reports how many
+  files were committed. The flow lives in a new `committer` domain, kept out of
+  the library barrel like `prompter`/`reporter`/`writer`.
+
 - Phase-9 conversion ground-truth fixtures (`fixtures/convert/`): one before→
   target pair per conversion class, asserted by `src/__tests__/repo-fixtures.test.ts`
   to check `convert(input) === target`, that the target is valid TSDoc, and that

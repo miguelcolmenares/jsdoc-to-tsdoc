@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  commitPerFileConflict,
   interactiveConflict,
   parseReportFormat,
   splitGlobs,
@@ -85,5 +86,53 @@ describe("interactiveConflict", () => {
 
   it("requires a TTY once the flags are clear", () => {
     expect(interactiveConflict({ ...OK, isTTY: false })).toContain("TTY");
+  });
+});
+
+describe("commitPerFileConflict", () => {
+  const BASE = {
+    commitPerFile: true,
+    dryRun: false,
+    check: false,
+    report: false,
+  };
+
+  it("permits commit-per-file with no non-writing flags", () => {
+    expect(commitPerFileConflict(BASE)).toBeUndefined();
+  });
+
+  it("ignores every other flag when commit-per-file is off", () => {
+    expect(
+      commitPerFileConflict({
+        commitPerFile: false,
+        dryRun: true,
+        check: true,
+        report: true,
+      }),
+    ).toBeUndefined();
+  });
+
+  it("rejects the non-writing flags and names them", () => {
+    expect(commitPerFileConflict({ ...BASE, dryRun: true })).toContain(
+      "--dry-run/--preview",
+    );
+    expect(commitPerFileConflict({ ...BASE, check: true })).toContain(
+      "--check",
+    );
+    expect(commitPerFileConflict({ ...BASE, report: true })).toContain(
+      "--report",
+    );
+  });
+
+  it("lists every conflicting flag at once", () => {
+    const message = commitPerFileConflict({
+      ...BASE,
+      dryRun: true,
+      check: true,
+      report: true,
+    });
+    expect(message).toContain("--dry-run/--preview");
+    expect(message).toContain("--check");
+    expect(message).toContain("--report");
   });
 });

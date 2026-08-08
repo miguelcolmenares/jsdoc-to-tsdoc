@@ -95,7 +95,6 @@ rules, parser, scanner, and escalator.
 
 - Trim the blank content line a removed tag block can leave behind before the
   closing `*/`. Valid TSDoc, but untidy output the tool writes into user files.
-- `--commit-per-file`.
 - Reuse the `@microsoft/tsdoc` validation pass inside `convert`, so a
   transformed comment is proven valid before it is written.
 - **Agent customization (next iteration):** flesh out the `.github/copilot-instructions.md`
@@ -1035,7 +1034,8 @@ Reporting & CI:
 - [x] **`--interactive` per-file review mode** — `convert` / `scaffold`, accept/skip/edit/quit
 - [x] **`--only` / `--exclude` glob filters** for targeted runs
 - [x] **`--lite` mode** — only `@param` / `@returns` hygiene, leave prose untouched
-- [ ] **`--commit-per-file`** for reviewable PRs
+- [x] **`--commit-per-file`** for reviewable PRs — one commit per changed file
+      on `convert` / `scaffold`, guarded by a clean-tree precondition
 - [x] **`--fail-on-missing` / `--fail-on-stale`** confidence gates *(on `scan`)*
 - [x] **`scan --classify`** — topology report (VALID / PARTIAL / LINE_COMMENTS / NO_DOCS / STALE)
 - [x] **`convert --promote-line-comments`** — wrap `//` prose into `/** */`
