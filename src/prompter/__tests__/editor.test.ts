@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { resolveEditor } from "@/prompter/editor";
+import { defaultEditor, resolveEditor } from "@/prompter/editor";
 
 describe("resolveEditor", () => {
   let savedVisual: string | undefined;
@@ -50,10 +50,18 @@ describe("resolveEditor", () => {
     process.env.VISUAL = "   ";
     process.env.EDITOR = "";
 
-    expect(resolveEditor()).toBe("vi");
+    expect(resolveEditor()).toBe(defaultEditor(process.platform));
   });
 
-  it("defaults to vi when nothing is configured", () => {
-    expect(resolveEditor()).toBe("vi");
+  it("falls back to the platform default when nothing is configured", () => {
+    expect(resolveEditor()).toBe(defaultEditor(process.platform));
+  });
+});
+
+describe("defaultEditor", () => {
+  it("uses notepad on Windows and vi elsewhere", () => {
+    expect(defaultEditor("win32")).toBe("notepad");
+    expect(defaultEditor("darwin")).toBe("vi");
+    expect(defaultEditor("linux")).toBe("vi");
   });
 });
