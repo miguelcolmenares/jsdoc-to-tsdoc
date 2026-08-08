@@ -35,13 +35,13 @@ init  →  convert  →  scaffold  →  escalate
 |-----------|--------------|--------------|
 | `init`    | **shipped**  | Generates/merges `tsdoc.json`, patches the ESLint flat config, reports deps to install. |
 | `scan`    | **shipped**  | Read-only inventory of what `convert` would change, plus `--classify`: documentation topology, confidence levels, and the `--fail-on-missing` / `--fail-on-stale` gates. |
-| `convert` | **shipped**  | Transforms existing JSDoc comments into TSDoc syntax (10-rule pipeline). |
+| `convert` | **shipped**  | Transforms existing JSDoc comments into TSDoc syntax (13-rule pipeline). |
 | `scaffold`| **shipped**  | Generates TSDoc stubs for undocumented exports (the ~80% of real-world work). |
 | `escalate`| **shipped**  | Bumps `tsdoc-require-2/require` from `warn` → `error`, gated on a preflight ESLint run. |
 | `check`   | **shipped**  | CI gate — validates comments with the official `@microsoft/tsdoc` parser, reports undocumented exports and leftover JSDoc. |
 
 Domains present: `parser`, `scanner`, `transformer`, `scaffolder`, `generator`,
-`escalator`, `validator`, `classifier`, `reporter`, `writer`, `commands`. See `PLAN.md` → _Implementation Status_ for the
+`escalator`, `validator`, `classifier`, `reporter`, `prompter`, `writer`, `commands`. See `PLAN.md` → _Implementation Status_ for the
 running tally and `PLAN.md` → _Development Roadmap_ for phase order.
 
 **Picking work up again?** Go to §11 — it carries what to do next and why, and
@@ -68,6 +68,7 @@ src/
 ├── escalator/           # escalate's building blocks: preflight ESLint run + rule-severity patch
 ├── validator/           # check's building block: official @microsoft/tsdoc validation
 ├── reporter/            # colored diffs, tables, JSON/Markdown output, ANSI colors
+├── prompter/            # --interactive per-file review: pure orchestrator + @clack/prompts adapter + $EDITOR launcher
 └── writer/              # async file writes
 ```
 
@@ -174,6 +175,7 @@ npx jsdoc-to-tsdoc check     # CI gate: validate TSDoc, exit 3 on problems
 | `--strict` | `init` | Start the presence rule at `error` instead of `warn`. |
 | `--install` | `init` | Run the detected package manager to install missing dev deps. |
 | `--check` | `convert`, `scaffold`, `escalate` | CI mode — exit `3` if anything would change; never writes. |
+| `--interactive` / `-i` | `convert`, `scaffold` | Per-file review: accept/skip/edit/quit. Needs a TTY (stdin + stdout); excludes `--dry-run`/`--preview`/`--check`/`--report`. |
 | `--syntax-only` | `check` | Only validate comment syntax. |
 | `--include-tests` | `check` | Also check the test paths `init` exempts. |
 | `--lite` | `scan`, `convert` | Only `@param`/`@returns` hygiene (`Rule.liteSafe`). |
@@ -400,6 +402,29 @@ Done since this section was written: `scan --classify`, `--fail-on-missing`,
 Newest first. Each entry records what shipped and, more importantly, **the
 non-obvious things** — a decision and its reasoning, or a trap that cost real
 time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
+
+### Interactive mode (`--interactive`, phase 7) — built, not dropped
+
+- **The issue (#31) recommended _dropping_ `@clack/prompts` and re-scoping phase
+  7 post-v0.1.0; the maintainer chose to _build_ it.** The dependency was in
+  `package.json`, unused, since the start — this is what it was there for, and
+  phase 7 was already scoped for v0.1.0. Recording the fork because the issue's
+  written recommendation and what shipped now disagree, and the next reader will
+  otherwise trust the issue.
+- **The flow is split so it can be tested without a TTY.** `prompter` is a
+  CLI-only I/O domain (deliberately outside the root barrel, like `reporter` and
+  `writer`). `runInteractive` is a **pure** orchestrator over the changed files
+  with `prompt`/`edit`/`write` injected; the `@clack/prompts` adapter and the
+  `$EDITOR` launcher are the thin, unit-untested edges. Tests drive the
+  orchestrator with a fake prompter; a real terminal is never needed.
+- **`--interactive` is rejected up front when it cannot mean anything** — with
+  the non-writing flags (`--dry-run`/`--preview`, `--check`, `--report`) or off a
+  TTY. `interactiveConflict` is a pure check so that validation is itself tested.
+- **The summary counts only what was written.** Skipped and quit-past files are
+  excluded from the comment/stub totals, so the closing line tells the truth
+  about what changed on disk, not what _would_ have.
+- **Cleanup rode along:** removed the redundant `@types/diff` devDependency
+  (`diff@9` ships its own types). `--commit-per-file` stays deferred.
 
 ### Auto-merge landed a red commit, and the gate it named did not exist
 

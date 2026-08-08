@@ -4,9 +4,9 @@
  *
  * Re-exports the public surface of every domain that answers a question about
  * source code, so the package can be consumed as a library in addition to the
- * `jsdoc-to-tsdoc` CLI binary. `reporter` and `writer` are deliberately absent:
- * they render to a terminal and write to disk for the CLI, and a library
- * consumer supplies its own output and I/O.
+ * `jsdoc-to-tsdoc` CLI binary. `reporter`, `prompter` and `writer` are
+ * deliberately absent: they render to a terminal, prompt on it, and write to
+ * disk for the CLI, and a library consumer supplies its own output and I/O.
  *
  * A domain added without a re-export here is invisible to library consumers,
  * which is what `public-surface.test.ts` pins.

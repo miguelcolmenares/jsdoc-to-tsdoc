@@ -11,11 +11,22 @@ import { relative, resolve } from "node:path";
 import { defineCommand } from "citty";
 
 import { reportCommandFailure } from "@/commands/command-failure";
-import { parseReportFormat, splitGlobs } from "@/commands/options";
+import {
+  interactiveConflict,
+  parseReportFormat,
+  splitGlobs,
+} from "@/commands/options";
 import { scaffoldSourceText } from "@/commands/scaffold-file";
+import {
+  editInEditor,
+  promptFileAction,
+  runInteractive,
+  type FileChange,
+} from "@/prompter";
 import {
   createColors,
   formatFileDiff,
+  formatInteractiveSummary,
   formatTable,
   shouldUseColor,
   toJsonReport,
@@ -29,6 +40,20 @@ import { writeFileText } from "@/writer";
 interface ScaffoldedFile {
   readonly path: string;
   readonly stubsAdded: number;
+}
+
+/** Merges per-file per-kind stub counts into one total. */
+function mergeCounts(
+  perFile: readonly Partial<Record<ExportKind, number>>[],
+): Partial<Record<ExportKind, number>> {
+  const totals: Partial<Record<ExportKind, number>> = {};
+  for (const counts of perFile) {
+    for (const [kind, count] of Object.entries(counts)) {
+      const key = kind as ExportKind;
+      totals[key] = (totals[key] ?? 0) + (count ?? 0);
+    }
+  }
+  return totals;
 }
 
 const KIND_LABELS: Readonly<Record<ExportKind, string>> = Object.freeze({
@@ -70,6 +95,11 @@ export default defineCommand({
       type: "boolean",
       description: "CI mode — exit 3 if any export lacks TSDoc; never writes.",
     },
+    interactive: {
+      type: "boolean",
+      description: "Review each scaffolded file and accept/skip/edit/quit.",
+      alias: "i",
+    },
     only: {
       type: "string",
       description: 'Comma-separated globs to include (e.g. "src/actions/**").',
@@ -89,7 +119,22 @@ export default defineCommand({
       const check = Boolean(args.check);
       const dryRun = Boolean(args["dry-run"]) || Boolean(args.preview);
       const reportFormat = parseReportFormat(args.report);
+      const interactive = Boolean(args.interactive);
       const willWrite = !dryRun && !check;
+
+      const conflict = interactiveConflict({
+        interactive,
+        dryRun,
+        check,
+        // Keyed on whether --report was passed at all, not on whether it parsed
+        // to a known format, so `--interactive --report=table` is rejected too —
+        // any report request contradicts an interactive run.
+        report: args.report !== undefined,
+        isTTY: Boolean(process.stdin.isTTY && process.stdout.isTTY),
+      });
+      if (conflict !== undefined) {
+        throw new Error(conflict);
+      }
 
       const useColor =
         reportFormat === undefined &&
@@ -101,10 +146,17 @@ export default defineCommand({
         exclude: splitGlobs(args.exclude),
       });
 
+      // Records and per-file counts are small and always kept; the full stubbed
+      // output is retained only when the interactive flow must defer the write.
+      // A straight write-through streams one file at a time.
+      //
+      // As in `convert`, interactive scans every file before the first prompt so
+      // that `runInteractive` stays a pure orchestrator (testable without a TTY);
+      // a whole-repo run is bounded with `--only`.
       const scaffoldedFiles: ScaffoldedFile[] = [];
+      const perFileCounts: Partial<Record<ExportKind, number>>[] = [];
+      const changes: FileChange[] = [];
       const diffs: string[] = [];
-      const totalsByKind: Partial<Record<ExportKind, number>> = {};
-      let stubsAdded = 0;
       let exportsFound = 0;
 
       for (const file of files) {
@@ -121,13 +173,16 @@ export default defineCommand({
           path: relativePath,
           stubsAdded: scaffold.stubsAdded,
         });
-        stubsAdded += scaffold.stubsAdded;
-        for (const [kind, count] of Object.entries(scaffold.counts)) {
-          const key = kind as ExportKind;
-          totalsByKind[key] = (totalsByKind[key] ?? 0) + (count ?? 0);
-        }
+        perFileCounts.push(scaffold.counts);
 
-        if (willWrite) {
+        if (interactive) {
+          changes.push({
+            path: relativePath,
+            absolutePath: file,
+            proposed: scaffold.output,
+            diff: formatFileDiff(relativePath, before, scaffold.output, colors),
+          });
+        } else if (willWrite) {
           await writeFileText(file, scaffold.output);
         } else if (reportFormat === undefined) {
           diffs.push(
@@ -135,6 +190,59 @@ export default defineCommand({
           );
         }
       }
+
+      if (interactive) {
+        // Nothing to review: show the same clean message the non-interactive
+        // run gives rather than a bare "0 written · 0 skipped" with no prompt.
+        if (changes.length === 0) {
+          process.stdout.write(
+            `${colors.green("✓ Every export already has TSDoc.")}\n`,
+          );
+          return;
+        }
+
+        const result = await runInteractive(changes, {
+          prompt: promptFileAction,
+          edit: (change) => editInEditor(change.path, change.proposed),
+          write: (absolutePath, content) =>
+            writeFileText(absolutePath, content),
+        });
+
+        const written = new Set(result.written);
+        const stubsWritten = scaffoldedFiles
+          .filter((file) => written.has(file.path))
+          .reduce((sum, file) => sum + file.stubsAdded, 0);
+
+        process.stdout.write(
+          `${formatInteractiveSummary(
+            {
+              written: result.written.length,
+              skipped: result.skipped.length,
+              remaining: result.remaining.length,
+              quit: result.quit,
+            },
+            colors,
+          )}\n`,
+        );
+        // The stub count describes what `scaffold` generated for the written
+        // files; a hand `edit` in `$EDITOR` is the user's own change on top and
+        // is not re-counted.
+        if (stubsWritten > 0) {
+          process.stdout.write(
+            `${colors.bold(`Added ${String(stubsWritten)} stub(s) across ${String(result.written.length)} file(s).`)}\n`,
+          );
+          process.stdout.write(
+            `${colors.dim(`Review the generated prose: grep -rn "${TODO_MARKER}" .`)}\n`,
+          );
+        }
+        return;
+      }
+
+      const totalsByKind = mergeCounts(perFileCounts);
+      const stubsAdded = scaffoldedFiles.reduce(
+        (sum, file) => sum + file.stubsAdded,
+        0,
+      );
 
       if (reportFormat === "json") {
         process.stdout.write(

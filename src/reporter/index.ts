@@ -14,6 +14,7 @@ export { toJsonReport, toMarkdownTable } from "@/reporter/json-reporter";
 
 export {
   formatConvertSummary,
+  formatInteractiveSummary,
   formatTable,
   type ReportFormat,
   type SummaryRow,

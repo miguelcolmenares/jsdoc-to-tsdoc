@@ -56,6 +56,33 @@ export function formatTable(
 }
 
 /**
+ * Renders a one-line summary of an interactive review session.
+ *
+ * @param outcome - How many files were written, skipped, and left untouched by
+ * an early quit.
+ * @param colors - Style functions.
+ * @returns A single formatted line, e.g. `3 written · 1 skipped · 2 left (quit)`.
+ */
+export function formatInteractiveSummary(
+  outcome: {
+    readonly written: number;
+    readonly skipped: number;
+    readonly remaining: number;
+    readonly quit: boolean;
+  },
+  colors: Colors,
+): string {
+  const parts = [
+    colors.green(`${String(outcome.written)} written`),
+    `${String(outcome.skipped)} skipped`,
+  ];
+  if (outcome.quit) {
+    parts.push(colors.dim(`${String(outcome.remaining)} left (quit)`));
+  }
+  return parts.join(colors.dim(" · "));
+}
+
+/**
  * Renders a one-line summary of a `convert` run.
  *
  * @param params - Aggregate counts from the run.
