@@ -4,6 +4,7 @@ import {
   addHyphenSeparator,
   convertAccessTags,
   convertFileOverview,
+  dropBareTypeParam,
   escapeBareAtSign,
   fenceExampleBlocks,
   foldDottedParam,
@@ -739,6 +740,67 @@ describe("addHyphenSeparator", () => {
   });
 });
 
+describe("dropBareTypeParam", () => {
+  it("drops a description-less @typeParam", () => {
+    const input = comment("/**", " * @typeParam T", " */");
+    expect(apply(dropBareTypeParam, input)).toBe(comment("/**", " */"));
+  });
+
+  it("keeps a @typeParam that has a hyphenated description", () => {
+    const input = comment("/**", " * @typeParam T - The element type", " */");
+    expect(apply(dropBareTypeParam, input)).toBe(input);
+  });
+
+  // `@template T, U` renames to a bare `@typeParam T, U`, which TSDoc rejects
+  // both for the comma and for the missing hyphen; it documents nothing, so it
+  // goes as a unit.
+  it("drops a bare multi-name @typeParam", () => {
+    const input = comment("/**", " * @typeParam T, U", " */");
+    expect(apply(dropBareTypeParam, input)).toBe(comment("/**", " */"));
+  });
+
+  it("leaves the surrounding summary and other tags in place", () => {
+    const input = comment(
+      "/**",
+      " * Returns its argument unchanged.",
+      " * @typeParam T",
+      " * @param value - The value",
+      " * @returns The value",
+      " */",
+    );
+    expect(apply(dropBareTypeParam, input)).toBe(
+      comment(
+        "/**",
+        " * Returns its argument unchanged.",
+        " * @param value - The value",
+        " * @returns The value",
+        " */",
+      ),
+    );
+  });
+
+  // The asymmetry is deliberate: a bare value parameter is the only record the
+  // author meant to document it, so `check` surfaces it rather than convert
+  // erasing it.
+  it("does not touch a bare @param", () => {
+    const input = comment("/**", " * @param value", " */");
+    expect(apply(dropBareTypeParam, input)).toBe(input);
+  });
+
+  // Single-line comments carry the tag as their whole content; dropping it
+  // would leave an empty `/** */`, so the rule leaves it (a recorded limit).
+  it("leaves a single-line bare @typeParam untouched", () => {
+    const input = "/** @typeParam T */";
+    expect(apply(dropBareTypeParam, input)).toBe(input);
+  });
+
+  it("is idempotent", () => {
+    const input = comment("/**", " * @typeParam T", " * @returns X", " */");
+    const once = apply(dropBareTypeParam, input);
+    expect(apply(dropBareTypeParam, once)).toBe(once);
+  });
+});
+
 describe("convertAccessTags", () => {
   it("maps @access private to @internal", () => {
     expect(apply(convertAccessTags, "/** @access private */")).toBe(
@@ -1017,6 +1079,7 @@ describe("fenced-code safety", () => {
   it.each([
     ["add-hyphen-separator", addHyphenSeparator],
     ["rename-tags", renameTags],
+    ["drop-bare-type-param", dropBareTypeParam],
     ["strip-return-promise", stripReturnPromise],
     ["convert-access-tags", convertAccessTags],
     ["remove-redundant-tags", removeRedundantTags],

@@ -403,6 +403,36 @@ Newest first. Each entry records what shipped and, more importantly, **the
 non-obvious things** — a decision and its reasoning, or a trap that cost real
 time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
 
+### Bare `@typeParam` — drop it, and only it (#40)
+
+- **The gap the fixtures surfaced, now closed.** A description-less JSDoc
+  `@template T` renamed to a bare `@typeParam T`, which TSDoc rejects
+  (`tsdoc-param-tag-missing-hyphen`) — a comment that read fine failed `check`.
+  The `add-hyphen-separator` rule can't rescue it: with no description there is
+  no text to put a ` - ` in front of.
+- **Drop, don't synthesize.** A bare type param documents nothing a reader
+  cannot already see in the declaration's `<T>` clause, so the new
+  `drop-bare-type-param` rule removes the line rather than inventing prose. No
+  data is lost because there was none — the same no-prose-no-loss test the
+  `@property` and dotted-`@param` work established.
+- **The `@param`/`@typeParam` asymmetry is deliberate, and will draw review
+  fire.** A bare `@param name` is _left_ (it becomes one of the handful `check`
+  reports for a human), but a bare `@typeParam` is _dropped_. The difference: a
+  value parameter's `@param` is the author's only record they meant to document
+  it; a type parameter is always fully visible in `<T>`, so the tag is pure
+  redundancy. Dropping `@param` too would erase intent; dropping `@typeParam`
+  erases noise.
+- **It catches the hand-written case, not just the renamed one.** Making it a
+  standalone rule (rather than a branch inside `rename-tags`) means a
+  hand-authored bare `@typeParam T` — also invalid — is fixed as well. It runs
+  with the structural removals, after the hyphen rule has had its chance.
+- **Lite-safe on purpose.** `rename-tags` is lite-safe, so `convert --lite` on
+  `@template T` produces the bare `@typeParam`; the rule that keeps that output
+  valid has to run in lite mode too, or `--lite` would emit invalid TSDoc.
+- **Single-line limit, recorded not hidden.** `/** @typeParam T */` is left as
+  is — the tag is the comment's whole content, and dropping it would leave an
+  empty `/** */`. Same single-line boundary `fold-dotted-param` already documents.
+
 ### Phase-9 fixtures — synthetic, because the ground truth is proprietary
 
 - **The richest fixture cannot be committed.** `osa-nextjs` (the before/human

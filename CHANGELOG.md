@@ -182,6 +182,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `convert` no longer leaves a description-less `@typeParam` behind, which TSDoc
+  rejects (`tsdoc-param-tag-missing-hyphen`) exactly as it does a hyphenless
+  `@param`. A JSDoc `@template T` with no description renamed to a bare
+  `@typeParam T` and failed `check`; a new `drop-bare-type-param` rule removes
+  the tag instead — it documents nothing a reader cannot see in the
+  declaration's `<T>` clause, so no prose is lost. A bare `@param` is
+  deliberately left for `check` to surface, since a value parameter's name is
+  the only record the author meant to document it. The rule is `--lite`-safe, so
+  the minimal `@param`/`@returns` pass keeps its output valid too.
+
 - `scaffold` no longer emits `@param this` for a function declaring an explicit
   `this` type annotation. TypeScript models it as a parameter, so stubs were
   written into real source documenting an argument callers never pass, and
