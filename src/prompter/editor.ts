@@ -42,7 +42,12 @@ export function resolveEditor(): string {
  */
 function launchEditor(editor: string, file: string): Promise<void> {
   return new Promise((resolvePromise, reject) => {
-    // `shell: true` lets `$EDITOR` carry its own arguments (e.g. `code --wait`).
+    // `shell: true` lets `$EDITOR` carry its own arguments (`code --wait`) and
+    // lets Windows resolve a `.cmd` shim (VS Code's `code`). The cost is that a
+    // space in the path is shell-split; the temp-dir prefix is space-free, so
+    // this only bites an unusual spaced source basename or a spaced OS temp root.
+    // Chosen over spawning without a shell, which would break the common `.cmd`
+    // editors on Windows outright.
     const child = spawn(editor, [file], { stdio: "inherit", shell: true });
     child.on("error", reject);
     child.on("close", (code, signal) => {

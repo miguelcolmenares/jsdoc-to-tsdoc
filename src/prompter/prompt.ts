@@ -35,5 +35,19 @@ export async function promptFileAction(view: FileView): Promise<FileAction> {
     ],
   });
 
-  return clack.isCancel(choice) ? "quit" : (choice as FileAction);
+  if (clack.isCancel(choice)) {
+    return "quit";
+  }
+  // A defensive invariant rather than a cast: the selection must be one of the
+  // declared option values, so anything else is a programmer error (or a library
+  // behavior change) that should fail loudly instead of slipping through.
+  if (
+    choice === "accept" ||
+    choice === "skip" ||
+    choice === "edit" ||
+    choice === "quit"
+  ) {
+    return choice;
+  }
+  throw new Error(`Unexpected interactive selection: ${String(choice)}`);
 }
