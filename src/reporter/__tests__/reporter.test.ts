@@ -3,7 +3,11 @@ import { describe, expect, it } from "vitest";
 import { createColors, shouldUseColor } from "@/reporter/colors";
 import { formatFileDiff } from "@/reporter/dry-run-reporter";
 import { toJsonReport, toMarkdownTable } from "@/reporter/json-reporter";
-import { formatConvertSummary, formatTable } from "@/reporter/summary-reporter";
+import {
+  formatConvertSummary,
+  formatInteractiveSummary,
+  formatTable,
+} from "@/reporter/summary-reporter";
 
 const plain = createColors(false);
 
@@ -128,6 +132,30 @@ describe("formatConvertSummary", () => {
       plain,
     );
     expect(summary).toContain("5 line comment(s) promoted to /** */");
+  });
+});
+
+describe("formatInteractiveSummary", () => {
+  it("reports written and skipped counts and omits the remainder", () => {
+    const summary = formatInteractiveSummary(
+      { written: 3, skipped: 1, remaining: 0, quit: false },
+      plain,
+    );
+    expect(summary).toContain("3 written");
+    expect(summary).toContain("1 skipped");
+    expect(summary).not.toContain("left");
+  });
+
+  // Quitting mid-run is the only case that leaves files untouched, so the
+  // remainder is stated only then.
+  it("states the untouched remainder after a quit", () => {
+    const summary = formatInteractiveSummary(
+      { written: 1, skipped: 0, remaining: 2, quit: true },
+      plain,
+    );
+    expect(summary).toContain("1 written");
+    expect(summary).toContain("0 skipped");
+    expect(summary).toContain("2 left (quit)");
   });
 });
 
