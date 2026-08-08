@@ -11,8 +11,9 @@
  * stripped and tags renamed before separators are inserted. Folding dotted
  * `@param parent.child` runs after the hyphen separator, so every child already
  * carries the ` - ` the fold parses. Structural line removals run last so
- * earlier rules see the full comment. `RULES` is frozen to keep the pipeline
- * deterministic.
+ * earlier rules see the full comment — dropping a bare `@typeParam` among them,
+ * after the hyphen rule has had its chance to make it valid. `RULES` is frozen
+ * to keep the pipeline deterministic.
  *
  * @since 0.1.0
  */
@@ -22,6 +23,7 @@ import type { Rule } from "@/transformer/pipeline";
 import { addHyphenSeparator } from "@/transformer/rules/add-hyphen-separator";
 import { convertAccessTags } from "@/transformer/rules/convert-access-tags";
 import { convertFileOverview } from "@/transformer/rules/convert-file-overview";
+import { dropBareTypeParam } from "@/transformer/rules/drop-bare-type-param";
 import { escapeBareAtSign } from "@/transformer/rules/escape-bare-at-sign";
 import { fenceExampleBlocks } from "@/transformer/rules/fence-example-blocks";
 import { foldDottedParam } from "@/transformer/rules/fold-dotted-param";
@@ -37,6 +39,7 @@ export {
   addHyphenSeparator,
   convertAccessTags,
   convertFileOverview,
+  dropBareTypeParam,
   escapeBareAtSign,
   fenceExampleBlocks,
   foldDottedParam,
@@ -63,6 +66,7 @@ export const RULES: readonly Rule[] = Object.freeze([
   foldDottedParam,
   convertAccessTags,
   convertFileOverview,
+  dropBareTypeParam,
   removeRedundantTags,
   removeJsdocOnlyTags,
   stripPrefixTags,
