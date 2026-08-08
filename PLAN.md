@@ -87,7 +87,7 @@ report correct documentation on nearly every React component as stale. Parameter
 staleness is therefore not judged at all for destructured signatures, and
 parameter gaps only once such a comment documents no parameter whatsoever.
 
-Coverage: 629 tests, ~95.7 % overall — 100 % on the classifier and validator,
+Coverage: 681 tests, ~95.7 % overall — 100 % on the classifier and validator,
 ~99 % on the generator and scaffolder, and ~95–98 % across the transformer
 rules, parser, scanner, and escalator.
 
@@ -98,7 +98,6 @@ rules, parser, scanner, and escalator.
 - `--commit-per-file`.
 - Reuse the `@microsoft/tsdoc` validation pass inside `convert`, so a
   transformed comment is proven valid before it is written.
-- Fixture-based snapshot tests seeded from the three real migrations.
 - **Agent customization (next iteration):** flesh out the `.github/copilot-instructions.md`
   TODO into path-specific `.github/instructions/*.instructions.md` files
   (architecture, documentation, testing, reviews) and reusable `.github/skills/`
@@ -940,7 +939,7 @@ to consumers):
 - **Location**: `__tests__/` colocated with the module under test (never a global top-level `tests/`).
 - **Naming**: `<module-name>.test.ts` mirrors the source filename.
 - **Coverage targets**: 100% for pure transformer rules and the tag registry; ≥ 80% overall.
-- **Fixtures**: Real code snippets from the three completed migrations (see [Fixture Strategy](#fixture-strategy)); no synthetic-only tests for the transformer pipeline.
+- **Fixtures**: Committed fixtures are synthetic before→target pairs (see [Fixture Strategy](#fixture-strategy)) — `jsdoc-to-tsdoc` is public, so the real (private-repo) migrations are a locally-reproducible baseline, not committed source.
 - **Snapshot tests** for full pipeline outputs; **unit tests** for individual rules.
 - **Mocks defined before imports** (Vitest hoists `vi.mock` — same rule as Jest).
 - **No shared mutable state** between tests. Each test builds its own fixture in a temp dir when I/O is required.
@@ -1095,9 +1094,16 @@ Codebase discipline:
 
 ## Fixture Strategy
 
-Snapshot tests are seeded from the three real migrations already completed.
-Fixtures are stored in `tests/fixtures/<repo>/<before|after>/` and cover the
-end-to-end pipeline (init + convert + scaffold + escalate).
+Committed fixtures are **synthetic**: hand-authored before→target pairs in
+`fixtures/convert/`, one per conversion class, asserted by
+`src/__tests__/repo-fixtures.test.ts` (see `fixtures/README.md`). The target is
+authored independently as the correct TSDoc, so a rule that regresses to being
+**consistently** wrong fails the test — which a self-snapshot could not catch.
+`jsdoc-to-tsdoc` is public and the richest ground truth (`osa-nextjs`) is a
+private company repo, so its source is never committed; instead its match figure
+(64 of 80 files byte-identical) is a locally-reproducible baseline. The real
+migrations remain the yardstick, extracted locally from the pinned pre-migration
+commits below.
 
 | Fixture set | Source | Pre-migration commit | Files | Notable patterns |
 | ------------- | -------- | ---------------------- | ------- | ------------------ |
@@ -1132,7 +1138,7 @@ re-extract its own inputs.
 | 6.5 | **Classifier domain + `scan --classify`** and the confidence gates | **Done** — `classifier` domain, `--fail-on-missing` / `--fail-on-stale` |
 | 7 | Interactive review (`@clack/prompts`) | **Done** — `prompter` domain + `convert`/`scaffold` `--interactive` |
 | 8 | **Escalator + preflight ESLint check** | **Done** — `escalator` domain + `escalate` command |
-| 9 | Fixture-based snapshot tests (3 real repos) | **Partial** — unit + integration tests done (567 tests, ~95 %); repo fixtures pending |
+| 9 | Fixture-based snapshot tests | **Done** — `fixtures/convert/` before→target pairs, asserted against an independent hand-authored target (see `fixtures/README.md`); `osa` baseline 64/80 recorded |
 | 10 | Dogfood on a 4th real repo end-to-end | Not started |
 | 11 | npm publish as `jsdoc-to-tsdoc` v0.1.0 | Not started |
 
