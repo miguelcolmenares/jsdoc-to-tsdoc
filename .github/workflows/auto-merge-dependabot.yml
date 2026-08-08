@@ -1,10 +1,18 @@
 name: Auto-merge Dependabot PRs
 
-# Auto-merge Dependabot's minor and patch updates once required checks pass.
-# Runs on `pull_request`; the job-level `permissions:` block elevates the
-# GITHUB_TOKEN for Dependabot's own PRs. Major updates are left for manual
-# review, matching the "Separate major updates for careful review" intent in
-# .github/dependabot.yml.
+# Auto-merge Dependabot's minor and patch updates once required checks pass AND
+# the bumped versions have aged past a release-age cooldown. Runs on
+# `pull_request`; the job-level `permissions:` block elevates the GITHUB_TOKEN
+# for Dependabot's own PRs. Major updates are left for manual review, matching
+# the "Separate major updates for careful review" intent in .github/dependabot.yml.
+#
+# Release-age cooldown (supply-chain guard): a freshly-published version is the
+# window in which a compromised or broken release is most likely still live —
+# `npm ci` runs a dependency's install scripts on the runner, so a bad release
+# is a risk the test suite would not catch. The cooldown holds auto-merge until
+# every bumped version in the PR has been public for a minimum number of days
+# (patch: 3, minor: 7). A held PR stays open for a human to review and merge —
+# nothing is rejected, only kept from merging itself too soon.
 #
 # This workflow is only half the gate. The other half is branch protection on
 # `main`, which lists the nine `check (node … · …)` contexts as required —
@@ -25,15 +33,117 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      issues: write
     steps:
       - name: Fetch Dependabot metadata
         id: metadata
         uses: dependabot/fetch-metadata@v3
 
-      - name: Enable auto-merge for minor and patch updates
-        # Skip semver-major bumps; they need a human. Reads the update type from
-        # the Dependabot metadata rather than parsing the PR title.
+      - name: Enforce release-age cooldown
+        id: cooldown
+        # Majors are never auto-merged, so their age is moot — skip the check and
+        # leave `merge` unset, which the merge step already excludes on its own.
         if: steps.metadata.outputs.update-type != 'version-update:semver-major'
+        uses: actions/github-script@v7
+        env:
+          UPDATED: ${{ steps.metadata.outputs.updated-dependencies-json }}
+          UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
+        with:
+          script: |
+            const DAY = 86_400_000;
+            const HOLD_MARKER = "<!-- dependabot-cooldown-hold -->";
+            const updated = JSON.parse(process.env.UPDATED || "[]");
+            // A grouped PR carries several deps; fetch-metadata reports the
+            // highest bump in the group as update-type, so a group holding any
+            // minor lands on the 7-day threshold — the conservative choice.
+            const isPatch =
+              process.env.UPDATE_TYPE === "version-update:semver-patch";
+            const minDays = isPatch ? 3 : 7;
+            const now = Date.now();
+
+            const checked = [];
+            const young = [];
+            for (const dep of updated) {
+              const name = dep.dependencyName;
+              const version = dep.newVersion;
+              if (!name || !version) {
+                // No metadata to verify → fail closed rather than wave it through.
+                young.push(`${name ?? "unknown"} (missing version metadata)`);
+                continue;
+              }
+              let publishedAt;
+              try {
+                const res = await fetch(
+                  `https://registry.npmjs.org/${name.replace("/", "%2F")}`,
+                  { headers: { "user-agent": "dependabot-cooldown" } },
+                );
+                if (!res.ok) throw new Error(`registry ${res.status}`);
+                publishedAt = (await res.json()).time?.[version];
+              } catch (err) {
+                // A registry hiccup must not auto-merge an unverified version.
+                young.push(`${name}@${version} (registry lookup failed: ${err.message})`);
+                continue;
+              }
+              if (!publishedAt) {
+                young.push(`${name}@${version} (no publish time on registry)`);
+                continue;
+              }
+              const ageDays = (now - new Date(publishedAt).getTime()) / DAY;
+              checked.push(`${name}@${version}: ${ageDays.toFixed(1)}d`);
+              if (ageDays < minDays) {
+                young.push(`${name}@${version} (${ageDays.toFixed(1)}d < ${minDays}d)`);
+              }
+            }
+
+            core.info(`Release-age cooldown threshold: ${minDays} day(s).`);
+            for (const line of checked) core.info(`  ${line}`);
+
+            const ok = young.length === 0;
+            core.setOutput("merge", ok ? "true" : "false");
+            if (ok) return;
+
+            core.warning(`Auto-merge held by cooldown: ${young.join("; ")}`);
+
+            // Comment once, not on every rebase-triggered re-run.
+            try {
+              const prNumber = context.payload.pull_request.number;
+              const { data: comments } =
+                await github.rest.issues.listComments({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  per_page: 100,
+                });
+              if (comments.some((c) => c.body?.includes(HOLD_MARKER))) return;
+              const body = [
+                HOLD_MARKER,
+                `🕒 **Auto-merge held by the release-age cooldown** (minimum ${minDays} day(s)).`,
+                "",
+                "These bumped versions are too new to auto-merge — a guard against freshly-published malicious or broken releases:",
+                "",
+                ...young.map((y) => `- ${y}`),
+                "",
+                "The PR stays open for manual review. It will not merge on its own; re-run this workflow (or merge manually) once the versions have aged.",
+              ].join("\n");
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body,
+              });
+            } catch (err) {
+              // The comment is courtesy; the gate is `merge=false`. Never let a
+              // comment failure fail the step and imply something merged.
+              core.warning(`Could not post cooldown comment: ${err.message}`);
+            }
+
+      - name: Enable auto-merge for minor and patch updates
+        # Skip semver-major bumps; they need a human. Also require the cooldown to
+        # have cleared every bumped version. Reads the update type from the
+        # Dependabot metadata rather than parsing the PR title.
+        if: >-
+          steps.metadata.outputs.update-type != 'version-update:semver-major' &&
+          steps.cooldown.outputs.merge == 'true'
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ github.token }}
