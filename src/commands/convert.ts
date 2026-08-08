@@ -200,6 +200,25 @@ export default defineCommand({
       }
 
       if (interactive) {
+        // Nothing to review: show the same clean message the non-interactive
+        // run gives rather than a bare "0 written · 0 skipped" with no prompt.
+        if (changes.length === 0) {
+          process.stdout.write(
+            `${formatConvertSummary(
+              {
+                filesScanned: files.length,
+                filesChanged: 0,
+                commentsChanged: 0,
+                membersDocumented: 0,
+                commentsPromoted: 0,
+                wrote: true,
+              },
+              colors,
+            )}\n`,
+          );
+          return;
+        }
+
         const result = await runInteractive(changes, {
           prompt: promptFileAction,
           edit: (change) => editInEditor(change.path, change.proposed),

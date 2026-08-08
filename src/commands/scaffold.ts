@@ -189,6 +189,15 @@ export default defineCommand({
       }
 
       if (interactive) {
+        // Nothing to review: show the same clean message the non-interactive
+        // run gives rather than a bare "0 written · 0 skipped" with no prompt.
+        if (changes.length === 0) {
+          process.stdout.write(
+            `${colors.green("✓ Every export already has TSDoc.")}\n`,
+          );
+          return;
+        }
+
         const result = await runInteractive(changes, {
           prompt: promptFileAction,
           edit: (change) => editInEditor(change.path, change.proposed),
