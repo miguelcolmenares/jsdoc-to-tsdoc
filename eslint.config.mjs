@@ -18,7 +18,9 @@ import tseslint from "typescript-eslint";
  */
 export default tseslint.config(
   {
-    ignores: ["dist/**", "coverage/**", "node_modules/**"],
+    // `fixtures/` holds conversion test data — intentionally pre-migration
+    // JSDoc and byte-exact expected output — not project source to lint.
+    ignores: ["dist/**", "coverage/**", "node_modules/**", "fixtures/**"],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

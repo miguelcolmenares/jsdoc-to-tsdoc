@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Phase-9 conversion ground-truth fixtures (`fixtures/convert/`): one before→
+  target pair per conversion class, asserted by `src/__tests__/repo-fixtures.test.ts`
+  to check `convert(input) === target`, that the target is valid TSDoc, and that
+  the target is idempotent. The target is authored independently as the correct
+  TSDoc, so a rule that regresses to being consistently wrong fails the test —
+  which a self-snapshot could not catch. Committed fixtures are synthetic because
+  the repo is public; the `osa-nextjs` figure (64 of 80 files byte-identical to
+  `convert`) is recorded as a locally-reproducible baseline in `fixtures/README.md`.
+
 - `convert --interactive` / `scaffold --interactive` (`-i`) review each changed
   file one at a time — showing its diff and prompting **accept · skip · edit ·
   quit**, where _edit_ opens the proposal in `$VISUAL`/`$EDITOR` and writes back

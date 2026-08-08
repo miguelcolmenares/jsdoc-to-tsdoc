@@ -403,6 +403,34 @@ Newest first. Each entry records what shipped and, more importantly, **the
 non-obvious things** — a decision and its reasoning, or a trap that cost real
 time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
 
+### Phase-9 fixtures — synthetic, because the ground truth is proprietary
+
+- **The richest fixture cannot be committed.** `osa-nextjs` (the before/human
+  pair phase 9 wanted) is a private company repo; `jsdoc-to-tsdoc` is public.
+  Committing its source would publish proprietary code irreversibly. Committed
+  fixtures are **synthetic** instead — hand-authored `input.ts`→`expected.ts`
+  pairs in `fixtures/convert/`, one per conversion class.
+- **The target must be independent, or the test is theatre.** A self-snapshot
+  (compare `convert` output to a saved copy of `convert` output) cannot catch a
+  rule that is _consistently_ wrong — the snapshot is wrong the same way. So
+  `expected.ts` is authored by hand as the correct TSDoc and machine-checked with
+  the validator; `convert(input) === expected` then means the pipeline reaches an
+  independently-correct answer, not merely a stable one.
+- **The validator earned its place immediately.** It rejected the first
+  `tag-renames` target: `@template T` with no description became `@typeParam T`,
+  which is invalid TSDoc (`@typeParam` needs a name _and_ a hyphen). That is a
+  real `convert` gap for a bare, description-less `@template` — filed separately;
+  the fixture uses the common described form.
+- **The `osa` figure is a locally-reproducible baseline, not a committed asset.**
+  Measured 64 of 80 human-migrated files now byte-identical to `convert` (was 41
+  when phase 9 was scoped — the fence / bare-`@` / dotted-`@param` rules raised
+  it). `fixtures/README.md` records the re-extraction command, which must run
+  against the pinned commits, never a working copy the CLI already converted.
+- **Fixtures live outside every tool's scope.** `tsconfig` (`include: ["src"]`)
+  and ESLint (`files: ["src/**"]`) already ignore `fixtures/`; the byte-exact
+  files are added to `.prettierignore`, the ESLint ignore list, and the
+  `check:tsdoc` `--exclude` so no formatter or linter rewrites the thing on test.
+
 ### Interactive mode (`--interactive`, phase 7) — built, not dropped
 
 - **The issue (#31) recommended _dropping_ `@clack/prompts` and re-scoping phase

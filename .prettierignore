@@ -16,3 +16,9 @@ package-lock.json
 # A formatter that edits documentation about whitespace is not worth the aligned
 # tables.
 *.md
+
+# Conversion fixtures are byte-exact: `input.ts` is intentionally pre-migration
+# JSDoc, and `expected.ts` is the hand-authored TSDoc target the test asserts
+# against. A formatter rewriting either would decouple the fixture from what it
+# pins.
+fixtures/
