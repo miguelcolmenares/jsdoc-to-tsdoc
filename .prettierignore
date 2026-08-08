@@ -18,6 +18,7 @@ package-lock.json
 *.md
 
 # Conversion fixtures are byte-exact: `input.ts` is intentionally pre-migration
-# JSDoc, and `expected.ts` is the literal `convert` output the test asserts on.
-# A formatter rewriting either would decouple the fixture from what it pins.
+# JSDoc, and `expected.ts` is the hand-authored TSDoc target the test asserts
+# against. A formatter rewriting either would decouple the fixture from what it
+# pins.
 fixtures/
