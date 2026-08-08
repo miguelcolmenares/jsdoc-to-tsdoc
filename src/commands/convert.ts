@@ -128,7 +128,10 @@ export default defineCommand({
         interactive,
         dryRun,
         check,
-        report: reportFormat !== undefined,
+        // Keyed on whether --report was passed at all, not on whether it parsed
+        // to a known format, so `--interactive --report=table` is rejected too —
+        // any report request contradicts an interactive run.
+        report: args.report !== undefined,
         isTTY: Boolean(process.stdin.isTTY && process.stdout.isTTY),
       });
       if (conflict !== undefined) {
