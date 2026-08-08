@@ -6,7 +6,7 @@
  */
 
 import { readFile } from "node:fs/promises";
-import { relative, resolve } from "node:path";
+import { relative, resolve, sep } from "node:path";
 
 import { defineCommand } from "citty";
 
@@ -196,7 +196,10 @@ export default defineCommand({
           continue;
         }
 
-        const relativePath = relative(cwd, file);
+        // Forward slashes regardless of platform, so the identifier that lands
+        // in a commit subject, a report, and a diff header reads the same on
+        // Windows as on POSIX (and git takes a `/` pathspec everywhere).
+        const relativePath = relative(cwd, file).split(sep).join("/");
         scaffoldedFiles.push({
           path: relativePath,
           stubsAdded: scaffold.stubsAdded,

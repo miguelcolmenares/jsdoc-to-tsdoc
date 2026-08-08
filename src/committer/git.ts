@@ -48,9 +48,19 @@ export async function ensureCommittable(cwd: string): Promise<void> {
   let inside: string;
   try {
     inside = await git(cwd, ["rev-parse", "--is-inside-work-tree"]);
-  } catch {
+  } catch (error) {
+    // `git` missing from PATH is a different failure than "no repository here",
+    // and the fix ("install git") is different too — say so instead of blaming
+    // the directory.
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      throw new Error(
+        "--commit-per-file needs git, but the `git` command was not found on your PATH.",
+        { cause: error },
+      );
+    }
     throw new Error(
       "--commit-per-file needs a git repository, but none was found at the target directory.",
+      { cause: error },
     );
   }
   if (inside !== "true") {
@@ -59,11 +69,15 @@ export async function ensureCommittable(cwd: string): Promise<void> {
     );
   }
 
-  const status = await git(cwd, ["status", "--porcelain"]);
-  const trackedChange = status
-    .split("\n")
-    .some((line) => line.trim() !== "" && !line.startsWith("??"));
-  if (trackedChange) {
+  // `--untracked-files=no` lets git filter untracked entries itself, so any
+  // remaining output is a tracked change (staged or unstaged) — no porcelain
+  // string-parsing, and untracked files are allowed by construction.
+  const status = await git(cwd, [
+    "status",
+    "--porcelain",
+    "--untracked-files=no",
+  ]);
+  if (status.trim() !== "") {
     throw new Error(
       "--commit-per-file needs a clean working tree, but there are uncommitted changes. " +
         "Commit or stash them first (untracked files are fine).",
