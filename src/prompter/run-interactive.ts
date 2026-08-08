@@ -35,12 +35,10 @@ export async function runInteractive(
   const written: string[] = [];
   const skipped: string[] = [];
 
-  for (let index = 0; index < changes.length; index += 1) {
-    const change = changes[index];
-    if (change === undefined) {
-      continue;
-    }
-
+  // `entries()` types `change` as present, so neither the loop nor the quit
+  // branch below needs an index-access `undefined` guard — the two stay
+  // symmetric by construction rather than by a pair of matching checks.
+  for (const [index, change] of changes.entries()) {
     const action = await effects.prompt({
       index: index + 1,
       total: changes.length,
