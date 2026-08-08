@@ -6,13 +6,19 @@
  */
 
 import { readFile } from "node:fs/promises";
-import { relative, resolve } from "node:path";
+import { relative, resolve, sep } from "node:path";
 
 import { defineCommand } from "citty";
 
+import {
+  commitFile,
+  convertCommitMessage,
+  ensureCommittable,
+} from "@/committer";
 import { convertSourceText } from "@/commands/convert-file";
 import { reportCommandFailure } from "@/commands/command-failure";
 import {
+  commitPerFileConflict,
   interactiveConflict,
   parseReportFormat,
   splitGlobs,
@@ -100,6 +106,11 @@ export default defineCommand({
       description: "Review each changed file and accept/skip/edit/quit.",
       alias: "i",
     },
+    "commit-per-file": {
+      type: "boolean",
+      description:
+        "Commit each changed file on its own (one reviewable commit).",
+    },
     only: {
       type: "string",
       description: 'Comma-separated globs to include (e.g. "src/lib/**").',
@@ -122,6 +133,7 @@ export default defineCommand({
       const dryRun = Boolean(args["dry-run"]) || Boolean(args.preview);
       const reportFormat = parseReportFormat(args.report);
       const interactive = Boolean(args.interactive);
+      const commitPerFile = Boolean(args["commit-per-file"]);
       const willWrite = !dryRun && !check;
 
       const conflict = interactiveConflict({
@@ -136,6 +148,21 @@ export default defineCommand({
       });
       if (conflict !== undefined) {
         throw new Error(conflict);
+      }
+
+      const commitConflict = commitPerFileConflict({
+        commitPerFile,
+        dryRun,
+        check,
+        report: args.report !== undefined,
+      });
+      if (commitConflict !== undefined) {
+        throw new Error(commitConflict);
+      }
+      // Fail before writing a single file if the tree cannot take clean,
+      // one-file-per-commit history — so a rejected run leaves nothing behind.
+      if (commitPerFile) {
+        await ensureCommittable(cwd);
       }
 
       const useColor =
@@ -161,6 +188,7 @@ export default defineCommand({
       const records: ChangedFile[] = [];
       const changes: FileChange[] = [];
       const diffs: string[] = [];
+      let committed = 0;
 
       for (const file of files) {
         const before = await readFile(file, "utf8");
@@ -172,7 +200,10 @@ export default defineCommand({
           continue;
         }
 
-        const relativePath = relative(cwd, file);
+        // Forward slashes regardless of platform, so the identifier that lands
+        // in a commit subject, a report, and a diff header reads the same on
+        // Windows as on POSIX (and git takes a `/` pathspec everywhere).
+        const relativePath = relative(cwd, file).split(sep).join("/");
         records.push({
           path: relativePath,
           commentsChanged: conversion.commentsChanged,
@@ -195,6 +226,14 @@ export default defineCommand({
           });
         } else if (willWrite) {
           await writeFileText(file, conversion.output);
+          if (commitPerFile) {
+            await commitFile(
+              cwd,
+              relativePath,
+              convertCommitMessage(relativePath),
+            );
+            committed += 1;
+          }
         } else if (reportFormat === undefined) {
           diffs.push(
             formatFileDiff(relativePath, before, conversion.output, colors),
@@ -233,6 +272,16 @@ export default defineCommand({
         const applied = records.filter((record) => written.has(record.path));
         const sums = totals(applied);
 
+        // Commit the accepted files in the order they were reviewed. An `edit`
+        // in `$EDITOR` is already saved to the file, so the commit captures the
+        // user's final content, not just what `convert` proposed.
+        if (commitPerFile) {
+          for (const path of result.written) {
+            await commitFile(cwd, path, convertCommitMessage(path));
+            committed += 1;
+          }
+        }
+
         process.stdout.write(
           `${formatInteractiveSummary(
             {
@@ -264,6 +313,11 @@ export default defineCommand({
               },
               colors,
             )}\n`,
+          );
+        }
+        if (committed > 0) {
+          process.stdout.write(
+            `${colors.dim(`Committed ${String(committed)} file(s), one commit each.`)}\n`,
           );
         }
         return;
@@ -312,6 +366,11 @@ export default defineCommand({
         if (!willWrite && records.length > 0) {
           process.stdout.write(
             `${colors.dim("Preview only — re-run without --dry-run/--check to apply.")}\n`,
+          );
+        }
+        if (committed > 0) {
+          process.stdout.write(
+            `${colors.dim(`Committed ${String(committed)} file(s), one commit each.`)}\n`,
           );
         }
       }

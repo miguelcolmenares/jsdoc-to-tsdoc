@@ -85,6 +85,49 @@ export function interactiveConflict(context: {
 }
 
 /**
+ * Checks whether `--commit-per-file` is usable given the other flags.
+ *
+ * @remarks
+ * Committing each changed file only makes sense when the command actually
+ * writes, so it is rejected alongside the flags that never write
+ * (`--dry-run`/`--preview`, `--check`, `--report`) — the same set
+ * {@link interactiveConflict} rejects, minus the TTY requirement, since a commit
+ * needs no terminal. It intentionally *does* combine with `--interactive`: each
+ * accepted file is committed. This only validates flag combinations; whether the
+ * directory is a committable git work tree is a separate, filesystem check
+ * (`ensureCommittable`) the command runs before writing.
+ *
+ * @param context - Whether commit-per-file was requested and which non-writing
+ * flags are set.
+ * @returns A message explaining why it cannot run, or `undefined` when it can
+ * (including when it was not requested at all).
+ */
+export function commitPerFileConflict(context: {
+  readonly commitPerFile: boolean;
+  readonly dryRun: boolean;
+  readonly check: boolean;
+  readonly report: boolean;
+}): string | undefined {
+  if (!context.commitPerFile) {
+    return undefined;
+  }
+  const blockers: string[] = [];
+  if (context.dryRun) {
+    blockers.push("--dry-run/--preview");
+  }
+  if (context.check) {
+    blockers.push("--check");
+  }
+  if (context.report) {
+    blockers.push("--report");
+  }
+  if (blockers.length > 0) {
+    return `--commit-per-file cannot be combined with ${blockers.join(", ")}.`;
+  }
+  return undefined;
+}
+
+/**
  * Parses the `--severity` option into a rule severity.
  *
  * @param value - The raw option value.

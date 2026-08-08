@@ -403,6 +403,42 @@ Newest first. Each entry records what shipped and, more importantly, **the
 non-obvious things** — a decision and its reasoning, or a trap that cost real
 time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
 
+### `--commit-per-file` — one reviewable commit per file (#41)
+
+- **The last v0.1.0 operational-mode flag, now shipped.** `convert` / `scaffold`
+  `--commit-per-file` writes and commits each changed file on its own, so a
+  repo-wide migration is reviewable and revertible file by file instead of as
+  one wall of diff. New CLI-I/O `committer` domain, kept out of the root library
+  barrel like `prompter`/`reporter`/`writer` — a library consumer drives its own
+  VCS. `public-surface.test.ts` is unaffected precisely because it is absent.
+- **Clean-tree guard, and it runs _before_ the first write.** `ensureCommittable`
+  rejects a non-repo or a tree with staged/unstaged tracked changes up front, so
+  a refused run leaves the working copy untouched — no half-converted, half-
+  committed state. Untracked files are allowed: they are not part of any commit
+  the mode makes. The check is global rather than per-file on purpose — the
+  simplest contract to reason about, and a migration is expected to start clean.
+- **`execFile`, not a shell — the opposite choice from the editor launcher.**
+  `editor.ts` uses `spawn(..., { shell: true })` because `$EDITOR` legitimately
+  carries its own arguments (`code --wait`). Git needs none of that, and a source
+  path can contain a space or a shell metacharacter, so `commitFile` passes an
+  argument list to `execFile` with no shell — the path reaches git verbatim. A
+  test commits `a b.ts` to pin it.
+- **Commits are pathspec-scoped both ways.** `git add -- <path>` then
+  `git commit -m … -- <path>`: even if the index held something else, the commit
+  carries only this file. With the clean-tree guard that is the normal case, not
+  a fallback — belt and suspenders, cheaply.
+- **Combines with `--interactive`; rejected with the non-writing flags.** Like
+  `--interactive`, it only makes sense when the command writes, so
+  `commitPerFileConflict` rejects it with `--dry-run`/`--preview`, `--check`,
+  `--report` (but needs no TTY). With `--interactive` it commits each _accepted_
+  file in review order after `runInteractive` returns — an `$EDITOR` edit is
+  already on disk, so the commit captures the user's final content, uncounted as
+  a separate change.
+- **Tested end to end against a real temp git repo**, not a mock: the handler
+  runs, and the assertions read `git log`/`git status`. The one thing that needs
+  care on CI — git identity — is set per temp repo (`-c user.email`/`user.name`
+  are configured in the fixture), since a fresh runner has none.
+
 ### Bare `@typeParam` — drop it, and only it (#40)
 
 - **The gap the fixtures surfaced, now closed.** A description-less JSDoc

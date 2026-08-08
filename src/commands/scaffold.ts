@@ -6,12 +6,18 @@
  */
 
 import { readFile } from "node:fs/promises";
-import { relative, resolve } from "node:path";
+import { relative, resolve, sep } from "node:path";
 
 import { defineCommand } from "citty";
 
+import {
+  commitFile,
+  ensureCommittable,
+  scaffoldCommitMessage,
+} from "@/committer";
 import { reportCommandFailure } from "@/commands/command-failure";
 import {
+  commitPerFileConflict,
   interactiveConflict,
   parseReportFormat,
   splitGlobs,
@@ -100,6 +106,11 @@ export default defineCommand({
       description: "Review each scaffolded file and accept/skip/edit/quit.",
       alias: "i",
     },
+    "commit-per-file": {
+      type: "boolean",
+      description:
+        "Commit each changed file on its own (one reviewable commit).",
+    },
     only: {
       type: "string",
       description: 'Comma-separated globs to include (e.g. "src/actions/**").',
@@ -120,6 +131,7 @@ export default defineCommand({
       const dryRun = Boolean(args["dry-run"]) || Boolean(args.preview);
       const reportFormat = parseReportFormat(args.report);
       const interactive = Boolean(args.interactive);
+      const commitPerFile = Boolean(args["commit-per-file"]);
       const willWrite = !dryRun && !check;
 
       const conflict = interactiveConflict({
@@ -134,6 +146,21 @@ export default defineCommand({
       });
       if (conflict !== undefined) {
         throw new Error(conflict);
+      }
+
+      const commitConflict = commitPerFileConflict({
+        commitPerFile,
+        dryRun,
+        check,
+        report: args.report !== undefined,
+      });
+      if (commitConflict !== undefined) {
+        throw new Error(commitConflict);
+      }
+      // Fail before writing a single file if the tree cannot take clean,
+      // one-file-per-commit history — so a rejected run leaves nothing behind.
+      if (commitPerFile) {
+        await ensureCommittable(cwd);
       }
 
       const useColor =
@@ -158,6 +185,7 @@ export default defineCommand({
       const changes: FileChange[] = [];
       const diffs: string[] = [];
       let exportsFound = 0;
+      let committed = 0;
 
       for (const file of files) {
         const before = await readFile(file, "utf8");
@@ -168,7 +196,10 @@ export default defineCommand({
           continue;
         }
 
-        const relativePath = relative(cwd, file);
+        // Forward slashes regardless of platform, so the identifier that lands
+        // in a commit subject, a report, and a diff header reads the same on
+        // Windows as on POSIX (and git takes a `/` pathspec everywhere).
+        const relativePath = relative(cwd, file).split(sep).join("/");
         scaffoldedFiles.push({
           path: relativePath,
           stubsAdded: scaffold.stubsAdded,
@@ -184,6 +215,14 @@ export default defineCommand({
           });
         } else if (willWrite) {
           await writeFileText(file, scaffold.output);
+          if (commitPerFile) {
+            await commitFile(
+              cwd,
+              relativePath,
+              scaffoldCommitMessage(relativePath),
+            );
+            committed += 1;
+          }
         } else if (reportFormat === undefined) {
           diffs.push(
             formatFileDiff(relativePath, before, scaffold.output, colors),
@@ -213,6 +252,15 @@ export default defineCommand({
           .filter((file) => written.has(file.path))
           .reduce((sum, file) => sum + file.stubsAdded, 0);
 
+        // Commit the accepted files in review order; an `edit` in `$EDITOR` is
+        // already on disk, so the commit captures the user's final content.
+        if (commitPerFile) {
+          for (const path of result.written) {
+            await commitFile(cwd, path, scaffoldCommitMessage(path));
+            committed += 1;
+          }
+        }
+
         process.stdout.write(
           `${formatInteractiveSummary(
             {
@@ -233,6 +281,11 @@ export default defineCommand({
           );
           process.stdout.write(
             `${colors.dim(`Review the generated prose: grep -rn "${TODO_MARKER}" .`)}\n`,
+          );
+        }
+        if (committed > 0) {
+          process.stdout.write(
+            `${colors.dim(`Committed ${String(committed)} file(s), one commit each.`)}\n`,
           );
         }
         return;
@@ -310,6 +363,11 @@ export default defineCommand({
         } else {
           process.stdout.write(
             `${colors.dim("Preview only — re-run without --dry-run/--check to apply.")}\n`,
+          );
+        }
+        if (committed > 0) {
+          process.stdout.write(
+            `${colors.dim(`Committed ${String(committed)} file(s), one commit each.`)}\n`,
           );
         }
       }
