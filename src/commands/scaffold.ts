@@ -146,6 +146,10 @@ export default defineCommand({
       // Records and per-file counts are small and always kept; the full stubbed
       // output is retained only when the interactive flow must defer the write.
       // A straight write-through streams one file at a time.
+      //
+      // As in `convert`, interactive scans every file before the first prompt so
+      // that `runInteractive` stays a pure orchestrator (testable without a TTY);
+      // a whole-repo run is bounded with `--only`.
       const scaffoldedFiles: ScaffoldedFile[] = [];
       const perFileCounts: Partial<Record<ExportKind, number>>[] = [];
       const changes: FileChange[] = [];
@@ -208,6 +212,9 @@ export default defineCommand({
             colors,
           )}\n`,
         );
+        // The stub count describes what `scaffold` generated for the written
+        // files; a hand `edit` in `$EDITOR` is the user's own change on top and
+        // is not re-counted.
         if (stubsWritten > 0) {
           process.stdout.write(
             `${colors.bold(`Added ${String(stubsWritten)} stub(s) across ${String(result.written.length)} file(s).`)}\n`,

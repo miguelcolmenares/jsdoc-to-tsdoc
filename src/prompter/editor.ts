@@ -31,6 +31,12 @@ export function resolveEditor(): string {
 /**
  * Launches the editor on a file and resolves when it exits cleanly.
  *
+ * @remarks
+ * Waits on `close` (not `exit`) so the editor's inherited stdio is fully flushed
+ * first, and reports a signal termination distinctly from a non-zero exit code —
+ * `code` is `null` when the process was killed, and a bare "code null" is not
+ * actionable. This mirrors `init`'s install runner.
+ *
  * @param editor - The editor command line.
  * @param file - The file to open.
  */
@@ -39,11 +45,13 @@ function launchEditor(editor: string, file: string): Promise<void> {
     // `shell: true` lets `$EDITOR` carry its own arguments (e.g. `code --wait`).
     const child = spawn(editor, [file], { stdio: "inherit", shell: true });
     child.on("error", reject);
-    child.on("exit", (code) => {
+    child.on("close", (code, signal) => {
       if (code === 0) {
         resolvePromise();
+      } else if (signal) {
+        reject(new Error(`Editor was terminated by signal ${signal}.`));
       } else {
-        reject(new Error(`Editor exited with code ${String(code)}.`));
+        reject(new Error(`Editor exited with code ${code ?? "unknown"}.`));
       }
     });
   });

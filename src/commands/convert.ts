@@ -149,6 +149,12 @@ export default defineCommand({
       // and always kept. The full converted output is retained only when the
       // interactive flow must defer the write; a straight write-through streams
       // one file at a time. Diffs are built only where they are shown.
+      //
+      // Interactive deliberately scans every file before the first prompt rather
+      // than interleaving the prompt with the scan: it keeps `runInteractive` a
+      // pure orchestrator (prompt/edit/write injected, no file iteration), which
+      // is what makes accept/skip/edit/quit testable without a TTY. A run over a
+      // whole repo is scoped with `--only`, so the up-front pass is bounded.
       const records: ChangedFile[] = [];
       const changes: FileChange[] = [];
       const diffs: string[] = [];
@@ -219,6 +225,10 @@ export default defineCommand({
         // Only detail the conversion when something was written. With nothing
         // accepted, `formatConvertSummary` would print "nothing to convert —
         // already TSDoc-clean", contradicting the files the user just skipped.
+        //
+        // The counts describe what `convert` proposed for the written files; a
+        // hand `edit` in `$EDITOR` is the user's own change on top and is not
+        // re-counted — the summary reports the conversion, not a post-edit audit.
         if (applied.length > 0) {
           process.stdout.write(
             `${formatConvertSummary(
