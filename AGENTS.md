@@ -403,6 +403,40 @@ Newest first. Each entry records what shipped and, more importantly, **the
 non-obvious things** — a decision and its reasoning, or a trap that cost real
 time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
 
+### Dependabot release-age cooldown — the merge gate, not the lockfile
+
+- **The maintainer chose review over automation for the lockfile problem.** The
+  recurring "Dependabot ships an incomplete lockfile, `npm ci` fails" (#24/#35/
+  #37) could be auto-repaired by a workflow that regenerates and pushes the
+  lockfile — but that needs a PAT or deploy key to re-trigger CI (a
+  `GITHUB_TOKEN` push does not), and an auto-repair that then auto-merges is
+  exactly the supply-chain path the maintainer wanted a human on. So drift stays
+  a manual/agent fix (regenerate off `main`, push). No new automation, no secret.
+- **What we added instead is a _brake_, not a new pusher.** A release-age
+  cooldown in `auto-merge-dependabot.yml`: auto-merge is held until every bumped
+  version in the PR has been public for a minimum (**patch 3 days, minor 7**).
+  A freshly-published version is the window a compromised/broken release is most
+  likely still live, and `npm ci` runs a dep's install scripts on the runner —
+  a risk the test suite cannot see. Held ≠ rejected: the PR stays open for a
+  human, with one explanatory comment.
+- **Why a workflow gate and not Dependabot's native `cooldown`.** The native
+  option delays the PR from opening, which is cleaner, but the gate here is
+  certain (no dependency on that feature's schema) and lands exactly where the
+  decision belongs — the merge step. It reads `updated-dependencies-json` from
+  `fetch-metadata` and queries each version's publish time from the npm registry.
+- **Fail closed.** A missing version, no publish time, or a registry hiccup
+  yields `merge=false`, never a silent pass — an unverifiable age must not
+  auto-merge. Grouped PRs (the config groups minor+patch into one) land on the
+  7-day threshold because `fetch-metadata` reports the group's highest bump.
+- **npm-scoped, via a 404, not an ecosystem string (review #45).** The repo also
+  runs the `github-actions` ecosystem, whose deps (`actions/checkout`, …) are not
+  npm packages — a blanket registry lookup would 404 and, fail-closed, hold those
+  PRs forever. Rather than branch on `fetch-metadata`'s ecosystem output (whose
+  exact value — `npm` vs `npm_and_yarn` — is easy to get wrong), a registry
+  **404 is read as "not an npm package → cooldown N/A"** and the dep passes;
+  only a real npm package that is genuinely too young is held. Other HTTP/network
+  errors still fail closed.
+
 ### `--commit-per-file` — one reviewable commit per file (#41)
 
 - **The last v0.1.0 operational-mode flag, now shipped.** `convert` / `scaffold`
