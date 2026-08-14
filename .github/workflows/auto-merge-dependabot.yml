@@ -49,7 +49,7 @@ jobs:
         # Majors are never auto-merged, so their age is moot — skip the check and
         # leave `merge` unset, which the merge step already excludes on its own.
         if: steps.metadata.outputs.update-type != 'version-update:semver-major'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           UPDATED: ${{ steps.metadata.outputs.updated-dependencies-json }}
           UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
