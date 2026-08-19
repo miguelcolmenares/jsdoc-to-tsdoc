@@ -235,4 +235,52 @@ describe("scaffoldSourceText", () => {
       variable: 1,
     });
   });
+
+  // Reproduces the osa-nextjs `fetchWPAPI` bug: a hand-written doc comment sat
+  // above a `const` that later grew its own one-line comment, so the real doc
+  // ended up shadowed in that `const`'s trivia instead of attached to the
+  // function it was written for. Before the orphaned-comment check existed,
+  // `scaffold` stubbed `fetchWPAPI` directly beneath its own real documentation.
+  describe("when a doc-shaped comment is stranded above the previous statement", () => {
+    const source = [
+      "/**",
+      " * Sends a GraphQL query to the WordPress API.",
+      " *",
+      " * @param query - GraphQL query string",
+      " * @returns Response data",
+      " */",
+      "/** Request timeout for WordPress API calls (ms). */",
+      "const WP_API_TIMEOUT_MS = 10_000;",
+      "",
+      "export const fetchWPAPI = async (query: string) => query;",
+    ].join("\n");
+
+    it("does not insert a duplicate stub", () => {
+      const result = scaffoldSourceText(source, "a.ts");
+
+      expect(result.output).toBe(source);
+      expect(result.changed).toBe(false);
+      expect(result.stubsAdded).toBe(0);
+    });
+
+    it("reports the skip instead of silently doing nothing", () => {
+      const result = scaffoldSourceText(source, "a.ts");
+
+      expect(result.orphanedWarnings).toEqual([
+        { name: "fetchWPAPI", line: 10, orphanLine: 1 },
+      ]);
+    });
+
+    it("still counts the export toward exportsFound", () => {
+      expect(scaffoldSourceText(source, "a.ts").exportsFound).toBe(1);
+    });
+  });
+
+  it("reports no orphaned warnings for an ordinary undocumented export", () => {
+    const result = scaffoldSourceText(
+      "export function bare(): void {}",
+      "a.ts",
+    );
+    expect(result.orphanedWarnings).toEqual([]);
+  });
 });

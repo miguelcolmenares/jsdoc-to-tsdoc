@@ -25,7 +25,10 @@ export {
 
 export { isFunctionLikeKind } from "@/scanner/declaration-classifier";
 
-export { isToolDirective } from "@/scanner/insertion-location";
+export {
+  findShadowedDocComment,
+  isToolDirective,
+} from "@/scanner/insertion-location";
 
 export {
   collectMemberTargets,

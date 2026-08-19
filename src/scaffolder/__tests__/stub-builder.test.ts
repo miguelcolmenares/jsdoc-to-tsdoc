@@ -9,6 +9,7 @@ const declaration = (
 ): ExportedDeclaration => ({
   hasDocComment: false,
   comment: undefined,
+  orphanedComment: undefined,
   insertPos: 0,
   insertEnd: 0,
   indent: "",

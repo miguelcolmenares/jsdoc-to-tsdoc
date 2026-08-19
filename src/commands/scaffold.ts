@@ -37,6 +37,7 @@ import {
   shouldUseColor,
   toJsonReport,
   toMarkdownTable,
+  type Colors,
   type SummaryRow,
 } from "@/reporter";
 import { TODO_MARKER } from "@/scaffolder";
@@ -46,6 +47,13 @@ import { writeFileText } from "@/writer";
 interface ScaffoldedFile {
   readonly path: string;
   readonly stubsAdded: number;
+}
+
+interface OrphanedWarning {
+  readonly path: string;
+  readonly name: string;
+  readonly line: number;
+  readonly orphanLine: number;
 }
 
 /** Merges per-file per-kind stub counts into one total. */
@@ -60,6 +68,29 @@ function mergeCounts(
     }
   }
   return totals;
+}
+
+/** Renders the orphaned-comment warnings as lines for the text-mode report. */
+function formatOrphanedWarnings(
+  warnings: readonly OrphanedWarning[],
+  colors: Colors,
+): string[] {
+  if (warnings.length === 0) {
+    return [];
+  }
+  const lines = [
+    colors.yellow(
+      `⚠ ${String(warnings.length)} export(s) skipped — a doc-shaped comment was found nearby, not attached to anything:`,
+    ),
+  ];
+  for (const warning of warnings) {
+    lines.push(
+      colors.dim(
+        `  ${warning.path}:${String(warning.line)}  ${warning.name} — comment at line ${String(warning.orphanLine)} doesn't attach to any export; move it directly above the declaration it documents.`,
+      ),
+    );
+  }
+  return lines;
 }
 
 const KIND_LABELS: Readonly<Record<ExportKind, string>> = Object.freeze({
@@ -184,6 +215,7 @@ export default defineCommand({
       const perFileCounts: Partial<Record<ExportKind, number>>[] = [];
       const changes: FileChange[] = [];
       const diffs: string[] = [];
+      const orphanedWarnings: OrphanedWarning[] = [];
       let exportsFound = 0;
       let committed = 0;
 
@@ -192,14 +224,18 @@ export default defineCommand({
         const scaffold = scaffoldSourceText(before, file);
         exportsFound += scaffold.exportsFound;
 
-        if (!scaffold.changed) {
-          continue;
-        }
-
         // Forward slashes regardless of platform, so the identifier that lands
         // in a commit subject, a report, and a diff header reads the same on
         // Windows as on POSIX (and git takes a `/` pathspec everywhere).
         const relativePath = relative(cwd, file).split(sep).join("/");
+        for (const warning of scaffold.orphanedWarnings) {
+          orphanedWarnings.push({ path: relativePath, ...warning });
+        }
+
+        if (!scaffold.changed) {
+          continue;
+        }
+
         scaffoldedFiles.push({
           path: relativePath,
           stubsAdded: scaffold.stubsAdded,
@@ -234,9 +270,18 @@ export default defineCommand({
         // Nothing to review: show the same clean message the non-interactive
         // run gives rather than a bare "0 written · 0 skipped" with no prompt.
         if (changes.length === 0) {
-          process.stdout.write(
-            `${colors.green("✓ Every export already has TSDoc.")}\n`,
-          );
+          if (orphanedWarnings.length === 0) {
+            process.stdout.write(
+              `${colors.green("✓ Every export already has TSDoc.")}\n`,
+            );
+          } else {
+            for (const line of formatOrphanedWarnings(
+              orphanedWarnings,
+              colors,
+            )) {
+              process.stdout.write(`${line}\n`);
+            }
+          }
           return;
         }
 
@@ -288,6 +333,9 @@ export default defineCommand({
             `${colors.dim(`Committed ${String(committed)} file(s), one commit each.`)}\n`,
           );
         }
+        for (const line of formatOrphanedWarnings(orphanedWarnings, colors)) {
+          process.stdout.write(`${line}\n`);
+        }
         return;
       }
 
@@ -308,6 +356,7 @@ export default defineCommand({
             byKind: totalsByKind,
             wrote: willWrite,
             files: scaffoldedFiles,
+            orphanedWarnings,
           })}\n`,
         );
       } else if (reportFormat === "md") {
@@ -331,6 +380,15 @@ export default defineCommand({
             "Stubs added",
           )}\n`,
         );
+        if (orphanedWarnings.length > 0) {
+          const warningRows: SummaryRow[] = orphanedWarnings.map((warning) => ({
+            label: `${warning.path}:${String(warning.line)} ${warning.name}`,
+            value: warning.orphanLine,
+          }));
+          process.stdout.write(
+            `\n${toMarkdownTable("Skipped (orphaned comment nearby)", warningRows, "Comment at line")}\n`,
+          );
+        }
       } else {
         for (const diff of diffs) {
           process.stdout.write(`${diff}\n`);
@@ -349,21 +407,26 @@ export default defineCommand({
         }
         process.stdout.write(`${formatTable(rows, colors)}\n`);
 
-        if (stubsAdded === 0) {
+        if (stubsAdded === 0 && orphanedWarnings.length === 0) {
           process.stdout.write(
             `${colors.green("✓ Every export already has TSDoc.")}\n`,
           );
         } else if (willWrite) {
-          process.stdout.write(
-            `${colors.bold(`Added ${String(stubsAdded)} stub(s) across ${String(scaffoldedFiles.length)} file(s).`)}\n`,
-          );
-          process.stdout.write(
-            `${colors.dim(`Review the generated prose: grep -rn "${TODO_MARKER}" .`)}\n`,
-          );
-        } else {
+          if (stubsAdded > 0) {
+            process.stdout.write(
+              `${colors.bold(`Added ${String(stubsAdded)} stub(s) across ${String(scaffoldedFiles.length)} file(s).`)}\n`,
+            );
+            process.stdout.write(
+              `${colors.dim(`Review the generated prose: grep -rn "${TODO_MARKER}" .`)}\n`,
+            );
+          }
+        } else if (stubsAdded > 0) {
           process.stdout.write(
             `${colors.dim("Preview only — re-run without --dry-run/--check to apply.")}\n`,
           );
+        }
+        for (const line of formatOrphanedWarnings(orphanedWarnings, colors)) {
+          process.stdout.write(`${line}\n`);
         }
         if (committed > 0) {
           process.stdout.write(
@@ -372,7 +435,7 @@ export default defineCommand({
         }
       }
 
-      if (check && stubsAdded > 0) {
+      if (check && (stubsAdded > 0 || orphanedWarnings.length > 0)) {
         process.exitCode = 3;
       }
     } catch (error) {

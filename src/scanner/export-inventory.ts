@@ -32,6 +32,7 @@ import {
   type DeclarationShape,
 } from "@/scanner/declaration-shape";
 import {
+  findShadowedDocComment,
   locateInsertion,
   readLeadingComment,
   type LeadingComment,
@@ -67,6 +68,18 @@ export interface ExportedDeclaration {
    * which is documentation a human wrote even though TSDoc does not see it.
    */
   readonly comment: LeadingComment | undefined;
+  /**
+   * A doc-shaped comment found stranded above this declaration — real prose
+   * that {@link comment} does not see because another statement's own leading
+   * trivia swallowed it first.
+   *
+   * @remarks
+   * Set only when {@link hasDocComment} is `false`. `scaffold` treats this as a
+   * reason to skip the declaration rather than stub it: inserting a generated
+   * summary right next to hand-written prose that was clearly meant for this
+   * export would leave both in the file, one of them wrong.
+   */
+  readonly orphanedComment: LeadingComment | undefined;
   /** Offset at which a doc comment for this declaration should be inserted. */
   readonly insertPos: number;
   /**
@@ -149,6 +162,24 @@ export function collectExportedDeclarations(
   const localsByName = new Map<string, ts.Statement[]>();
   const recorded = new Set<ts.Statement>();
 
+  // A doc comment meant for `statement` most often ends up shadowed in the
+  // trivia of whichever statement immediately precedes it — see
+  // `findShadowedDocComment`. Only that immediate neighbor is checked: a
+  // comment separated by more than one intervening statement is no longer
+  // reasonably "this declaration's", and flagging it would just be noise.
+  const findOrphanedComment = (
+    statement: ts.Statement,
+  ): LeadingComment | undefined => {
+    const index = sourceFile.statements.indexOf(statement);
+    if (index <= 0) {
+      return undefined;
+    }
+    const previous = sourceFile.statements[index - 1];
+    return previous === undefined
+      ? undefined
+      : findShadowedDocComment(sourceFile, previous);
+  };
+
   const record = (statement: ts.Statement, shape: DeclarationShape): void => {
     if (recorded.has(statement)) {
       return;
@@ -159,12 +190,15 @@ export function collectExportedDeclarations(
       statement,
     );
     const comment = readLeadingComment(sourceFile, statement);
+    const orphanedComment =
+      comment?.kind === "doc" ? undefined : findOrphanedComment(statement);
     results.push({
       name: shape.name,
       names: shape.names,
       kind: shape.kind,
       hasDocComment: comment?.kind === "doc",
       comment,
+      orphanedComment,
       insertPos,
       insertEnd,
       indent,
