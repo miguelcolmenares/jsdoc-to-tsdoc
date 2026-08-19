@@ -733,10 +733,27 @@ describe("addHyphenSeparator", () => {
     );
   });
 
-  it("leaves a name-only @param untouched", () => {
+  it("stubs a name-only @param with a TODO(tsdoc) description", () => {
     expect(apply(addHyphenSeparator, "/** @param name */")).toBe(
-      "/** @param name */",
+      "/** @param name - TODO(tsdoc): describe name. */",
     );
+  });
+
+  it("stubs a name-only @typeParam with a TODO(tsdoc) description", () => {
+    expect(apply(addHyphenSeparator, "/** @typeParam T */")).toBe(
+      "/** @typeParam T - TODO(tsdoc): describe T. */",
+    );
+  });
+
+  it("stubs a bare dotted @param, leaving the full path for the description", () => {
+    expect(apply(addHyphenSeparator, "/** @param options.retries */")).toBe(
+      "/** @param options.retries - TODO(tsdoc): describe options.retries. */",
+    );
+  });
+
+  it("is idempotent on a name-only @param", () => {
+    const once = apply(addHyphenSeparator, "/** @param name */");
+    expect(apply(addHyphenSeparator, once)).toBe(once);
   });
 });
 
