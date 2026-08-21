@@ -26,6 +26,7 @@
   "bin": {
     "jsdoc-to-tsdoc": "./dist/cli.mjs"
   },
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.mts",
