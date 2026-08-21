@@ -60,7 +60,25 @@ describe("runPipeline", () => {
     ]);
   });
 
+  it("stubs a bare @param left with no description after its type is stripped", () => {
+    const input = comment("/**", " * @param {string} value", " */");
+    const result = runPipeline(input, { lite: false });
+
+    expect(result.output).toBe(
+      comment("/**", " * @param value - TODO(tsdoc): describe value.", " */"),
+    );
+  });
+
   describe("lite mode", () => {
+    it("stubs a bare @param even in lite mode, so `check` never sees it broken", () => {
+      const input = comment("/**", " * @param {string} value", " */");
+      const result = runPipeline(input, { lite: true });
+
+      expect(result.output).toContain(
+        "@param value - TODO(tsdoc): describe value.",
+      );
+    });
+
     it("fixes @param/@returns hygiene but leaves structural tags", () => {
       const input = comment(
         "/**",

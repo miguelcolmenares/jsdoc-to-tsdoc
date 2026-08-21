@@ -200,6 +200,68 @@ export function hasLeadingDocComment(
 }
 
 /**
+ * Finds a doc-shaped comment stranded in a node's own leading trivia — present,
+ * but not the one {@link readLeadingComment} would attach to it.
+ *
+ * @remarks
+ * `readLeadingComment` only ever looks at the *last* comment range in a node's
+ * leading trivia: "only the last comment can document the declaration; anything
+ * earlier is separated from it by another comment." When that trivia holds two
+ * or more ranges, everything before the last is invisible to every caller —
+ * `scaffold` cannot see it either, so it stubs the following declaration right
+ * next to text that already documents something.
+ *
+ * This most often happens when a small declaration (a constant, a timeout, a
+ * default) gets inserted between an existing rich doc comment and the export it
+ * was written for — nothing rewraps the two into one block, so the real doc
+ * silently becomes leading trivia of the *new* declaration instead, shadowed
+ * there by that declaration's own one-line comment.
+ *
+ * A comment only counts when it looks like real documentation — starting with
+ * `/**` and spanning more than one line — so a stray `/* eslint-disable *\/`-
+ * style block comment (single line, not doc-shaped) does not get flagged.
+ *
+ * @param sourceFile - The parsed source file the node belongs to.
+ * @param node - The statement whose leading trivia to inspect.
+ * @returns The shadowed comment closest to `node`, or `undefined` when none of
+ * its leading comments are shadowed.
+ */
+export function findShadowedDocComment(
+  sourceFile: ts.SourceFile,
+  node: ts.Node,
+): LeadingComment | undefined {
+  const sourceText = sourceFile.text;
+  const ranges =
+    ts.getLeadingCommentRanges(sourceText, node.getFullStart()) ?? [];
+
+  // The last range is what `readLeadingComment` attaches to this node; only an
+  // earlier one can be shadowed. Walk backward so a run of several orphaned
+  // blocks reports the one nearest the declaration, which is the one most
+  // likely to belong to it.
+  for (let i = ranges.length - 2; i >= 0; i -= 1) {
+    const range = ranges[i];
+    if (
+      range === undefined ||
+      range.kind !== ts.SyntaxKind.MultiLineCommentTrivia
+    ) {
+      continue;
+    }
+    const text = sourceText.slice(range.pos, range.end);
+    if (text.startsWith("/**") && text !== "/**/" && text.includes("\n")) {
+      return {
+        kind: "doc",
+        text,
+        line: sourceFile.getLineAndCharacterOfPosition(range.pos).line + 1,
+        pos: range.pos,
+        end: range.end,
+      };
+    }
+  }
+
+  return undefined;
+}
+
+/**
  * Computes where a doc comment for a declaration must be inserted, and with what
  * indentation.
  *

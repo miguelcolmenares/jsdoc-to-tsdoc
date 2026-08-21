@@ -563,4 +563,83 @@ describe("collectExportedDeclarations", () => {
       collectExportedDeclarations(source, "a.ts").map((d) => d.name),
     ).toEqual(["real"]);
   });
+
+  describe("orphanedComment", () => {
+    // Reproduces a real bug found scaffolding osa-nextjs: a rich, hand-written
+    // doc comment for `fetchWPAPI` sat directly above a `const` that later
+    // gained its own one-line comment. Both comments end up in the `const`
+    // node's leading trivia, so the real doc — not the nearest of the two — is
+    // invisible to `fetchWPAPI` entirely. Before this was detected, `scaffold`
+    // stubbed `fetchWPAPI` right next to its own real documentation.
+    it("finds a rich doc comment stranded above the previous statement", () => {
+      const source = [
+        "/**",
+        " * Sends a GraphQL query to the WordPress API.",
+        " *",
+        " * @param query - GraphQL query string",
+        " * @returns Response data",
+        " */",
+        "/** Request timeout for WordPress API calls (ms). */",
+        "const WP_API_TIMEOUT_MS = 10_000;",
+        "",
+        "export const fetchWPAPI = async (query: string) => query;",
+      ].join("\n");
+
+      const declaration = findByName(source, "a.ts", "fetchWPAPI");
+      expect(declaration.hasDocComment).toBe(false);
+      expect(declaration.orphanedComment?.text).toContain(
+        "Sends a GraphQL query",
+      );
+      expect(declaration.orphanedComment?.line).toBe(1);
+    });
+
+    it("does not flag a declaration whose previous statement has one comment of its own", () => {
+      const source = [
+        "/** Request timeout (ms). */",
+        "const TIMEOUT_MS = 10_000;",
+        "",
+        "export const fetchWPAPI = async () => TIMEOUT_MS;",
+      ].join("\n");
+
+      expect(
+        findByName(source, "a.ts", "fetchWPAPI").orphanedComment,
+      ).toBeUndefined();
+    });
+
+    it("does not flag a declaration that already has its own doc comment", () => {
+      const source = [
+        "/** Real doc for foo, not for bar. */",
+        "/** Own doc. */",
+        "const foo = 1;",
+        "",
+        "/**",
+        " * Documented directly.",
+        " */",
+        "export const bar = foo;",
+      ].join("\n");
+
+      expect(findByName(source, "a.ts", "bar").orphanedComment).toBeUndefined();
+    });
+
+    it("does not flag a declaration when nothing precedes it", () => {
+      const source = "export function first(): void {}";
+      expect(
+        findByName(source, "a.ts", "first").orphanedComment,
+      ).toBeUndefined();
+    });
+
+    it("ignores a shadowed comment that is not doc-shaped", () => {
+      const source = [
+        "/* eslint-disable no-console */",
+        "/** Own doc. */",
+        "const noisy = 1;",
+        "",
+        "export const quiet = noisy;",
+      ].join("\n");
+
+      expect(
+        findByName(source, "a.ts", "quiet").orphanedComment,
+      ).toBeUndefined();
+    });
+  });
 });

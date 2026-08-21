@@ -1062,6 +1062,17 @@ that a comment-only tool could recover:
   list, matching the hand migration and clearing the class in full — `osa` from
   30 to **4**. The 4 left are bare `@param value` with no description, which the
   human wrote from the code and a comment-only tool cannot invent.
+- [x] **Stub a bare `@param`/`@typeParam` instead of leaving it broken** —
+  shipped. A comment-only tool still can't invent what the 4 remaining
+  descriptions above should say, but leaving `tsdoc-param-tag-missing-hyphen`
+  for `check` to discover later (with no link back to what `convert` did) was
+  worse than the alternative already used everywhere else in this tool:
+  `add-hyphen-separator` now gives a name-only `@param`/`@typeParam` the same
+  `- TODO(tsdoc): describe name.` placeholder `scaffold` gives an undocumented
+  export, so `convert`'s output is always valid TSDoc and the gap is found the
+  same way — `grep -rn "TODO(tsdoc)"`. `drop-bare-type-param` is unchanged and
+  still correct on its own, but in the standard pipeline a bare `@typeParam`
+  never reaches it anymore since the hyphen rule now handles it first.
 
 Distribution:
 

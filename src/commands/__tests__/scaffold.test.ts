@@ -162,6 +162,64 @@ describe("scaffold command", () => {
     expect(output).toContain("Preview only");
   });
 
+  describe("when a doc-shaped comment is stranded above the previous statement", () => {
+    const withOrphanedComment = [
+      "/**",
+      " * Sends a GraphQL query to the WordPress API.",
+      " *",
+      " * @param query - GraphQL query string",
+      " * @returns Response data",
+      " */",
+      "/** Request timeout for WordPress API calls (ms). */",
+      "const WP_API_TIMEOUT_MS = 10_000;",
+      "",
+      "export const fetchWPAPI = async (query: string) => query;",
+      "",
+    ].join("\n");
+
+    beforeEach(async () => {
+      await writeFile(file, withOrphanedComment);
+    });
+
+    it("does not write a duplicate stub next to the real doc comment", async () => {
+      const output = await captureStdout(() =>
+        runHandler(scaffoldCommand, { cwd: root }),
+      );
+
+      expect(await readFile(file, "utf8")).toBe(withOrphanedComment);
+      expect(output).toContain("skipped");
+      expect(output).toContain("fetchWPAPI");
+      expect(output).toContain(
+        "doesn't attach to any export; move it directly above",
+      );
+    });
+
+    it("fails --check instead of silently passing", async () => {
+      await captureStdout(() =>
+        runHandler(scaffoldCommand, { cwd: root, check: true }),
+      );
+
+      expect(process.exitCode).toBe(3);
+    });
+
+    it("includes the warning in a JSON report", async () => {
+      const output = await captureStdout(() =>
+        runHandler(scaffoldCommand, {
+          cwd: root,
+          "dry-run": true,
+          report: "json",
+        }),
+      );
+
+      const report = JSON.parse(output) as {
+        orphanedWarnings: { name: string; line: number; orphanLine: number }[];
+      };
+      expect(report.orphanedWarnings).toEqual([
+        { path: "src/hero.ts", name: "fetchWPAPI", line: 10, orphanLine: 1 },
+      ]);
+    });
+  });
+
   it("reports failure and exits 1 for an unreadable project directory", async () => {
     const spy = vi
       .spyOn(process.stderr, "write")

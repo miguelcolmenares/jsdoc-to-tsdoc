@@ -25,6 +25,20 @@ import {
 export type StubCounts = Readonly<Partial<Record<ExportKind, number>>>;
 
 /**
+ * An undocumented export skipped because a doc-shaped comment was found
+ * stranded nearby, rather than stubbed next to text that may already document
+ * it.
+ */
+export interface OrphanedCommentWarning {
+  /** The undocumented export's name. */
+  readonly name: string;
+  /** 1-based line of the declaration that was skipped. */
+  readonly line: number;
+  /** 1-based line where the stranded comment begins. */
+  readonly orphanLine: number;
+}
+
+/**
  * The result of scaffolding one source file.
  */
 export interface FileScaffold {
@@ -38,6 +52,14 @@ export interface FileScaffold {
   readonly exportsFound: number;
   /** The generated stubs broken down by export kind. */
   readonly counts: StubCounts;
+  /**
+   * Undocumented exports left unstubbed because of a nearby orphaned comment.
+   *
+   * @remarks
+   * These still count toward an undocumented total for reporting purposes, but
+   * not toward {@link stubsAdded} — nothing was written for them.
+   */
+  readonly orphanedWarnings: readonly OrphanedCommentWarning[];
 }
 
 /**
@@ -62,8 +84,17 @@ export function scaffoldSourceText(
 
   const edits: SourceEdit[] = [];
   const counts: Partial<Record<ExportKind, number>> = {};
+  const orphanedWarnings: OrphanedCommentWarning[] = [];
 
   for (const declaration of undocumented) {
+    if (declaration.orphanedComment !== undefined) {
+      orphanedWarnings.push({
+        name: declaration.name,
+        line: declaration.line,
+        orphanLine: declaration.orphanedComment.line,
+      });
+      continue;
+    }
     edits.push({
       pos: declaration.insertPos,
       end: declaration.insertEnd,
@@ -78,5 +109,6 @@ export function scaffoldSourceText(
     stubsAdded: edits.length,
     exportsFound: declarations.length,
     counts,
+    orphanedWarnings,
   };
 }
