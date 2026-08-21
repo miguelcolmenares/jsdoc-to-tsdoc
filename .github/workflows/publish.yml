@@ -1,0 +1,57 @@
+name: Publish Package to npm
+
+# Publishes to npm on a GitHub Release. A bare tag does NOT trigger this --
+# `on: release` fires on the Release event, not on the tag push.
+on:
+  release:
+    types: [created]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Lets the runner mint the OIDC token npm exchanges for publish rights.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          # Node 24 ships npm 11.x; trusted publishing needs npm >= 11.5.1.
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+          # npm's trusted-publishing guide: never cache in release builds.
+          package-manager-cache: false
+
+      - run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Verify CLI syntax
+        run: node --check dist/cli.mjs
+
+      - name: Full check gate
+        run: npm run check
+
+      # Recorded so a publish failure can be diagnosed without a re-run.
+      - name: Report npm version
+        run: npm --version
+
+      # No NODE_AUTH_TOKEN: auth is the OIDC token above, exchanged against the
+      # trusted publisher registered for this package on npmjs.com (user
+      # miguelcolmenares, repo jsdoc-to-tsdoc, workflow publish.yml).
+      # Public repo + public package means provenance is attested automatically.
+      - run: npm publish
+
+      - name: Create summary
+        if: success()
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          echo "## 📦 Package Published Successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** \`$PACKAGE_VERSION\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- [View on npm](https://www.npmjs.com/package/jsdoc-to-tsdoc/v/$PACKAGE_VERSION)" >> $GITHUB_STEP_SUMMARY
