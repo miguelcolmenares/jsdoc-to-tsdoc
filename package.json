@@ -39,6 +39,9 @@
   "engines": {
     "node": ">=20.19"
   },
+  "overrides": {
+    "esbuild": "^0.28.2"
+  },
   "scripts": {
     "build": "unbuild",
     "typecheck": "tsc --noEmit",
