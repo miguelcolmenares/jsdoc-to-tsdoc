@@ -9,6 +9,7 @@
 
 export {
   mapCommentLines,
+  trimTrailingBlankContentLines,
   type CommentLineContext,
   type CommentLineMapper,
 } from "@/parser/comment-lines";

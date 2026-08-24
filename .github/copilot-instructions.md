@@ -67,28 +67,35 @@ Run and keep green: `npm run typecheck`, `npm run lint`, `npm run test`,
 
 ---
 
-## TODO — agent customization to add
+## Agent customization
 
-Flesh out repository-scoped agent guidance. Prefer path-specific
-`.github/instructions/*.instructions.md` files (with `applyTo` frontmatter globs)
-over growing this single file, and add reusable skills for the recurring tasks.
+Repository-scoped agent guidance, as path-specific
+`.github/instructions/*.instructions.md` files (`applyTo` frontmatter globs)
+rather than growing this single file, plus reusable skills for the recurring
+tasks.
 
-- [ ] **Architecture** — `.github/instructions/architecture.instructions.md`
+- [x] **Architecture** — [`architecture.instructions.md`](./instructions/architecture.instructions.md)
       (`applyTo: "src/**"`): DDD domains, barrel contract, the rule-pipeline
       model, discriminated-union error handling, when to add a domain vs a file.
-- [ ] **Documentation** — `.github/instructions/documentation.instructions.md`
-      (`applyTo: "src/**/*.ts"`): TSDoc-strict rules, `mapCommentLines` usage,
-      and the `tsdoc/syntax` gotcha catalog (literal `{}`, `@pkg`/`@/alias`
-      names, `>`, `@layer`, un-fenced `@example`).
-- [ ] **Testing** — `.github/instructions/testing.instructions.md`
-      (`applyTo: "**/__tests__/**"`): Vitest patterns, temp-dir fixtures, the
-      command test harness, coverage expectations.
-- [ ] **Reviews** — `.github/instructions/reviews.instructions.md`: how to
-      triage PR review comments, reply + resolve threads, and handle Copilot
-      "low-confidence/suppressed" notes.
-- [ ] **Technical skills** — `.github/skills/` (agent skills): scaffold a new
-      transformer rule, a new scaffolder template, and a new CLI subcommand,
-      each following the established conventions.
+- [x] **TSDoc gotcha catalog** — [`tsdoc-gotchas.instructions.md`](./instructions/tsdoc-gotchas.instructions.md)
+      (`applyTo: "src/**/*.ts"`): `mapCommentLines` usage and every `tsdoc/syntax`
+      breaker this project has actually hit, with the rule that handles each.
+      General writing/commit-message policy already lived in
+      [`documentation-language.instructions.md`](./instructions/documentation-language.instructions.md) —
+      this file is the deeper technical reference the two together replace.
+- [x] **Testing** — already covered by [`tests.instructions.md`](./instructions/tests.instructions.md)
+      (`applyTo: "**/*.test.ts"`): Vitest patterns, temp-dir fixtures, the
+      command test harness.
+- [x] **Reviews** — already covered by [`github-workflow.instructions.md`](./instructions/github-workflow.instructions.md)'s
+      "Pull-request reviews" section: triaging comments, reply + resolve
+      threads, thread vs. conversation-comment distinction. No separate file
+      needed — the content already existed under a broader-scoped one.
+- [x] **`add-transformer-rule` skill** — [`.github/skills/add-transformer-rule/`](./skills/add-transformer-rule/SKILL.md):
+      write, register, and test a new conversion rule.
+- [ ] **Remaining skills**: a `scaffold-template` skill (add a new export-kind
+      stub to `scaffolder/`) and an `add-subcommand` skill (wire a new citty
+      command through `commands/`). Follow `add-transformer-rule`'s structure
+      once a real need for either comes up — write, register, test, verify.
 
 References: VS Code
 [custom instructions](https://code.visualstudio.com/docs/agent-customization/custom-instructions)

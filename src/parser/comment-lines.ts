@@ -188,3 +188,46 @@ export function mapCommentLines(
 
   return output.join(eol);
 }
+
+/**
+ * Removes a run of blank content lines sitting directly before the closing
+ * `*\/`.
+ *
+ * @remarks
+ * A rule that deletes a whole tag line (`@async`, `@function`, …) only drops
+ * that line — a *separate* blank line a human wrote above it, to visually
+ * separate prose from tags, is untouched by the rule and survives as a
+ * trailing blank once the tag is gone. Valid TSDoc either way; this is a
+ * cosmetic cleanup pass over the pipeline's own output, not a rule, since any
+ * rule that deletes a tag line can produce the artifact.
+ *
+ * @param comment - The full `/** *\/` comment text, after all rules have run.
+ * @returns The comment with any such trailing blank lines removed.
+ *
+ * @example
+ * ```typescript
+ * trimTrailingBlankContentLines("/**\n * Does a thing.\n *\n *\/");
+ * // → "/**\n * Does a thing.\n *\/"
+ * ```
+ */
+export function trimTrailingBlankContentLines(comment: string): string {
+  const eol = comment.includes("\r\n") ? "\r\n" : "\n";
+  const rawLines = comment.split(/\r?\n/);
+  const closingIndex = rawLines.length - 1;
+
+  let cut = closingIndex;
+  while (cut - 1 > 0) {
+    const candidate = rawLines[cut - 1];
+    const star = candidate === undefined ? null : STAR_LINE.exec(candidate);
+    if (!star || star[2]?.trim() !== "") {
+      break;
+    }
+    cut -= 1;
+  }
+
+  if (cut === closingIndex) {
+    return comment;
+  }
+
+  return [...rawLines.slice(0, cut), rawLines[closingIndex]].join(eol);
+}
