@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { mapCommentLines } from "@/parser/comment-lines";
+import {
+  mapCommentLines,
+  trimTrailingBlankContentLines,
+} from "@/parser/comment-lines";
 
 const identity = (content: string): string => content;
 
@@ -122,6 +125,64 @@ describe("mapCommentLines", () => {
     );
     expect(result).toBe(
       ["/**", " * @packageDocumentation", " * Hello", " */"].join("\n"),
+    );
+  });
+});
+
+describe("trimTrailingBlankContentLines", () => {
+  it("removes a single blank line left before the closing delimiter", () => {
+    const comment = ["/**", " * Does a thing.", " *", " */"].join("\n");
+    expect(trimTrailingBlankContentLines(comment)).toBe(
+      ["/**", " * Does a thing.", " */"].join("\n"),
+    );
+  });
+
+  it("removes a run of several trailing blank lines", () => {
+    const comment = ["/**", " * Does a thing.", " *", " *", " *", " */"].join(
+      "\n",
+    );
+    expect(trimTrailingBlankContentLines(comment)).toBe(
+      ["/**", " * Does a thing.", " */"].join("\n"),
+    );
+  });
+
+  it("collapses to opening+closing when the whole body was blank", () => {
+    const comment = ["/**", " *", " */"].join("\n");
+    expect(trimTrailingBlankContentLines(comment)).toBe(
+      ["/**", " */"].join("\n"),
+    );
+  });
+
+  it("leaves a blank line alone when it is not trailing", () => {
+    const comment = [
+      "/**",
+      " * Does a thing.",
+      " *",
+      " * @param x - value",
+      " */",
+    ].join("\n");
+    expect(trimTrailingBlankContentLines(comment)).toBe(comment);
+  });
+
+  it("leaves a comment with no trailing blank line unchanged", () => {
+    const comment = ["/**", " * Does a thing.", " */"].join("\n");
+    expect(trimTrailingBlankContentLines(comment)).toBe(comment);
+  });
+
+  it("leaves a single-line comment unchanged", () => {
+    const comment = "/** Does a thing. */";
+    expect(trimTrailingBlankContentLines(comment)).toBe(comment);
+  });
+
+  it("leaves a fully empty comment unchanged", () => {
+    const comment = ["/**", " */"].join("\n");
+    expect(trimTrailingBlankContentLines(comment)).toBe(comment);
+  });
+
+  it("preserves CRLF line endings", () => {
+    const comment = ["/**", " * Does a thing.", " *", " */"].join("\r\n");
+    expect(trimTrailingBlankContentLines(comment)).toBe(
+      ["/**", " * Does a thing.", " */"].join("\r\n"),
     );
   });
 });

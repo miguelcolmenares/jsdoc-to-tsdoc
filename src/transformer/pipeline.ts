@@ -15,6 +15,7 @@
  * @since 0.1.0
  */
 
+import { trimTrailingBlankContentLines } from "@/parser";
 import { RULES } from "@/transformer/rules";
 
 /**
@@ -80,6 +81,13 @@ export interface PipelineResult {
 /**
  * Runs the conversion pipeline over a single comment.
  *
+ * @remarks
+ * After every applicable rule has run, a trailing blank content line left
+ * behind by one that deleted a whole tag line — the separator a human wrote
+ * between prose and tags survives the tag's removal — is trimmed via
+ * {@link trimTrailingBlankContentLines}. Cosmetic only: the untrimmed form is
+ * already valid TSDoc.
+ *
  * @param comment - The full `/** *\/` comment text to convert.
  * @param context - Flags controlling which rules run.
  * @returns The converted comment plus metadata about which rules fired.
@@ -100,6 +108,8 @@ export function runPipeline(
       output = next;
     }
   }
+
+  output = trimTrailingBlankContentLines(output);
 
   return { output, changed: output !== comment, appliedRules };
 }
