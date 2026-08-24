@@ -4,10 +4,15 @@
 > work without re-scanning the whole tree. It captures the _why_ behind the
 > architecture, the conventions to follow, and the lessons already learned.
 >
-> **How it differs from [`PLAN.md`](./PLAN.md).** `PLAN.md` is the product
-> roadmap — gap analysis, scope, phases, what ships next. `AGENTS.md` is the
-> _engineering_ orientation — how the code is shaped and how to extend it
-> safely. When they disagree, the code wins; then update whichever doc drifted.
+> **Where the roadmap lives.** The original product plan (gap analysis, scope,
+> phases) was `PLAN.md`, retired once v0.1.0's full scope shipped and
+> published — its content is now split across the code and tests (what's
+> built), `CHANGELOG.md` (what shipped, and when), and
+> [open issues labeled `future`](https://github.com/miguelcolmenares/jsdoc-to-tsdoc/issues?q=is%3Aissue+is%3Aopen+label%3Afuture)
+> (what's deliberately deferred). `AGENTS.md` is the _engineering_
+> orientation — how the code is shaped and how to extend it safely. When a
+> doc disagrees with the code, the code wins; then update whichever doc
+> drifted.
 
 ---
 
@@ -35,14 +40,15 @@ init  →  convert  →  scaffold  →  escalate
 |-----------|--------------|--------------|
 | `init`    | **shipped**  | Generates/merges `tsdoc.json`, patches the ESLint flat config, reports deps to install. |
 | `scan`    | **shipped**  | Read-only inventory of what `convert` would change, plus `--classify`: documentation topology, confidence levels, and the `--fail-on-missing` / `--fail-on-stale` gates. |
-| `convert` | **shipped**  | Transforms existing JSDoc comments into TSDoc syntax (13-rule pipeline). |
+| `convert` | **shipped**  | Transforms existing JSDoc comments into TSDoc syntax (14-rule pipeline). |
 | `scaffold`| **shipped**  | Generates TSDoc stubs for undocumented exports (the ~80% of real-world work). |
 | `escalate`| **shipped**  | Bumps `tsdoc-require-2/require` from `warn` → `error`, gated on a preflight ESLint run. |
 | `check`   | **shipped**  | CI gate — validates comments with the official `@microsoft/tsdoc` parser, reports undocumented exports and leftover JSDoc. |
 
 Domains present: `parser`, `scanner`, `transformer`, `scaffolder`, `generator`,
-`escalator`, `validator`, `classifier`, `reporter`, `prompter`, `writer`, `commands`. See `PLAN.md` → _Implementation Status_ for the
-running tally and `PLAN.md` → _Development Roadmap_ for phase order.
+`escalator`, `validator`, `classifier`, `reporter`, `prompter`, `writer`, `commands`.
+Every command in the table above has shipped; v0.1.0's full scope is done and
+v0.2.0 is published (see `CHANGELOG.md`).
 
 **Picking work up again?** Go to §11 — it carries what to do next and why, and
 §12 carries the decisions and traps behind the code that is already here.
@@ -265,7 +271,8 @@ npm run check:tsdoc    # builds, then runs the CLI's own `check` over this repo
   arrow fns and emails in un-fenced `@example`, `@param [x=1]` optional brackets,
   `@param obj.prop` dot notation, `@property` blocks — only sometimes redundant,
   see the iteration log. (Full catalog in
-  `PLAN.md` and the boilerplate's `TSDOC_IMPLEMENTATION_PLAN.md`.)
+  [`tsdoc-gotchas.instructions.md`](./.github/instructions/tsdoc-gotchas.instructions.md)
+  and the boilerplate's `TSDOC_IMPLEMENTATION_PLAN.md`.)
 
 ### From building the CLI (inform how to code here)
 
@@ -323,7 +330,7 @@ npm run check:tsdoc    # builds, then runs the CLI's own `check` over this repo
 | Comment-aware reading of flat-config text | `src/generator/config-source.ts` |
 | Which TSDoc tags are standard vs custom | `src/generator/tsdoc-tags.ts` |
 | Output formatting (diffs, tables, JSON/MD) | `src/reporter/` |
-| Roadmap / scope / phases | `PLAN.md` |
+| Deliberately deferred future work | GitHub issues labeled [`future`](https://github.com/miguelcolmenares/jsdoc-to-tsdoc/issues?q=is%3Aissue+is%3Aopen+label%3Afuture) |
 
 ---
 
@@ -333,34 +340,16 @@ This section is the handoff. When a session is compacted or a new one starts,
 read §2, then this, and you have enough to continue without re-deriving the
 state of the repo from its git history.
 
-**Update it as the last step of every iteration**, together with `PLAN.md` and
-`CHANGELOG.md`. An iteration is not finished until the decisions it produced are
-written down here — the context that produced them is gone by the next session.
+**Update it as the last step of any iteration that changes what "next up"
+means** — together with `CHANGELOG.md` when something ships. An iteration is
+not finished until the decisions it produced are written down here — the
+context that produced them is gone by the next session.
 
 ### The loop we follow
 
-Develop locally → update **all** docs and `PLAN.md` → `/prepare-pr` →
+Develop locally → update all docs that describe the change → `/prepare-pr` →
 `/create-github-pr` → address review, iterating until a review adds no new
 comments → `/finalize-github-pr`. Then pick the next item and repeat.
-
-**Work the checklist in `PLAN.md` → _Definition of Done_ before asking for
-review.** It is not generic hygiene: every item on it is something that was
-omitted once and caught by a reviewer instead of a gate. §12 below records what
-each omission cost; the checklist is the version you can act on beforehand.
-
-The package is **not** declared ready to publish until it has been run end to
-end against the real repositories the tool was designed from (see §8 and
-`PLAN.md` → _Fixture Strategy_): `nextjs-boilerplate`, `homecare-nextjs`,
-`assistedliving-nextjs`. Passing tests is not the bar; delivering real value on
-a real codebase is.
-
-### In flight
-
-**`feature/promote-line-comments`** — `convert --promote-line-comments`, complete
-with tests and docs, not yet in review.
-
-`fix/property-member-docs` merged as `0661786` after eight review rounds, seven
-of which found something.
 
 **Wait for a clean Copilot round before merging, even when the PR looks done.**
 PR #19 was deliberately parked for one while the quota was out, and that round
@@ -371,29 +360,22 @@ had missed, including two false-positive classes that survived a deliberate
 hunt for exactly those. The cloud alternative (`/code-review ultra`) failed
 twice with 30-minute timeouts and cannot be relied on as a substitute.
 
+### Current state
+
+v0.1.0's full scope shipped, dogfooded end-to-end on a 4th real repo
+(`osa-nextjs`, closed two scaffolding gaps), and published to npm on
+2026-08-20. v0.2.0 followed on 2026-08-24: `convert` now proves its own output
+is no worse than the input before writing it, the trailing-blank-line cleanup
+landed, and `PLAN.md` — the original product-plan document — was retired once
+everything in it was either shipped, superseded by this file and
+`CHANGELOG.md`, or filed as a tracked issue. Nothing is currently in flight.
+
 ### Next up
 
-Remaining v0.1.0 scope, in the order that unblocks the most work. The full list
-with checkboxes is `PLAN.md` → _In Scope (v0.1.0)_.
-
-1. **The three rules the `osa` comparison found**, in the order they landed —
-   fence unfenced `@example` bodies (72 errors, #22, done), backtick a bare `@`
-   in prose (18 after fencing, #28, done), fold dotted `@param params.foo` into
-   the parent (26, #29, the one still open). The first two take `osa` from 143
-   remaining errors to 30, all of them the dotted-`@param` class and four stray
-   missing-hyphen `@param`s; #29 is the highest-value work left. The hand
-   migration shows the intended output for each.
-2. **Fixtures** (phase 9) — `osa` gives before/after pairs with a human's
-   answer attached, which is what that phase was always missing.
-3. **Interactive mode** (`--interactive`, phase 7). `@clack/prompts` is already
-   a dependency and is **not used anywhere** — either this lands or the
-   dependency comes out, because today every consumer installs it for nothing.
-4. **`--commit-per-file`** for reviewable PRs, then the end-to-end dogfood
-   (phase 10), then publish (phase 11).
-
-Done since this section was written: `scan --classify`, `--fail-on-missing`,
-`--fail-on-stale` (PR #19); `@property` relocation (PR #20);
-`--promote-line-comments`.
+Nothing is scheduled. Nine items are deliberately deferred, each as its own
+GitHub issue labeled `future` (#54–#62) — [browse the list](https://github.com/miguelcolmenares/jsdoc-to-tsdoc/issues?q=is%3Aissue+is%3Aopen+label%3Afuture)
+rather than trusting a summary here to stay in sync with it. Picking one up
+means reading its issue for the full context, not just its title.
 
 ---
 
@@ -402,6 +384,35 @@ Done since this section was written: `scan --classify`, `--fail-on-missing`,
 Newest first. Each entry records what shipped and, more importantly, **the
 non-obvious things** — a decision and its reasoning, or a trap that cost real
 time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
+
+### `PLAN.md` retired — v0.1.0's own status table had gone stale inside it
+
+- **The document's roadmap table trailed its own narrative sections by two
+  real ships.** `PLAN.md`'s "Development Roadmap" table still listed npm
+  publish and the 4th-repo dogfood as "Not started" while its own "Scope
+  Boundaries" and "Fixture Strategy" sections, elsewhere in the same file,
+  described both as already done — the npm publish had genuinely happened
+  (`npm view` showed it live 3 days before anyone noticed the table
+  disagreed) and the dogfood had shipped two real fixes (commit `d17d51b`,
+  #49). A single document with a summary table and a detailed narrative can
+  drift **against itself**, not just against the code — updating the prose
+  and forgetting the table it's supposed to summarize is its own failure
+  mode, distinct from "the doc vs. the code."
+- **A stray reference outside the doc almost went stale silently.**
+  `src/scanner/declaration-shape.ts` pointed a code comment at `PLAN.md` →
+  _Deferred_ for a gap (splitting TSDoc onto individual interface members)
+  that was never actually tracked in `PLAN.md`'s own Deferred/Out-of-Scope
+  lists — a genuinely orphaned cross-reference, found only by grepping the
+  whole repo for `PLAN\.md` before deleting it, not by reading the plan
+  itself. Filed as #62 rather than left to rot once the file it pointed to
+  was gone.
+- **What replaced it, on purpose, isn't one document.** Shipped work lives in
+  the code, its tests, and `CHANGELOG.md`; deliberately deferred work lives
+  as individual GitHub issues (`future` label, #54–#62), each with enough
+  context to act on without a shared planning doc providing it — a single
+  roadmap file invites the same "prose says X, table says Y" drift that just
+  got retired. `AGENTS.md` (this file) is the one durable document left, and
+  only for engineering orientation, never roadmap/status tracking.
 
 ### Dependabot release-age cooldown — the merge gate, not the lockfile
 

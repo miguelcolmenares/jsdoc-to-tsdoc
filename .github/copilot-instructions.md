@@ -2,8 +2,9 @@
 
 These instructions apply to every Copilot request in this repository. They are a
 concise summary; the full engineering context lives in
-[`AGENTS.md`](../AGENTS.md) and the roadmap in [`PLAN.md`](../PLAN.md). Read
-`AGENTS.md` before non-trivial work instead of re-scanning the tree.
+[`AGENTS.md`](../AGENTS.md). Read it before non-trivial work instead of
+re-scanning the tree. Deliberately deferred future work is tracked as GitHub
+issues labeled `future`, not a roadmap document.
 
 ## What this project is
 

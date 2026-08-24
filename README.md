@@ -2,13 +2,13 @@
 
 CLI tool to migrate JSDoc comments to the [TSDoc](https://tsdoc.org/) standard in TypeScript projects.
 
-> **Status: Alpha.** Published on npm as [`jsdoc-to-tsdoc`](https://www.npmjs.com/package/jsdoc-to-tsdoc). Every command in the CLI contract ships: the full `init → convert → scaffold → escalate` workflow plus the `check` CI gate, dogfooded end-to-end on a 4th real repo. See [PLAN.md](./PLAN.md) for the full status and what is still deferred.
+> **Status: Alpha.** Published on npm as [`jsdoc-to-tsdoc`](https://www.npmjs.com/package/jsdoc-to-tsdoc). Every command in the CLI contract ships: the full `init → convert → scaffold → escalate` workflow plus the `check` CI gate, dogfooded end-to-end on a 4th real repo. See [`CHANGELOG.md`](./CHANGELOG.md) for release history and [open issues labeled `future`](https://github.com/miguelcolmenares/jsdoc-to-tsdoc/issues?q=is%3Aissue+is%3Aopen+label%3Afuture) for what's deliberately deferred.
 
 ## The Problem
 
 TypeScript projects commonly use JSDoc-style documentation comments that include type annotations (`{string}`, `{boolean}`), redundant tags (`@function`, `@typedef`, `@callback`), and non-standard tags. These are incompatible with the [TSDoc specification](https://tsdoc.org/) and cause lint errors when `eslint-plugin-tsdoc` is enabled.
 
-There is **no existing tool** to automate this migration end to end. See [PLAN.md](./PLAN.md) for the full gap analysis.
+There is **no existing tool** to automate this migration end to end — see [`AGENTS.md`](./AGENTS.md) for the CLI's own architecture and design decisions.
 
 ## Usage
 
