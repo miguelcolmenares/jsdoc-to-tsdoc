@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-08-24
+
+### Added
+
+- `convert` now proves a transformed file is no worse than the original before writing it — it runs the same official `@microsoft/tsdoc` validator `check` uses on both the original and converted file text, and skips writing (exit 1, listed on stderr) any file where the conversion introduced more violations than it started with. A safety net against a future rule bug, not a currently-triggerable path.
+- `.github/instructions/architecture.instructions.md` and `.github/instructions/tsdoc-gotchas.instructions.md` — repository-scoped agent guidance covering DDD domains, the rule-pipeline model, and the full catalog of what breaks the official `tsdoc/syntax` parser in real code.
+- `.github/skills/add-transformer-rule/` — the first reusable agent skill: write, register, and test a new conversion rule.
+
+### Fixed
+
+- The blank content line a removed tag block (`@async`, `@function`, …) leaves behind before the closing `*/` is now trimmed. Valid TSDoc either way, but untidy output the tool was writing into user files.
+
 ## [0.1.0] - 2026-08-20
 
 ### Added

@@ -1,6 +1,6 @@
 {
   "name": "jsdoc-to-tsdoc",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "CLI tool to migrate JSDoc comments to the TSDoc standard in TypeScript projects.",
   "type": "module",
   "license": "MIT",
