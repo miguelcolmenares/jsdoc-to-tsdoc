@@ -113,7 +113,7 @@ export function describeStatement(
 
   if (ts.isInterfaceDeclaration(statement)) {
     // Only the interface header is described. Splitting docs onto each member
-    // is a separate structural step (see PLAN.md → Deferred).
+    // is a separate structural step (github.com/miguelcolmenares/jsdoc-to-tsdoc/issues/62).
     return {
       ...base,
       name: statement.name.text,
