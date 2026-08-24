@@ -40,6 +40,7 @@ import {
   type SummaryRow,
 } from "@/reporter";
 import { findSourceFiles } from "@/scanner";
+import { createTsdocValidator, type TsdocValidator } from "@/validator";
 import { writeFileText } from "@/writer";
 
 interface ChangedFile {
@@ -48,6 +49,37 @@ interface ChangedFile {
   readonly membersDocumented: number;
   readonly commentsPromoted: number;
   readonly appliedRules: readonly string[];
+}
+
+/**
+ * Counts the TSDoc violations a conversion added to a file, if any.
+ *
+ * @remarks
+ * A pipeline rule is pure and deterministic, but a bug in one could still
+ * write syntactically invalid TSDoc. Comparing counts, not asking whether the
+ * output is clean outright, is what makes this safe to run on every project:
+ * a file with pre-existing violations (an undocumented export, a custom tag
+ * `tsdoc.json` does not know about) is not this function's concern, and
+ * `validator.configErrors` already covers the case where the count itself
+ * cannot be trusted — the caller skips this entirely then.
+ *
+ * @param validator - The project's TSDoc validator.
+ * @param before - The file's original contents.
+ * @param after - The file's contents after conversion.
+ * @param fileName - The file name (selects the TS/TSX dialect).
+ * @returns How many more violations `after` has than `before`; `0` or
+ * negative means the conversion made things no worse.
+ */
+export function newViolationCount(
+  validator: TsdocValidator,
+  before: string,
+  after: string,
+  fileName: string,
+): number {
+  return (
+    validator.validate(after, fileName).length -
+    validator.validate(before, fileName).length
+  );
 }
 
 /** Sums the per-file counts of a set of changed files. */
@@ -175,6 +207,13 @@ export default defineCommand({
         exclude: splitGlobs(args.exclude),
       });
 
+      // A config that failed to load makes every violation count untrustworthy
+      // (see check.ts) — so the safety net below is skipped entirely rather
+      // than risk blocking a legitimate conversion on a false signal. It is not
+      // this command's job to report a broken tsdoc.json; `check`/`init` do.
+      const validator = await createTsdocValidator(cwd);
+      const canValidate = validator.configErrors.length === 0;
+
       // Records carry the per-file counts for the summary and reports — small
       // and always kept. The full converted output is retained only when the
       // interactive flow must defer the write; a straight write-through streams
@@ -188,6 +227,7 @@ export default defineCommand({
       const records: ChangedFile[] = [];
       const changes: FileChange[] = [];
       const diffs: string[] = [];
+      const unsafe: string[] = [];
       let committed = 0;
 
       for (const file of files) {
@@ -204,6 +244,19 @@ export default defineCommand({
         // in a commit subject, a report, and a diff header reads the same on
         // Windows as on POSIX (and git takes a `/` pathspec everywhere).
         const relativePath = relative(cwd, file).split(sep).join("/");
+
+        // A rule is pure and deterministic, but a bug in one could still write
+        // syntactically invalid TSDoc. Proving the output is no worse than the
+        // input before it is written is cheap next to corrupting a file no
+        // other check would catch until the next `check` run, if ever.
+        if (
+          canValidate &&
+          newViolationCount(validator, before, conversion.output, file) > 0
+        ) {
+          unsafe.push(relativePath);
+          continue;
+        }
+
         records.push({
           path: relativePath,
           commentsChanged: conversion.commentsChanged,
@@ -239,6 +292,24 @@ export default defineCommand({
             formatFileDiff(relativePath, before, conversion.output, colors),
           );
         }
+      }
+
+      // Reported and exit-coded ahead of every mode branch below, since an
+      // unsafe file is skipped the same way whether the run is interactive,
+      // a straight write, or a preview.
+      if (unsafe.length > 0) {
+        process.stderr.write(
+          `${colors.yellow(
+            `✗ ${String(unsafe.length)} file(s) produced TSDoc that is invalid where the original was not — likely a bug in convert itself. Not written:`,
+          )}\n`,
+        );
+        for (const path of unsafe) {
+          process.stderr.write(`${colors.dim(`  ${path}`)}\n`);
+        }
+        process.stderr.write(
+          `${colors.dim("Please report this: https://github.com/miguelcolmenares/jsdoc-to-tsdoc/issues")}\n`,
+        );
+        process.exitCode = 1;
       }
 
       if (interactive) {
@@ -375,7 +446,9 @@ export default defineCommand({
         }
       }
 
-      if (check && records.length > 0) {
+      // An unsafe file (exit 1, set above) is a tool bug and takes priority
+      // over "check found changes" — it is the more actionable signal.
+      if (check && records.length > 0 && unsafe.length === 0) {
         process.exitCode = 3;
       }
     } catch (error) {
