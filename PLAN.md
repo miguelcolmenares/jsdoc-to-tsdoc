@@ -9,9 +9,10 @@
 > (2026-08-20). The whole `init → convert → scaffold → escalate` workflow is
 > implemented, tested, and runnable; the `check` CI gate validates the result
 > against the official TSDoc parser, and `scan --classify` reports where a
-> project actually stands before any of it runs. Remaining before this is more
-> than a first release: dogfooding on a 4th real repo end-to-end (see
-> [Development Roadmap](#development-roadmap)). See
+> project actually stands before any of it runs. Dogfooded end-to-end on a 4th
+> real repo (`osa-nextjs`), which closed two scaffolding gaps before release
+> (see [Development Roadmap](#development-roadmap)). What's left: the three
+> items under [Deferred](#deferred-next-increments). See
 > [Implementation Status](#implementation-status) below.
 
 ## Implementation Status
@@ -1154,7 +1155,7 @@ re-extract its own inputs.
 | 7 | Interactive review (`@clack/prompts`) | **Done** — `prompter` domain + `convert`/`scaffold` `--interactive` |
 | 8 | **Escalator + preflight ESLint check** | **Done** — `escalator` domain + `escalate` command |
 | 9 | Fixture-based snapshot tests | **Done** — `fixtures/convert/` before→target pairs, asserted against an independent hand-authored target (see `fixtures/README.md`); `osa` baseline 64/80 recorded |
-| 10 | Dogfood on a 4th real repo end-to-end | Not started |
+| 10 | Dogfood on a 4th real repo end-to-end | **Done** — `osa-nextjs`, closed two scaffolding gaps found in the run (d17d51b, #49) |
 | 11 | npm publish as `jsdoc-to-tsdoc` v0.1.0 | **Done** — published 2026-08-20, live at [npmjs.com/package/jsdoc-to-tsdoc](https://www.npmjs.com/package/jsdoc-to-tsdoc) |
 
 ---
