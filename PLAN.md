@@ -4,11 +4,15 @@
 > (`nextjs-boilerplate`, `homecare-nextjs`, `assistedliving-nextjs`; ~87 files
 > across 3 repos, July 2026).
 >
-> **Implementation status (v0.1.0-dev):** the whole
-> `init → convert → scaffold → escalate` workflow is implemented, tested, and
-> runnable; the `check` CI gate validates the result against the official TSDoc
-> parser, and `scan --classify` reports where a project actually stands before
-> any of it runs. See [Implementation Status](#implementation-status) below.
+> **Implementation status:** published to npm as
+> [`jsdoc-to-tsdoc@0.1.0`](https://www.npmjs.com/package/jsdoc-to-tsdoc)
+> (2026-08-20). The whole `init → convert → scaffold → escalate` workflow is
+> implemented, tested, and runnable; the `check` CI gate validates the result
+> against the official TSDoc parser, and `scan --classify` reports where a
+> project actually stands before any of it runs. Remaining before this is more
+> than a first release: dogfooding on a 4th real repo end-to-end (see
+> [Development Roadmap](#development-roadmap)). See
+> [Implementation Status](#implementation-status) below.
 
 ## Implementation Status
 
@@ -87,7 +91,7 @@ report correct documentation on nearly every React component as stale. Parameter
 staleness is therefore not judged at all for destructured signatures, and
 parameter gaps only once such a comment documents no parameter whatsoever.
 
-Coverage: 681 tests, ~95.7 % overall — 100 % on the classifier and validator,
+Coverage: 727 tests, ~92.3 % overall — 100 % on the classifier and validator,
 ~99 % on the generator and scaffolder, and ~95–98 % across the transformer
 rules, parser, scanner, and escalator.
 
@@ -1151,7 +1155,7 @@ re-extract its own inputs.
 | 8 | **Escalator + preflight ESLint check** | **Done** — `escalator` domain + `escalate` command |
 | 9 | Fixture-based snapshot tests | **Done** — `fixtures/convert/` before→target pairs, asserted against an independent hand-authored target (see `fixtures/README.md`); `osa` baseline 64/80 recorded |
 | 10 | Dogfood on a 4th real repo end-to-end | Not started |
-| 11 | npm publish as `jsdoc-to-tsdoc` v0.1.0 | Not started |
+| 11 | npm publish as `jsdoc-to-tsdoc` v0.1.0 | **Done** — published 2026-08-20, live at [npmjs.com/package/jsdoc-to-tsdoc](https://www.npmjs.com/package/jsdoc-to-tsdoc) |
 
 ---
 
