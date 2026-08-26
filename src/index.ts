@@ -14,8 +14,14 @@
  * @since 0.1.0
  */
 
-/** The current package version. */
-export const VERSION = "0.1.0";
+/**
+ * The current package version.
+ *
+ * @remarks
+ * Kept in sync with `package.json`'s `version` field by
+ * `src/__tests__/version.test.ts` — bump both together.
+ */
+export const VERSION = "0.2.0";
 
 export {
   classifyDeclaration,
