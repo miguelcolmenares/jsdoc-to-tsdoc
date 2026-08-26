@@ -273,6 +273,21 @@ npm run check:tsdoc    # builds, then runs the CLI's own `check` over this repo
   see the iteration log. (Full catalog in
   [`tsdoc-gotchas.instructions.md`](./.github/instructions/tsdoc-gotchas.instructions.md)
   and the boilerplate's `TSDOC_IMPLEMENTATION_PLAN.md`.)
+- **`scan --classify`'s "Valid TSDoc" is not "passes `check`".** Classification
+  only compares documented `@param`/`@returns`/`@typeParam` against the
+  signature — it never runs the comment through the `@microsoft/tsdoc` parser
+  `check` uses. A file with an unescaped `>` in prose was reported `valid` /
+  HIGH confidence, "ready for `convert`", while `check` (and real
+  `tsdoc/syntax` lint) both failed it. See `image-optimizer` below.
+- **`init`'s ESLint patcher only recognizes `defineConfig([…])`**, not the
+  equally-idiomatic variadic `defineConfig(a, b, c)` form ESLint's own API
+  supports. A config using it gets the "could not patch automatically" fallback
+  even though the shape is completely ordinary.
+- **`init`'s custom-tag scan doesn't know what `convert` already knows.** A
+  legacy tag `convert` will delete outright (`@class`, `@function`, `@enum`, …)
+  still gets reported as "unknown — register or remove", asking for a decision
+  the very next command in the documented workflow already makes
+  deterministically.
 
 ### From building the CLI (inform how to code here)
 
@@ -1061,6 +1076,64 @@ three. Never convert in place — see the fixture-set trap below.
 - **Count, do not flag.** "Rule is disabled everywhere" was reported for a config
   that mixed `off` with an unparseable key, sending the user after the wrong
   problem. Counting rule keys separates "disabled" from "unreadable".
+
+### `image-optimizer` — the 5th real repo, and what it exposed
+
+`image-optimizer` (a small solo-dev TypeScript/Express API, ~66 source files)
+is a different kind of corpus than the first four: no hand-written migration
+exists to diff against, and the codebase already had unusually high JSDoc
+discipline going in — 42 of 66 files carried a doc comment before `init` ever
+ran. Where `osa-nextjs` measured *accuracy against a human's decisions*, this
+run measured the tool end to end on a repo with **zero prior history with it**:
+`init` → fix what it couldn't patch → `convert` → hand-author the real gaps →
+`escalate`, using the CLI exactly as the README's own usage section presents it.
+
+- **The classify/check split is real, not theoretical.** `scan --classify`
+  reported 26 files `valid` (HIGH confidence, "ready for `convert`"). Two of
+  them — `env.ts`, `format-detector.ts` — still failed `check` and real
+  `tsdoc/syntax` lint with `tsdoc-escape-greater-than` (five occurrences total:
+  `(>= 0)`, `(> 0)` in prose, `AVIF > WebP > null` in a summary line). The
+  fix in each case was a one-character backslash (`\>`), but the point is
+  where it surfaced: after `scan --classify` had already said the file needed
+  no attention. A workflow that stops at a clean `--classify` — reasonable,
+  since the command's own output frames it as the finish line — can still fail
+  CI. `check` (or lint) is the only command that predicts lint, and has to run
+  regardless of what `--classify` reported.
+- **`init` hit both of its two failure modes on the first real repo that had
+  either.** The ESLint patch failed because the config uses
+  `export default defineConfig(js.configs.recommended, { … }, globalIgnores(…))`
+  — ESLint's own documented variadic form, not the `defineConfig([…])` array
+  form `CONTAINER_OPENERS` recognizes. And the tag scan flagged `@class` on the
+  one class in the codebase (`Image`) as "unknown — register or remove", a tag
+  `convert`'s `remove-redundant-tags` rule deletes outright two commands later
+  in the exact same session. Manual ESLint patching (copy the printed snippet,
+  adapt the array-element block into a second `defineConfig(...)` argument) and
+  ignoring the prompt (running `convert` first resolved `@class` on its own)
+  were both trivial once understood, but a first-time user following the
+  README's own command order literally — `init` immediately followed by
+  `convert` — hits an "unknown tag, register or remove?" prompt for a tag the
+  very next command was always going to remove for them.
+- **The measured baseline, for scale.** Plain `scan`: 66 files, 42 with JSDoc,
+  142 comments total, only 2 needing `convert`. `scan --classify` (which
+  excludes test paths once `init`'s config exists): 41 files — 26 valid, 1
+  partial, 1 line-comments, 8 no-docs, 0 stale. `check` before any manual fix:
+  25 problems across 13 files (7 syntax, 16 missing, 2 legacy). After
+  `convert`, `convert --promote-line-comments`, hand-authoring the 8 no-docs
+  files plus the 1 partial file's missing `@param`s, and the five `\>` escapes
+  above: `check` and plain `eslint` both converged to **zero** problems,
+  independently, and `escalate`'s preflight passed across 74 files (tests
+  included) on the first attempt — no back-and-forth needed once `check` was
+  clean, which is exactly what "the same parser `eslint-plugin-tsdoc` runs"
+  should predict.
+- **Two peer/format frictions, not bugs.** `eslint-plugin-tsdoc-require-2`
+  peer-depends on `@typescript-eslint/parser` directly; a project depending
+  only on the `typescript-eslint` meta-package (the shape `init`'s own
+  generated snippet assumes for the `tseslint.config(...)` branch) satisfies
+  it transitively, but Yarn's peer validation still reports it unmet — noisy,
+  not build-breaking, under a `node-modules` linker. And `init` writes
+  `tsdoc.json` with a fixed 2-space indent regardless of the project's own
+  formatter config; on this repo's tabs-via-Prettier convention that meant an
+  extra `prettier --write tsdoc.json` to match style before committing.
 
 ### Process lessons (apply to every iteration)
 
