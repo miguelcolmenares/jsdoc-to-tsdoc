@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-09-02
+
+### Fixed
+
+- **`peerDependencies.typescript` had no upper bound (`>=5.0`), so a fresh/isolated install (e.g. `npx jsdoc-to-tsdoc`) silently resolved TypeScript 7.x as the peer once it was published.** TypeScript 7's npm package is restructured entirely around the native/Go rewrite — its `"."` export now resolves to `lib/version.cjs` instead of the classic Compiler API — so every command that reads `ts.ScriptKind`, `ts.createSourceFile`, etc. (`scan`, `init`, `convert`) crashed with `Cannot read properties of undefined (reading 'TSX')` / `'TS'`. Capped to `>=5.0.0 <7.0.0`, which keeps both currently-working majors (5.x, this repo's own pin; 6.x, confirmed working live) and excludes the broken one.
+
 ## [0.2.0] - 2026-08-24
 
 ### Added
