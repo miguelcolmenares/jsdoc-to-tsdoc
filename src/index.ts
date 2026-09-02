@@ -21,7 +21,7 @@
  * Kept in sync with `package.json`'s `version` field by
  * `src/__tests__/version.test.ts` — bump both together.
  */
-export const VERSION = "0.2.0";
+export const VERSION = "0.2.1";
 
 export {
   classifyDeclaration,
