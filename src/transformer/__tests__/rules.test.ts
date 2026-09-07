@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { PREFIX_ONLY_TAGS } from "@/parser";
 import {
   addHyphenSeparator,
   convertAccessTags,
@@ -1075,6 +1076,60 @@ describe("stripPrefixTags", () => {
   it("reduces @description to plain prose", () => {
     expect(apply(stripPrefixTags, "/** @description Formats a value. */")).toBe(
       "/** Formats a value. */",
+    );
+  });
+
+  // #84: `@summary` is not a TSDoc tag, so leaving it in place produced a file
+  // `convert` called converted and `check` then rejected with
+  // `tsdoc-undefined-tag`.
+  it("reduces @summary to plain prose", () => {
+    expect(
+      apply(stripPrefixTags, "/** @summary Parses a config file. */"),
+    ).toBe("/** Parses a config file. */");
+  });
+
+  it("keeps the prose of every prefix-only tag in a single comment", () => {
+    const input = comment(
+      "/**",
+      " * @summary Parses a config file.",
+      " * @description Reads and validates it.",
+      " */",
+    );
+
+    expect(apply(stripPrefixTags, input)).toBe(
+      comment(
+        "/**",
+        " * Parses a config file.",
+        " * Reads and validates it.",
+        " */",
+      ),
+    );
+  });
+
+  // The regexes are built by alternation over the registry, so a tag that
+  // merely starts with one of the names must not be truncated into it.
+  it("leaves a tag that only shares a prefix untouched", () => {
+    expect(apply(stripPrefixTags, "/** @descriptor Formats a value. */")).toBe(
+      "/** @descriptor Formats a value. */",
+    );
+  });
+
+  // Guards the drift that caused #84: the rule hardcoded its own list, so a
+  // tag could sit in the registry and still be left in place.
+  it.each(PREFIX_ONLY_TAGS)("strips %s, the tag the registry lists", (tag) => {
+    expect(apply(stripPrefixTags, `/** ${tag} Formats a value. */`)).toBe(
+      "/** Formats a value. */",
+    );
+  });
+
+  // The trailing space on the emptied line is this rule's long-standing output
+  // for a bare tag, not something #84 introduced — it predates `@summary` and
+  // is identical for `@description` and `@classdesc`. Asserted as-is so the
+  // behaviour is pinned; tracked separately because fixing it changes the
+  // output of comments that have nothing to do with `@summary`.
+  it.each(PREFIX_ONLY_TAGS)("strips a bare %s with no prose", (tag) => {
+    expect(apply(stripPrefixTags, comment("/**", ` * ${tag}`, " */"))).toBe(
+      comment("/**", " * ", " */"),
     );
   });
 });
