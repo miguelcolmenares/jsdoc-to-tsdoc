@@ -92,3 +92,51 @@ describe("collectProjectTags", () => {
     expect(report.blockTagsToRegister).toEqual(["@since"]);
   });
 });
+
+describe("tooling pragmas in block comments", () => {
+  // #75: `@jest-environment node` is how Jest selects the test environment for
+  // a file. It was reported as an unknown tag called `@jest` — truncated at the
+  // hyphen, so the name did not even appear in the source — and both actions
+  // the message offers break something: registering it declares a
+  // documentation tag that is not one, removing it silently changes which
+  // environment the test runs in.
+  it("does not ask the user to register or remove @jest-environment", () => {
+    const report = aggregateCommentTags([
+      "/**\n * @jest-environment node\n */",
+    ]);
+
+    expect(report.unknownTags).toEqual([]);
+    expect(report.blockTagsToRegister).toEqual([]);
+  });
+
+  it("reports the pragma by its real name, not truncated at the hyphen", () => {
+    const report = aggregateCommentTags([
+      "/**\n * @jest-environment node\n */",
+    ]);
+
+    expect(report.usages).toEqual([
+      { tag: "@jest-environment", count: 1, classification: "pragma" },
+    ]);
+  });
+
+  it("classifies the other common pragmas the same way", () => {
+    const report = aggregateCommentTags([
+      "/**\n * @vitest-environment happy-dom\n */",
+      "/**\n * @ts-check\n */",
+    ]);
+
+    expect(report.unknownTags).toEqual([]);
+    expect(report.usages.map((u) => u.classification)).toEqual([
+      "pragma",
+      "pragma",
+    ]);
+  });
+
+  // A genuinely unknown tag must still be reported: the fix is about pragmas,
+  // not about silencing the prompt.
+  it("still reports a hyphen-free unknown tag", () => {
+    const report = aggregateCommentTags(["/**\n * @invented\n */"]);
+
+    expect(report.unknownTags).toEqual(["@invented"]);
+  });
+});

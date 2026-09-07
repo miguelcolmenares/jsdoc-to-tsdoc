@@ -409,6 +409,29 @@ Newest first. Each entry records what shipped and, more importantly, **the
 non-obvious things** — a decision and its reasoning, or a trap that cost real
 time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
 
+### A hyphen is not enough to call a token a pragma
+
+- **`@jest-environment` was reported as an unknown tag called `@jest`.**
+  `leadingTag`'s pattern stopped at the hyphen, so `init` asked the user to
+  "register or remove" a name that appears nowhere in their source — and both
+  actions break something: registering declares a documentation tag that is not
+  one, removing silently changes which environment a Jest test runs in. The tag
+  is now captured whole and classified as `pragma`, which is reported in the
+  machine output and never put in front of a user as a decision.
+- **The obvious predicate — "contains a hyphen" — broke `escapeBareAtSign`,
+  and the suite caught it immediately.** That rule only escapes a mid-prose
+  `@token` whose `classifyTag` result is `unknown`, and a TypeScript path alias
+  (`@/lib/ccds-api`) and a scoped package (`@scope/pkg-name`) both carry
+  hyphens. Classifying those as pragmas stopped them being backticked, which is
+  the exact parse failure that rule exists to prevent. The predicate is now
+  `@word-word` with **no** `/` or `.`, which is the shape a pragma actually
+  takes.
+- **The lesson is about overloading a classifier.** `classifyTag` had one
+  consumer asking "should this be registered?" and another asking "is this safe
+  to leave bare in prose?". Adding a category answered the first and silently
+  changed the answer to the second. A shared enum with two readers needs both
+  read before a member is added.
+
 ### The two ESLint config shapes `init` could not patch, and why one needed a different mechanism
 
 - **Both missing shapes were the output of a common scaffold, not exotic

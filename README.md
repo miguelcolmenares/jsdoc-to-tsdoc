@@ -93,7 +93,7 @@ so a command's default should match what that config grades.
 
 Bootstraps a project for TSDoc without touching source comments:
 
-- Scans the codebase for custom block tags and registers the recognized ones (`@since`, `@author`, `@version`) in a generated or merged `tsdoc.json`; unknown tags are reported for a manual decision.
+- Scans the codebase for custom block tags and registers the recognized ones (`@since`, `@author`, `@version`) in a generated or merged `tsdoc.json`; unknown tags are reported for a manual decision. Hyphenated tokens are not reported: a TSDoc tag name cannot contain a hyphen, so `@jest-environment` and `@ts-check` are another tool's pragmas sharing the comment, and neither registering nor removing them is right.
 - Patches the ESLint flat config with the TSDoc plugins and rules: `tsdoc/syntax` at `error`, `tsdoc-require-2/require` at `warn` (progressive), and `require-param` / `require-returns` at `off` to avoid known false positives on interfaces, types, and constants. Four config shapes are recognized, each in two forms:
 
   | Shape | Example |
