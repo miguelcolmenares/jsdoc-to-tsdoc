@@ -267,6 +267,17 @@ function renderReport(input: RenderInput, colors: Colors): void {
     out(colors.green("✓ All TSDoc dev dependencies already installed."));
   } else {
     out(colors.bold(`Next: install dev dependencies —\n  ${input.command}`));
+    // This is the moment the misunderstanding happens: the user is looking at
+    // an install command printed by a tool, and concluding the tool is one of
+    // the things to install. It is not — the four packages are the lint gate
+    // that outlives the migration, and the CLI itself only ever runs by hand.
+    out(
+      colors.dim(
+        "Those four are the lint gate and stay in your project. This CLI is not\n" +
+          "one of them — keep running it with your package runner, and leave it out\n" +
+          "of package.json.",
+      ),
+    );
   }
 }
 

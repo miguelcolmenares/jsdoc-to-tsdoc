@@ -160,6 +160,20 @@ describe("init command", () => {
     expect(await fileExists(tsdocPath)).toBe(false);
   });
 
+  // #73: the reference repo this CLI was dogfooded on ended up with
+  // jsdoc-to-tsdoc in its own devDependencies. This line prints at the exact
+  // moment that decision is made — a user reading an install command emitted
+  // by a tool, and reasonably concluding the tool is one of the things to
+  // install.
+  it("says the CLI is not one of the packages to install", async () => {
+    const output = await captureStdout(() =>
+      runHandler(initCommand, { cwd: root, "dry-run": true }),
+    );
+
+    expect(output).toContain("Those four are the lint gate");
+    expect(output).toContain("leave it out");
+  });
+
   it("is a no-op on an already-bootstrapped project", async () => {
     await captureStdout(() => runHandler(initCommand, { cwd: root }));
 
