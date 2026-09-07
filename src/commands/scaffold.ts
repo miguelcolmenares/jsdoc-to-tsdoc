@@ -40,6 +40,7 @@ import {
   type Colors,
   type SummaryRow,
 } from "@/reporter";
+import { TEST_FILE_GLOBS } from "@/generator";
 import { TODO_MARKER } from "@/scaffolder";
 import { findSourceFiles, type ExportKind } from "@/scanner";
 import { writeFileText } from "@/writer";
@@ -150,6 +151,11 @@ export default defineCommand({
       type: "string",
       description: 'Comma-separated globs to exclude (e.g. "**/*.test.ts").',
     },
+    "include-tests": {
+      type: "boolean",
+      description:
+        "Also stub test files, which `init` exempts from the TSDoc rules.",
+    },
     report: {
       type: "string",
       description: "Machine-readable output: json | md.",
@@ -199,9 +205,24 @@ export default defineCommand({
         shouldUseColor(Boolean(process.stdout.isTTY));
       const colors = createColors(useColor);
 
+      // Test paths are exempt by default, matching `check` and
+      // `scan --classify`. `scaffold` *writes*, and the ESLint config `init`
+      // generates turns `tsdoc-require-2/require` off for these paths — so a
+      // stub here creates a `TODO(tsdoc)` that no gate will ever ask anyone to
+      // fill, in a file no gate grades. It also made `check`'s own remediation
+      // line ("Run `jsdoc-to-tsdoc scaffold`") overshoot the gate that printed
+      // it: `check` reports a missing comment in src/, and `scaffold` answered
+      // by writing stubs across the test tree as well.
+      //
+      // `convert` and the default `scan` inventory deliberately keep test
+      // files: they rewrite JSDoc that is already there rather than creating
+      // an obligation, and malformed JSDoc is malformed wherever it lives.
       const files = await findSourceFiles(cwd, {
         only: splitGlobs(args.only),
-        exclude: splitGlobs(args.exclude),
+        exclude: [
+          ...splitGlobs(args.exclude),
+          ...(args["include-tests"] ? [] : TEST_FILE_GLOBS),
+        ],
       });
 
       // Records and per-file counts are small and always kept; the full stubbed

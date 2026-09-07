@@ -67,10 +67,27 @@ npx jsdoc-to-tsdoc escalate --check
 | `--classify` | `scan` | Report documentation topology and confidence instead of the conversion inventory. Not combinable with `--lite`, which only narrows the inventory; passing both warns and ignores `--lite`. |
 | `--fail-on-missing` | `scan` | Exit `3` when any export has no TSDoc comment (implies `--classify`). |
 | `--fail-on-stale` | `scan` | Exit `3` when any comment contradicts its signature (implies `--classify`). |
-| `--include-tests` | `check`, `scan --classify` | Also inspect the test paths `init` exempts from the TSDoc rules. |
+| `--include-tests` | `check`, `scaffold`, `scan --classify` | Also inspect the test paths `init` exempts from the TSDoc rules. |
 | `--only <globs>` | `scan`, `convert`, `scaffold`, `check` | Comma-separated globs to include (e.g. `"src/lib/**"`). |
 | `--exclude <globs>` | `scan`, `convert`, `scaffold`, `check` | Comma-separated globs to exclude (e.g. `"**/*.test.ts"`). |
 | `--report <fmt>` | all | Machine-readable output: `json` or `md` (written to stdout). |
+
+### Which commands look at test files
+
+Not all of them, and the split is deliberate — `init` writes an ESLint config
+that turns `tsdoc/syntax` and `tsdoc-require-2/require` **off** for test paths,
+so a command's default should match what that config grades.
+
+| Command | Test paths | Why |
+| ------ | ------ | ------ |
+| `check` | skipped | It is a gate. Reporting what `init`'s own config excuses is phantom work. |
+| `scaffold` | skipped | It *writes*. A stub in an ungraded file is a `TODO(tsdoc)` nothing will ever ask anyone to fill. |
+| `scan --classify` | skipped | It measures how well exports are documented — the same question `check` gates on. |
+| `scan` (inventory) | included | It counts what `convert` would rewrite. |
+| `convert` | included | It rewrites JSDoc that is already there rather than creating an obligation, and malformed JSDoc is malformed wherever it lives. |
+
+`--include-tests` opts the first three back in. There is no flag to opt
+`convert` out, because `--exclude` already does that: `convert --exclude "**/*.test.ts,**/__tests__/**"`.
 
 ## What `init` does
 

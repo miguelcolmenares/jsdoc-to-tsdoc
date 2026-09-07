@@ -192,7 +192,7 @@ npx jsdoc-to-tsdoc check     # CI gate: validate TSDoc, exit 3 on problems
 | `--check` | `convert`, `scaffold`, `escalate` | CI mode — exit `3` if anything would change; never writes. |
 | `--interactive` / `-i` | `convert`, `scaffold` | Per-file review: accept/skip/edit/quit. Needs a TTY (stdin + stdout); excludes `--dry-run`/`--preview`/`--check`/`--report`. |
 | `--syntax-only` | `check` | Only validate comment syntax. |
-| `--include-tests` | `check` | Also check the test paths `init` exempts. |
+| `--include-tests` | `check`, `scaffold`, `scan --classify` | Also inspect the test paths `init` exempts. Not on `convert` or the default `scan` inventory — see §12. |
 | `--lite` | `scan`, `convert` | Only `@param`/`@returns` hygiene (`Rule.liteSafe`). |
 | `--severity <level>` | `escalate` | Target severity: `error` (default) or `warn`. |
 | `--skip-preflight` | `escalate` | Patch without running ESLint first. |
@@ -408,6 +408,29 @@ means reading its issue for the full context, not just its title.
 Newest first. Each entry records what shipped and, more importantly, **the
 non-obvious things** — a decision and its reasoning, or a trap that cost real
 time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
+
+### Which commands look at test files, and why they differ
+
+- **The rule is "match what `init`'s config grades", not "be consistent".**
+  `init` writes an ESLint config that turns `tsdoc/syntax` and
+  `tsdoc-require-2/require` **off** for test paths. A command that *gates* or
+  *creates an obligation* must respect that; a command that merely *normalizes
+  what is already written* need not. So `check`, `scaffold` and
+  `scan --classify` skip test paths, while `convert` and the default `scan`
+  inventory include them. That is a real distinction, not an oversight, and it
+  is now stated in the README because reading the code was the only way to
+  learn it.
+- **`scaffold` was on the wrong side of that line and it made `check` lie.**
+  It wrote `TODO(tsdoc)` stubs into the test tree, so `check` would report a
+  missing comment in `src/`, print "Run `jsdoc-to-tsdoc scaffold`", and the
+  command it named would go further than the gate that named it — leaving
+  markers nothing will ever ask anyone to fill, in files nothing grades.
+  Fixed by giving `scaffold` the same default and the same `--include-tests`
+  escape hatch as `check`.
+- **The exemption is additive with `--exclude`, deliberately.** Passing
+  `--exclude "src/generated/**"` must not silently re-admit the test tree; a
+  test pins that, because building the exclude list by replacement rather than
+  concatenation is the obvious way to write it and the failure is invisible.
 
 ### `PLAN.md` retired — v0.1.0's own status table had gone stale inside it
 
