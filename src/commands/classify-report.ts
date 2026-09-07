@@ -27,8 +27,16 @@ import type { Colors } from "@/reporter";
 export interface ClassifiedFile {
   /** Path relative to the scanned directory. */
   readonly path: string;
-  /** The file's verdict. */
-  readonly classification: FileClassification;
+  /**
+   * The file's verdict, or `null` when it exports nothing there is any
+   * documentation coverage to judge.
+   *
+   * @remarks
+   * `null` rather than an omitted field so a JSON consumer sees the case
+   * instead of inferring it from an absence, and so every construction site
+   * has to state which it is.
+   */
+  readonly classification: FileClassification | null;
 }
 
 /** The aggregate result of a classification run. */
@@ -39,6 +47,13 @@ export interface ClassifySummary {
    * How many of those export nothing, and so have no documentation coverage to
    * judge. Reported separately rather than folded into `valid`, which would
    * overstate how much of the project is ready to convert.
+   *
+   * @remarks
+   * Counted from {@link ClassifySummary.files}, never derived by subtracting
+   * from {@link ClassifySummary.filesScanned}. Subtraction cannot tell "this
+   * file has nothing to classify" apart from "this file went missing", so any
+   * future filter that dropped an entry would be silently reported as a
+   * no-export file.
    */
   readonly filesWithoutExports: number;
   /** Files per topology. */
@@ -47,7 +62,11 @@ export interface ClassifySummary {
   readonly byConfidence: Readonly<Record<Confidence, number>>;
   /** How many exported declarations were classified in total. */
   readonly declarationsClassified: number;
-  /** Every classified file, in scan order. */
+  /**
+   * Every scanned file, in scan order — including those with no exports, which
+   * carry a `null` classification. `files.length` always equals
+   * {@link ClassifySummary.filesScanned}.
+   */
   readonly files: readonly ClassifiedFile[];
 }
 
@@ -99,8 +118,13 @@ export function summarizeClassification(
     stale: 0,
   };
   let declarationsClassified = 0;
+  let filesWithoutExports = 0;
 
   for (const { classification } of files) {
+    if (classification === null) {
+      filesWithoutExports += 1;
+      continue;
+    }
     byTopology[classification.topology] += 1;
     byConfidence[classification.confidence] += 1;
     declarationsClassified += classification.declarations.length;
@@ -108,7 +132,7 @@ export function summarizeClassification(
 
   return {
     filesScanned,
-    filesWithoutExports: filesScanned - files.length,
+    filesWithoutExports,
     byTopology,
     byConfidence,
     declarationsClassified,
@@ -132,6 +156,7 @@ export function staleFindings(summary: ClassifySummary): readonly {
   }[] = [];
 
   for (const { path, classification } of summary.files) {
+    if (classification === null) continue;
     for (const declaration of classification.declarations) {
       if (declaration.topology === "stale") {
         findings.push({ path, declaration });
@@ -156,6 +181,7 @@ export function staleFindings(summary: ClassifySummary): readonly {
 export function missingCount(summary: ClassifySummary): number {
   let missing = 0;
   for (const { classification } of summary.files) {
+    if (classification === null) continue;
     missing +=
       classification.counts["no-docs"] + classification.counts["line-comments"];
   }
@@ -171,6 +197,7 @@ export function missingCount(summary: ClassifySummary): number {
 export function staleCount(summary: ClassifySummary): number {
   let stale = 0;
   for (const { classification } of summary.files) {
+    if (classification === null) continue;
     stale += classification.counts.stale;
   }
   return stale;
@@ -190,7 +217,12 @@ export function topologyRows(
       label: TOPOLOGY_LABELS[topology],
       value: summary.byTopology[topology],
     })),
-    { label: "No exports", value: summary.filesWithoutExports },
+    // "No exports" was accurate for a file that declares nothing and
+    // misleading for a barrel — `export * from "./x.js"` exports plenty while
+    // declaring nothing this tool can document. Both belong in one bucket, and
+    // this label is true of both. The JSON key stays `filesWithoutExports` so
+    // the change is presentational only.
+    { label: "Nothing to document", value: summary.filesWithoutExports },
   ];
 }
 

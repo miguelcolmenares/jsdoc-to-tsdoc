@@ -230,12 +230,13 @@ async function runClassify(run: ClassifyRun): Promise<void> {
 
   for (const file of run.files) {
     const source = await readFile(file, "utf8");
-    const classification = classifyFile(
-      collectExportedDeclarations(source, file),
-    );
-    if (classification !== undefined) {
-      classified.push({ path: relative(run.cwd, file), classification });
-    }
+    // Every scanned file gets an entry. A file that exports nothing carries a
+    // null classification rather than being dropped, so `files.length` equals
+    // `filesScanned` and a consumer can enumerate the "No exports" bucket the
+    // human table has always shown.
+    const classification =
+      classifyFile(collectExportedDeclarations(source, file)) ?? null;
+    classified.push({ path: relative(run.cwd, file), classification });
   }
 
   const summary = summarizeClassification(classified, run.files.length);
@@ -275,12 +276,16 @@ function emitClassification(
         declarationsClassified: summary.declarationsClassified,
         byTopology: summary.byTopology,
         byConfidence: summary.byConfidence,
-        files: summary.files.map(({ path, classification }) => ({
-          path,
-          topology: classification.topology,
-          confidence: classification.confidence,
-          declarations: classification.declarations,
-        })),
+        files: summary.files.map(({ path, classification }) =>
+          classification === null
+            ? { path, topology: null, confidence: null, declarations: [] }
+            : {
+                path,
+                topology: classification.topology,
+                confidence: classification.confidence,
+                declarations: classification.declarations,
+              },
+        ),
       })}\n`,
     );
     return;
