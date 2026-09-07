@@ -1122,14 +1122,32 @@ describe("stripPrefixTags", () => {
     );
   });
 
-  // The trailing space on the emptied line is this rule's long-standing output
-  // for a bare tag, not something #84 introduced — it predates `@summary` and
-  // is identical for `@description` and `@classdesc`. Asserted as-is so the
-  // behaviour is pinned; tracked separately because fixing it changes the
-  // output of comments that have nothing to do with `@summary`.
+  // #88: the emptied line keeps its paragraph break but carries no trailing
+  // space, so the output passes the consumer's `prettier --check` as well as
+  // `check`.
   it.each(PREFIX_ONLY_TAGS)("strips a bare %s with no prose", (tag) => {
     expect(apply(stripPrefixTags, comment("/**", ` * ${tag}`, " */"))).toBe(
-      comment("/**", " * ", " */"),
+      comment("/**", " *", " */"),
+    );
+  });
+
+  it("leaves the summary and the description as separate paragraphs", () => {
+    const input = comment(
+      "/**",
+      " * Parses a config file.",
+      " * @description",
+      " * Reads and validates it.",
+      " */",
+    );
+
+    expect(apply(stripPrefixTags, input)).toBe(
+      comment(
+        "/**",
+        " * Parses a config file.",
+        " *",
+        " * Reads and validates it.",
+        " */",
+      ),
     );
   });
 });

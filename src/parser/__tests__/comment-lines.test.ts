@@ -127,6 +127,38 @@ describe("mapCommentLines", () => {
       ["/**", " * @packageDocumentation", " * Hello", " */"].join("\n"),
     );
   });
+
+  // #88: the prefix greedily absorbs post-marker whitespace, so a mapper that
+  // emptied a line used to reassemble it as ` * ` — trailing whitespace that
+  // passes `check` and fails the consumer's `prettier --check`.
+  it("trims the prefix of a line a mapper emptied", () => {
+    const comment = ["/**", " * @description", " * Prose.", " */"].join("\n");
+    const result = mapCommentLines(comment, (content) =>
+      content === "@description" ? "" : content,
+    );
+
+    expect(result).toBe(["/**", " *", " * Prose.", " */"].join("\n"));
+  });
+
+  it("keeps an emptied line rather than dropping it", () => {
+    const comment = ["/**", " * Summary.", " * @description", " */"].join("\n");
+    const result = mapCommentLines(comment, (content) =>
+      content === "@description" ? "" : content,
+    );
+
+    expect(result.split("\n")).toHaveLength(4);
+  });
+
+  // The trim is conditional on a rule having emptied the line. A blank line
+  // the author wrote — trailing space and all — is still reconstructed
+  // verbatim, which is the round-trip property the prefixes exist to preserve
+  // and keeps `convert` from reporting a file whose only change is whitespace
+  // it normalised on the way past.
+  it("reconstructs an author-written blank line verbatim", () => {
+    const comment = ["/**", " * Summary.", " * ", " * More.", " */"].join("\n");
+
+    expect(mapCommentLines(comment, identity)).toBe(comment);
+  });
 });
 
 describe("trimTrailingBlankContentLines", () => {

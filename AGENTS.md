@@ -398,21 +398,15 @@ everything in it was either shipped, superseded by this file and
 
 ### Next up
 
-Two open bugs, both in `convert`, both found by dogfooding rather than by the
-test suite — it writes a file it calls converted that a later gate rejects:
+One open bug, in `convert`, found by dogfooding rather than by the test suite —
+it writes a file it calls converted that a later gate rejects:
 
 - **#85** — `@throws {Type}` survives conversion and produces two syntax
-  errors. Needs a decision before it can be implemented: widening the
-  `remove-type-braces` pattern clears the errors but deletes the type, which
-  appears in no signature, and the TSDoc convention (`@throws {@link
-  SyntaxError}`) renders a broken link for a non-resolvable type like
-  `{string}`.
-- **#88** — a bare prefix-only tag leaves a trailing space, so the output fails
-  the consumer's `prettier --check` while passing `check`. Also carries a
-  behavioural decision: trimming the line versus dropping it changes whether
-  summary and description stay separate paragraphs.
+  errors. Widening the `remove-type-braces` pattern clears the errors but
+  deletes the type, which appears in no signature, so this wants its own rule
+  that rewrites rather than strips.
 
-Beyond those, nine items are deliberately deferred, each as its own GitHub
+Beyond that, nine items are deliberately deferred, each as its own GitHub
 issue labeled `future` (#54–#62) — [browse the list](https://github.com/miguelcolmenares/jsdoc-to-tsdoc/issues?q=is%3Aissue+is%3Aopen+label%3Afuture)
 rather than trusting a summary here to stay in sync with it. Picking one up
 means reading its issue for the full context, not just its title.
@@ -424,6 +418,32 @@ means reading its issue for the full context, not just its title.
 Newest first. Each entry records what shipped and, more importantly, **the
 non-obvious things** — a decision and its reasoning, or a trap that cost real
 time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
+
+### Fix the reassembler, not the rule that exposed it
+
+- **The trailing space belonged to `mapCommentLines`, not to
+  `strip-prefix-tags`.** The prefix greedily absorbs post-marker whitespace so
+  content always starts at the first non-space character; an emptied line then
+  reassembled as `" * "`. Fixing it in the rule that surfaced it would have
+  left the same bug reachable from every other rule that can empty a line. It
+  is fixed once, in the reassembler.
+- **The trim is conditional on a rule having changed the line, and that
+  condition is the whole design.** Trimming every empty line would also
+  normalise blank lines the author wrote, which breaks the verbatim
+  round-trip the prefixes exist to preserve and makes `convert` report files
+  whose only change is whitespace it tidied on the way past — noise in a diff
+  the tool asks a human to review.
+- **Keep the line, do not drop it.** `mapCommentLines` drops a line when the
+  mapper returns `null`, which was the tempting one-liner. It would have
+  merged the summary and the description into a single paragraph — a
+  content-level change smuggled in under a whitespace fix. `""` now means
+  "blank line, no trailing space" and `null` means "gone", and the two are
+  documented in `architecture.instructions.md` because a rule author has to
+  pick between them.
+- **`check` passing is not the bar.** The output was valid TSDoc the whole
+  time; what it failed was the consumer's `prettier --check`. A tool whose job
+  is to leave a repository green has to be measured against every gate the
+  repository runs, not only the one it ships.
 
 ### A registry only governs behaviour if the behaviour reads it
 
