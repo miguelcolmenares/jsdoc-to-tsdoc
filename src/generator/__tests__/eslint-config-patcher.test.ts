@@ -308,6 +308,134 @@ describe("patchEslintFlatConfig", () => {
   });
 });
 
+describe("container shapes the common scaffolds produce", () => {
+  // The shape `create-next-app` emits. Every Next.js project hit the manual
+  // fallback because of it — including this tool's own dogfood on
+  // `personal-site`, where the block had to go in by hand.
+  it("patches a bare array assigned to a const and then default-exported", () => {
+    const source = [
+      'import coreWebVitals from "eslint-config-next/core-web-vitals";',
+      "",
+      "const eslintConfig = [",
+      "  ...coreWebVitals,",
+      '  { ignores: [".next/**"] },',
+      "];",
+      "",
+      "export default eslintConfig;",
+      "",
+    ].join("\n");
+
+    const result = patchEslintFlatConfig(source, { severity: "warn" });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.changed).toBe(true);
+    expect(result.content).toContain('"tsdoc/syntax": "error"');
+    // Inserted as the first entry of the exported array, not before the const.
+    expect(result.content).toMatch(/const eslintConfig = \[\n\s*\{\n\s*files:/);
+  });
+
+  // The risk that kept this out of CONTAINER_OPENERS: `const \w+ = [` matches
+  // any array, and an unrelated one declared first would win on position.
+  // Anchoring on the identifier that is actually exported is what avoids it.
+  it("picks the exported array, not an unrelated one declared above it", () => {
+    const source = [
+      "const ignoredPaths = [",
+      '  ".next/**",',
+      '  "dist/**",',
+      "];",
+      "",
+      "const eslintConfig = [",
+      "  { ignores: ignoredPaths },",
+      "];",
+      "",
+      "export default eslintConfig;",
+      "",
+    ].join("\n");
+
+    const result = patchEslintFlatConfig(source, { severity: "warn" });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.content).toMatch(/const eslintConfig = \[\n\s*\{\n\s*files:/);
+    // The helper array is untouched.
+    expect(result.content).toContain('const ignoredPaths = [\n  ".next/**",');
+  });
+
+  it("does not patch a const array that is never default-exported", () => {
+    const source = ["const notTheConfig = [", '  ".next/**",', "];", ""].join(
+      "\n",
+    );
+
+    const result = patchEslintFlatConfig(source, { severity: "warn" });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toContain("Could not locate");
+  });
+
+  // ESLint's own documented API. Recorded as a finding in AGENTS.md during the
+  // image-optimizer dogfood, but never fixed — that repo's config is still
+  // patched by hand.
+  it("patches the variadic defineConfig(a, b, c) form", () => {
+    const source = [
+      'import js from "@eslint/js";',
+      "",
+      "export default defineConfig(",
+      "  js.configs.recommended,",
+      '  { files: ["**/*.ts"] },',
+      ");",
+      "",
+    ].join("\n");
+
+    const result = patchEslintFlatConfig(source, { severity: "warn" });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.changed).toBe(true);
+    // Emitted as leading arguments, which is what the block already renders.
+    expect(result.content).toMatch(
+      /export default defineConfig\(\n\s*\{\n\s*files:/,
+    );
+    expect(result.content).toContain("js.configs.recommended,");
+  });
+
+  it("patches a variadic defineConfig assigned to a const", () => {
+    const source = [
+      "const eslintConfig = defineConfig(",
+      "  js.configs.recommended,",
+      ");",
+      "",
+      "export default eslintConfig;",
+      "",
+    ].join("\n");
+
+    const result = patchEslintFlatConfig(source, { severity: "warn" });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.content).toMatch(
+      /const eslintConfig = defineConfig\(\n\s*\{\n\s*files:/,
+    );
+  });
+
+  // The array form must keep inserting past the `[`. If the variadic pattern
+  // matched it too, the block would land between `(` and `[`, producing
+  // `defineConfig({…},[…])` — valid syntax, wrong meaning.
+  it("still inserts past the bracket for the array form", () => {
+    const result = patchEslintFlatConfig(defineConfigSource, {
+      severity: "warn",
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.content).toMatch(
+      /export default defineConfig\(\[\n\s*\{\n\s*files:/,
+    );
+    expect(result.content).not.toMatch(/defineConfig\(\n\s*\{/);
+  });
+});
+
 describe("buildTsdocConfigSnippet", () => {
   it("includes ESM imports, a CommonJS variant, and the rule block", () => {
     const snippet = buildTsdocConfigSnippet("warn");

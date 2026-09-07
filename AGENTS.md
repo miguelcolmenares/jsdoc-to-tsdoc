@@ -143,9 +143,13 @@ problems, `2` when `tsdoc.json` is unreadable. See
 4. **TS Compiler API for extraction**, not regex. `getLeadingCommentRanges`
    yields precise offsets and never matches inside strings/templates.
 5. **Text-based, idempotent ESLint patching**, not AST re-print. Preserves the
-   author's formatting. Recognizes `defineConfig([…])`, `tseslint.config(…)`,
-   and bare-array flat configs; falls back to a copy-pasteable snippet when the
-   shape is unknown. Idempotency is gated on a real `import`/`require` of the
+   author's formatting. Recognizes `defineConfig([…])`, the variadic
+   `defineConfig(a, b, c)`, `tseslint.config(…)`, a bare
+   `export default [ … ]`, and an array assigned to a `const` that is then
+   default-exported; falls back to a copy-pasteable snippet when the shape is
+   unknown. The last of those is resolved by the *exported identifier* rather
+   than by a pattern, because `const \w+ = [` matches any array and would
+   happily pick an unrelated one declared above the real config. Idempotency is gated on a real `import`/`require` of the
    syntax plugin, not a bare substring.
 6. **Progressive enforcement by default.** `init` starts `tsdoc-require-2/require`
    at `warn`; `--strict` opts into `error`. `require-param`/`require-returns`
@@ -288,10 +292,6 @@ npm run check:tsdoc    # builds, then runs the CLI's own `check` over this repo
   `check` uses. A file with an unescaped `>` in prose was reported `valid` /
   HIGH confidence, "ready for `convert`", while `check` (and real
   `tsdoc/syntax` lint) both failed it. See `image-optimizer` below.
-- **`init`'s ESLint patcher only recognizes `defineConfig([…])`**, not the
-  equally-idiomatic variadic `defineConfig(a, b, c)` form ESLint's own API
-  supports. A config using it gets the "could not patch automatically" fallback
-  even though the shape is completely ordinary.
 - **`init`'s custom-tag scan doesn't know what `convert` already knows.** A
   legacy tag `convert` will delete outright (`@class`, `@function`, `@enum`, …)
   still gets reported as "unknown — register or remove", asking for a decision
@@ -408,6 +408,33 @@ means reading its issue for the full context, not just its title.
 Newest first. Each entry records what shipped and, more importantly, **the
 non-obvious things** — a decision and its reasoning, or a trap that cost real
 time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
+
+### The two ESLint config shapes `init` could not patch, and why one needed a different mechanism
+
+- **Both missing shapes were the output of a common scaffold, not exotic
+  styles.** `const eslintConfig = [ … ]; export default eslintConfig;` is what
+  `create-next-app` emits, so every Next.js project took the manual fallback.
+  The variadic `defineConfig(a, b, c)` is ESLint's own documented API and had
+  been sitting in this file as a known limitation since the `image-optimizer`
+  dogfood. A "shape we don't recognize" list is worth checking against what the
+  popular generators actually produce, rather than against what looks canonical.
+- **The variadic form is a regex; the const-array form deliberately is not.**
+  `const \w+ = [` matches *any* array, so as a `CONTAINER_OPENERS` entry it
+  would happily pick a helper array declared above the real config — a shared
+  `ignores` list, a paths constant — and insert the rules block into it. It is
+  resolved instead by reading the identifier from `export default <name>` and
+  finding *that* declaration. A test pins it with a decoy array declared first.
+- **The variadic pattern needs a negative lookahead**, `\((?!\s*\[)`, or it
+  also matches `defineConfig([`. Both would then match at the same index with
+  different insertion offsets, and the block would land between the `(` and the
+  `[` — syntactically valid, semantically wrong. There is a test asserting the
+  array form still inserts past the bracket.
+- **Choosing between competing shapes was comparing an index to an end
+  offset.** `findContainerInsertPoint` tracked `earliest` as the insertion
+  offset but compared `match.index` against it, so with two recognized
+  containers it could keep the wrong one. Unreachable with the previous five
+  patterns, and reachable with these two — the kind of latent bug that only
+  surfaces when the set it guards grows.
 
 ### Which commands look at test files, and why they differ
 
@@ -1135,7 +1162,9 @@ run measured the tool end to end on a repo with **zero prior history with it**:
   either.** The ESLint patch failed because the config uses
   `export default defineConfig(js.configs.recommended, { … }, globalIgnores(…))`
   — ESLint's own documented variadic form, not the `defineConfig([…])` array
-  form `CONTAINER_OPENERS` recognizes. And the tag scan flagged `@class` on the
+  form `CONTAINER_OPENERS` recognized at the time — both that shape and the
+  `create-next-app` one were added later; see the §12 entry above. And the tag
+  scan flagged `@class` on the
   one class in the codebase (`Image`) as "unknown — register or remove", a tag
   `convert`'s `remove-redundant-tags` rule deletes outright two commands later
   in the exact same session. Manual ESLint patching (copy the printed snippet,

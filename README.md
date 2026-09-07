@@ -94,7 +94,20 @@ so a command's default should match what that config grades.
 Bootstraps a project for TSDoc without touching source comments:
 
 - Scans the codebase for custom block tags and registers the recognized ones (`@since`, `@author`, `@version`) in a generated or merged `tsdoc.json`; unknown tags are reported for a manual decision.
-- Patches the ESLint flat config (`defineConfig([…])`, `tseslint.config(…)`, or a bare array) with the TSDoc plugins and rules — `tsdoc/syntax` at `error`, `tsdoc-require-2/require` at `warn` (progressive), and `require-param` / `require-returns` at `off` to avoid known false positives on interfaces, types, and constants. The patch is idempotent and non-destructive; when the config shape is unrecognized it prints a copy-pasteable snippet.
+- Patches the ESLint flat config with the TSDoc plugins and rules: `tsdoc/syntax` at `error`, `tsdoc-require-2/require` at `warn` (progressive), and `require-param` / `require-returns` at `off` to avoid known false positives on interfaces, types, and constants. Four config shapes are recognized, each in two forms:
+
+  | Shape | Example |
+  | ------ | ------ |
+  | `defineConfig` with an array | `export default defineConfig([ … ])` |
+  | `defineConfig`, variadic | `export default defineConfig(a, b, c)` |
+  | `tseslint.config(…)` | `export default tseslint.config(…)` |
+  | a bare array | `export default [ … ]` |
+
+  Each is also recognized assigned to a variable that is then default-exported
+  — `const eslintConfig = [ … ]` followed by `export default eslintConfig`,
+  which is what `create-next-app` scaffolds.
+
+  The patch is idempotent and non-destructive; when the shape is unrecognized it prints a copy-pasteable snippet.
 - Detects the package manager and prints the exact dev-dependency install command (or runs it with `--install`).
 
 Use `--strict` to lock the presence rule in at `error` from day one instead of the progressive `warn`.
