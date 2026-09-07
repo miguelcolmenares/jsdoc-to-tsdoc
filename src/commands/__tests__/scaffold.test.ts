@@ -62,6 +62,70 @@ afterEach(async () => {
 });
 
 describe("scaffold command", () => {
+  // The regression: `scaffold` used to write TODO(tsdoc) stubs into test files
+  // whose TSDoc rules the config `init` generates turns off. That made
+  // `check`'s own remediation line — "Run `jsdoc-to-tsdoc scaffold`" —
+  // overshoot the gate that printed it, since `check` never looks at those
+  // files.
+  it("leaves test files alone by default", async () => {
+    await mkdir(join(root, "src", "__tests__"), { recursive: true });
+    const inTests = join(root, "src", "__tests__", "hero.test.ts");
+    const sibling = join(root, "src", "other.test.ts");
+    await writeFile(inTests, undocumented);
+    await writeFile(sibling, undocumented);
+
+    const output = await captureStdout(() =>
+      runHandler(scaffoldCommand, { cwd: root, report: "json" }),
+    );
+    const report = JSON.parse(output) as { exportsFound: number };
+
+    // Only src/hero.ts is scaffolded; both test files are untouched on disk.
+    expect(report.exportsFound).toBe(2);
+    expect(await readFile(inTests, "utf8")).toBe(undocumented);
+    expect(await readFile(sibling, "utf8")).toBe(undocumented);
+  });
+
+  it("stubs test files under --include-tests", async () => {
+    await mkdir(join(root, "src", "__tests__"), { recursive: true });
+    const inTests = join(root, "src", "__tests__", "hero.test.ts");
+    await writeFile(inTests, undocumented);
+
+    const output = await captureStdout(() =>
+      runHandler(scaffoldCommand, {
+        cwd: root,
+        "include-tests": true,
+        report: "json",
+      }),
+    );
+    const report = JSON.parse(output) as { exportsFound: number };
+
+    expect(report.exportsFound).toBe(4);
+    expect(await readFile(inTests, "utf8")).not.toBe(undocumented);
+  });
+
+  // --exclude is additive with the default exemption, not a replacement for
+  // it: passing one glob must not silently re-admit the test tree.
+  it("keeps the test exemption when --exclude is also passed", async () => {
+    await mkdir(join(root, "src", "__tests__"), { recursive: true });
+    const inTests = join(root, "src", "__tests__", "hero.test.ts");
+    const skipped = join(root, "src", "skip-me.ts");
+    await writeFile(inTests, undocumented);
+    await writeFile(skipped, undocumented);
+
+    const output = await captureStdout(() =>
+      runHandler(scaffoldCommand, {
+        cwd: root,
+        exclude: "src/skip-me.ts",
+        report: "json",
+      }),
+    );
+    const report = JSON.parse(output) as { exportsFound: number };
+
+    expect(report.exportsFound).toBe(2);
+    expect(await readFile(inTests, "utf8")).toBe(undocumented);
+    expect(await readFile(skipped, "utf8")).toBe(undocumented);
+  });
+
   it("emits a JSON report without writing in dry-run", async () => {
     const output = await captureStdout(() =>
       runHandler(scaffoldCommand, {
