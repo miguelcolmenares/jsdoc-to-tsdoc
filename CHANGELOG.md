@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **`yarn dlx jsdoc-to-tsdoc` and `pnpm dlx jsdoc-to-tsdoc` crashed on startup with `Cannot find package 'typescript'`.** `typescript` was a peer dependency, and only npm auto-installs peers — so the `npx` invocation the README documents everywhere worked while its Yarn and pnpm equivalents did not, even in a project with TypeScript already installed, because `dlx` resolves in an isolated environment that cannot see the workspace's `node_modules`. Moved to `dependencies` with the same `>=5.0.0 <7.0.0` range. It is still never bundled (`externals` in `build.config.ts` is unchanged), and the peer pattern did not apply here in the first place: nothing in the public surface accepts or returns a `ts.*` type, so there is no compiler instance for a host project to share.
+- The CLI now verifies the resolved `typescript` exposes the classic Compiler API before dispatching, and exits `2` with a sentence naming the version and the supported range. Previously a package that imported cleanly but carried no `createSourceFile` — TypeScript 7's restructured package, a bundler shim — surfaced as `Cannot read properties of undefined (reading 'TSX')` several frames inside whichever command ran first, naming neither TypeScript nor the version.
+
 ## [0.2.1] - 2026-09-02
 
 ### Fixed

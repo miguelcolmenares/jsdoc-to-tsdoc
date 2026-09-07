@@ -9,8 +9,9 @@ import { defineBuildConfig } from "unbuild";
  * - `dist/cli.mjs` — the executable CLI (keeps its `#!/usr/bin/env node` shebang).
  * - `dist/index.mjs` — the programmatic library surface (barrel re-exports).
  *
- * `typescript` is a peer dependency and is never bundled — the consumer already
- * ships it. The bundle target is `< 500 KB` gzipped (asserted in CI).
+ * `typescript` is listed in `externals` and is never bundled: it is a runtime
+ * dependency the package runner installs alongside the CLI, not code we ship.
+ * The bundle target is `< 500 KB` gzipped (asserted in CI).
  */
 export default defineBuildConfig({
   entries: ["src/cli", "src/index"],

@@ -11,8 +11,10 @@ issues labeled `future`, not a roadmap document.
 A zero-config CLI (`npx jsdoc-to-tsdoc <command>`) that migrates a TypeScript
 project's doc comments from **JSDoc** to the **TSDoc** standard and bootstraps
 the ESLint tooling that keeps them valid. Workflow: `init → convert → scaffold →
-escalate`. Shipped today: `init`, `scan`, `convert`. Pure Node CLI, ESM only,
-`typescript` is a peer dependency.
+escalate`, plus the `check` CI gate. Every command has shipped. Pure Node CLI,
+ESM only. `typescript` is a runtime **dependency**, never bundled and never a
+peer — only npm auto-installs peers, so as a peer the CLI could not run under
+`yarn dlx` or `pnpm dlx` at all.
 
 ## Architecture
 

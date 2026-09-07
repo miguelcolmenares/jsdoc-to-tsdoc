@@ -7,6 +7,7 @@
  */
 
 import { defineCommand, runMain } from "citty";
+import * as ts from "typescript";
 
 import {
   checkCommand,
@@ -17,6 +18,18 @@ import {
   scanCommand,
 } from "@/commands";
 import { VERSION } from "@/index";
+import { checkCompilerApi } from "@/scanner";
+
+// Fail here, once, rather than several frames deep inside whichever command
+// first reaches for the Compiler API. A `typescript` that imports cleanly but
+// carries no `createSourceFile` used to surface as
+// `Cannot read properties of undefined (reading 'TSX')`, which names neither
+// TypeScript nor the version that caused it.
+const compilerApi = checkCompilerApi(ts);
+if (!compilerApi.ok) {
+  process.stderr.write(`jsdoc-to-tsdoc: ${compilerApi.reason}\n`);
+  process.exit(2);
+}
 
 const main = defineCommand({
   meta: {

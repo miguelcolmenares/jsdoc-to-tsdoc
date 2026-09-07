@@ -89,11 +89,13 @@ export {
   TODO_MARKER,
 } from "@/scaffolder";
 export {
+  checkCompilerApi,
   collectExportedDeclarations,
   collectMemberTargets,
   extractJsDocComments,
   findSourceFiles,
   undocumentedDeclarations,
+  type CompilerApiCheck,
   type ExportedDeclaration,
   type ExportKind,
   type MemberTarget,
