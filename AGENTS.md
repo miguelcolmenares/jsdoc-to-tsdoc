@@ -411,6 +411,40 @@ Newest first. Each entry records what shipped and, more importantly, **the
 non-obvious things** — a decision and its reasoning, or a trap that cost real
 time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
 
+### What the two prior tools got right, and the two bugs reading them exposed
+
+Reviewed [`@enact/jsdoc-to-ts`](https://github.com/enactjs/jsdoc-to-ts) (active,
+v1.0.13) and
+[`wvbe/experimental-jsdoc-to-tsdoc-tool`](https://github.com/wvbe/experimental-jsdoc-to-tsdoc-tool)
+(Deno prototype, 2022).
+
+- **Only one is the same problem.** `@enact/jsdoc-to-ts` generates `.d.ts` from
+  a JavaScript codebase — its `types.js` maps JSDoc type expressions onto
+  TypeScript types, the exact information this tool *deletes* because a
+  TypeScript signature already carries it. Nothing to port.
+- **The prototype validates decision 3 by counterexample.**
+  `replaceJsdocWithTsdoc` parses each comment to an AST and re-serializes only
+  the tags it implements; its README says the rest are removed. That is the
+  design this tool rejected in favour of `mapCommentLines`, and seeing the
+  consequence written down as a documented feature is the strongest argument
+  for format-preserving edits there is: a migration you cannot run on code you
+  did not write.
+- **Both baked their employer's conventions into the general path.** wvbe has
+  `@fontosdk` handling and a `fancyCategoryNames` map for Fonto; enact maps
+  `Component` to `React.ComponentType`. Worth remembering when #59
+  (framework-specific scaffold templates) is picked up — that belongs behind an
+  opt-in, not in the default pipeline.
+- **Reading them found two real bugs here**, both confirmed by fixture: `@summary`
+  survives conversion and fails `check` with `tsdoc-undefined-tag` (#84), and
+  `@throws {Type}` keeps its braces and fails with two more (#85). Both are
+  tags the prototype handles and this tool's registry never listed. Prior art
+  is worth reading as a checklist of cases, even when its architecture is one
+  you would not copy.
+- **One thing it does that is *not* a bug here.** wvbe rewrites a whitespace-free
+  `@see foo` into `@see {@link foo}`. `@see foo` passes `check` unchanged, so
+  that is a rendering improvement rather than a correctness fix — worth a
+  `future` issue if anyone wants it, not a rule.
+
 ### A derived count cannot distinguish "nothing here" from "we lost it"
 
 - **`filesWithoutExports` was `filesScanned - files.length`.** It produced the
