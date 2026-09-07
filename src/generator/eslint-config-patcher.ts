@@ -133,7 +133,62 @@ const CONTAINER_OPENERS: readonly RegExp[] = [
   /^[ \t]*export\s+default\s+\[/m,
   /^[ \t]*(?:const|let|var)\s+\w+\s*=\s*defineConfig\s*\(\s*\[/m,
   /^[ \t]*(?:const|let|var)\s+\w+\s*=\s*tseslint\.config\s*\(/m,
+  // The variadic `defineConfig(a, b, c)` form — ESLint's own documented API,
+  // not a stylistic variant. The negative lookahead keeps it from also
+  // matching the array form above, which needs a different insertion offset
+  // (past the `[`, not past the `(`). Both produce the same result from the
+  // block: it renders as bare `{…},` entries, which are equally valid as
+  // array elements and as leading arguments.
+  /^[ \t]*export\s+default\s+defineConfig\s*\((?!\s*\[)/m,
+  /^[ \t]*(?:const|let|var)\s+\w+\s*=\s*defineConfig\s*\((?!\s*\[)/m,
 ];
+
+/**
+ * Matches `export default someIdentifier`, capturing the identifier.
+ *
+ * @remarks
+ * Anchored to a line start so a mention inside a comment or string is not
+ * mistaken for the real export, and excludes the shapes the openers above
+ * already handle by requiring the whole statement to be just a name.
+ */
+const DEFAULT_EXPORT_IDENTIFIER = /^[ \t]*export\s+default\s+(\w+)\s*;?\s*$/m;
+
+/**
+ * Finds the insertion point for a bare array assigned to a variable that is
+ * then default-exported — the shape `create-next-app` scaffolds:
+ *
+ * ```text
+ * const eslintConfig = [ … ];
+ * export default eslintConfig;
+ * ```
+ *
+ * @remarks
+ * Deliberately not a `CONTAINER_OPENERS` entry. `const \w+ = [` on its own is
+ * far broader than the wrapper-call patterns and would happily match an
+ * unrelated array declared above the real config — a shared `ignores` list, a
+ * list of paths. Anchoring on the identifier that is actually exported makes
+ * the match unambiguous, and means a file with several arrays still resolves
+ * to the right one.
+ *
+ * @param source - The config source.
+ * @returns The offset just past the array's `[`, or `-1` when the file does
+ *          not have this shape.
+ */
+function findExportedArrayInsertPoint(source: string): number {
+  const exported = DEFAULT_EXPORT_IDENTIFIER.exec(source);
+  if (!exported) {
+    return -1;
+  }
+  const name = exported[1];
+  if (name === undefined) {
+    return -1;
+  }
+  const declaration = new RegExp(
+    `^[ \\t]*(?:const|let|var)\\s+${name}\\s*=\\s*\\[`,
+    "m",
+  ).exec(source);
+  return declaration === null ? -1 : declaration.index + declaration[0].length;
+}
 
 /**
  * Renders the plugin/rules block inserted as the first config entry.
@@ -275,16 +330,23 @@ function insertImports(source: string): string {
  */
 function findContainerInsertPoint(source: string): number {
   let earliest = -1;
+  let earliestIndex = -1;
   for (const opener of CONTAINER_OPENERS) {
     const match = opener.exec(source);
     if (match) {
       const end = match.index + match[0].length;
-      if (earliest === -1 || match.index < earliest) {
+      if (earliestIndex === -1 || match.index < earliestIndex) {
+        earliestIndex = match.index;
         earliest = end;
       }
     }
   }
-  return earliest;
+  if (earliest !== -1) {
+    return earliest;
+  }
+  // Last, because it is the loosest match: only reached when no wrapper-call
+  // or inline-array shape was recognized.
+  return findExportedArrayInsertPoint(source);
 }
 
 /**

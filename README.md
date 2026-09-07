@@ -94,7 +94,7 @@ so a command's default should match what that config grades.
 Bootstraps a project for TSDoc without touching source comments:
 
 - Scans the codebase for custom block tags and registers the recognized ones (`@since`, `@author`, `@version`) in a generated or merged `tsdoc.json`; unknown tags are reported for a manual decision.
-- Patches the ESLint flat config (`defineConfig([…])`, `tseslint.config(…)`, or a bare array) with the TSDoc plugins and rules — `tsdoc/syntax` at `error`, `tsdoc-require-2/require` at `warn` (progressive), and `require-param` / `require-returns` at `off` to avoid known false positives on interfaces, types, and constants. The patch is idempotent and non-destructive; when the config shape is unrecognized it prints a copy-pasteable snippet.
+- Patches the ESLint flat config — `defineConfig([…])`, the variadic `defineConfig(a, b, c)`, `tseslint.config(…)`, a bare `export default [ … ]`, and an array assigned to a `const` that is then default-exported (what `create-next-app` scaffolds) — with the TSDoc plugins and rules — `tsdoc/syntax` at `error`, `tsdoc-require-2/require` at `warn` (progressive), and `require-param` / `require-returns` at `off` to avoid known false positives on interfaces, types, and constants. The patch is idempotent and non-destructive; when the config shape is unrecognized it prints a copy-pasteable snippet.
 - Detects the package manager and prints the exact dev-dependency install command (or runs it with `--install`).
 
 Use `--strict` to lock the presence rule in at `error` from day one instead of the progressive `warn`.
