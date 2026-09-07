@@ -133,7 +133,7 @@ the project's one custom block tag (declared in `tsdoc.json`). `@param`/`@return
 
 ## Runtime & bundle constraints
 
-- **ESM only**; `typescript` is a **peer dependency** — never bundle the compiler.
+- **ESM only**; `typescript` is a **runtime dependency** listed in `externals` — never bundle the compiler. It is not a peer dependency: only npm auto-installs peers, so `yarn dlx`/`pnpm dlx` could not run the CLI at all.
 - Lazy-import heavy dependencies; the built `dist/cli.mjs` is CI-gated at **< 500 KB gzipped**.
 - **SRP**: one module = one responsibility. A file over ~150 lines is a smell (command
   orchestrators are the pragmatic exception).

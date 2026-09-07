@@ -15,6 +15,7 @@ const PUBLIC_SURFACE = [
   "VERSION",
   "aggregateCommentTags",
   "buildStub",
+  "checkCompilerApi",
   "checkSourceText",
   "classifyDeclaration",
   "classifyFile",

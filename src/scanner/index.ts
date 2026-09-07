@@ -8,6 +8,11 @@
  */
 
 export {
+  checkCompilerApi,
+  type CompilerApiCheck,
+} from "@/scanner/compiler-api";
+
+export {
   applyEdits,
   extractJsDocComments,
   type SourceComment,

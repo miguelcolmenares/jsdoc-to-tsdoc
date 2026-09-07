@@ -158,8 +158,17 @@ problems, `2` when `tsdoc.json` is unreadable. See
 10. **Fallible operations return discriminated unions**, not throws
     (e.g. `EslintPatchResult = { ok: true; … } | { ok: false; reason; snippet }`).
     `throw` is reserved for programmer-error invariants.
-11. **ESM-only, `typescript` as a peer dep** (never bundle the compiler),
+11. **ESM-only, `typescript` as a runtime dependency** (never bundle the
+    compiler — it stays in `build.config.ts`'s `externals`),
     bundle target **< 500 KB gzipped** (CI-gated), heavy deps lazy-imported.
+    It was a *peer* dependency until it turned out that only npm auto-installs
+    peers: `yarn dlx` and `pnpm dlx` resolve in an isolated environment and
+    crashed on startup with `Cannot find package 'typescript'`. The peer
+    pattern is for plugins that must share the host's instance, and this is not
+    one — nothing in the public surface takes or returns a `ts.*` type, so
+    there is no instance to share. `src/cli.ts` checks the resolved compiler
+    for the classic API before dispatching, so a restructured package fails
+    with a sentence instead of a stack trace.
 
 ---
 

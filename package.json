@@ -55,9 +55,6 @@
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
-  "peerDependencies": {
-    "typescript": ">=5.0.0 <7.0.0"
-  },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^26.1.2",
@@ -68,7 +65,6 @@
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
     "prettier": "^3.9.6",
-    "typescript": "^5.9.3",
     "typescript-eslint": "^8.66.0",
     "unbuild": "^3.6.1",
     "vitest": "^4.1.10"
@@ -78,7 +74,8 @@
     "@microsoft/tsdoc": "^0.16.0",
     "@microsoft/tsdoc-config": "^0.18.1",
     "citty": "^0.2.2",
-    "diff": "^9.0.0"
+    "diff": "^9.0.0",
+    "typescript": ">=5.0.0 <7.0.0"
   },
   "lint-staged": {
     "*.{ts,mts,mjs,json}": [
