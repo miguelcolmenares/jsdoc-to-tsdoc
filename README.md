@@ -10,6 +10,55 @@ TypeScript projects commonly use JSDoc-style documentation comments that include
 
 There is **no existing tool** to automate this migration end to end — see [`AGENTS.md`](./AGENTS.md) for the CLI's own architecture and design decisions.
 
+## Installation
+
+There isn't one, and that is deliberate. `jsdoc-to-tsdoc` is a **migration
+tool, not a library**: nothing in your project imports it, nothing at build or
+lint time calls it, and once the migration is done there is nothing left for it
+to do. Run it with your package runner:
+
+```bash
+npx jsdoc-to-tsdoc <command>          # npm
+yarn dlx jsdoc-to-tsdoc <command>     # Yarn
+pnpm dlx jsdoc-to-tsdoc <command>     # pnpm
+```
+
+All three are tested against a packed tarball, on real projects, not assumed
+equivalent — `yarn dlx` was broken until recently for a reason none of the
+others shared.
+
+**Do not add it to `dependencies` or `devDependencies`.** Installed, it pins a
+finished migration tool into a dependency graph where it shows up in every
+audit, every Dependabot pass and every lockfile diff, for a command run by hand
+a few times a year.
+
+### What *does* belong in your devDependencies
+
+`init` reports four packages, and those are a different thing entirely — they
+are the **lint gate this tool leaves behind**, and ESLint loads them on every
+run forever:
+
+```bash
+npm install -D @microsoft/tsdoc @microsoft/tsdoc-config \
+  eslint-plugin-tsdoc eslint-plugin-tsdoc-require-2
+```
+
+The distinction is the one place this is easy to get wrong: `init` installs
+dev dependencies, so it is a fair assumption that `init` *is* one. It is not.
+Those four run your lint; the CLI runs once.
+
+### Using `check` in CI
+
+`check` is the one command with a standing role, and it still does not belong
+in `package.json`. Pin the version in the workflow instead, so CI is
+reproducible without the tool entering your dependency graph:
+
+```yaml
+# Pin the version so a CI run is reproducible; the tool never enters
+# package.json, so nothing has to be installed for this step.
+- run: npx jsdoc-to-tsdoc@<version> check
+```
+
 ## Usage
 
 ```bash

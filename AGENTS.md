@@ -166,8 +166,10 @@ problems, `2` when `tsdoc.json` is unreadable. See
     compiler — it stays in `build.config.ts`'s `externals`),
     bundle target **< 500 KB gzipped** (CI-gated), heavy deps lazy-imported.
     It was a *peer* dependency until it turned out that only npm auto-installs
-    peers: `yarn dlx` and `pnpm dlx` resolve in an isolated environment and
-    crashed on startup with `Cannot find package 'typescript'`. The peer
+    peers: `yarn dlx` resolves in an isolated environment and crashed on
+    startup with `Cannot find package 'typescript'`. `pnpm dlx` was fine —
+    pnpm 8+ auto-installs peers by default — but that was verified rather than
+    assumed, after the first write-up guessed it behaved like Yarn. The peer
     pattern is for plugins that must share the host's instance, and this is not
     one — nothing in the public surface takes or returns a `ts.*` type, so
     there is no instance to share. `src/cli.ts` checks the resolved compiler
