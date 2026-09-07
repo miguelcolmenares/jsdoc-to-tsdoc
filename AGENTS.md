@@ -409,6 +409,29 @@ Newest first. Each entry records what shipped and, more importantly, **the
 non-obvious things** — a decision and its reasoning, or a trap that cost real
 time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
 
+### A derived count cannot distinguish "nothing here" from "we lost it"
+
+- **`filesWithoutExports` was `filesScanned - files.length`.** It produced the
+  right number, and it was the wrong mechanism: any future filter that dropped
+  a file from `files[]` for an unrelated reason — a parse failure, a skip —
+  would have been silently reported as a file with no exports. A subtraction
+  answers "how many are missing", never "why". It is counted from the array
+  now, which also makes `files.length === filesScanned` an invariant worth
+  asserting, and a test pins that a dropped file does *not* land in the bucket.
+- **The JSON was strictly less informative than the human table**, which is
+  backwards: `--report=json` exists for tooling and the table is the summary.
+  Files with no exports were counted in two places and listed in neither. They
+  are now emitted with `classification: null` — explicitly null rather than an
+  omitted field, so a consumer sees the case instead of inferring it from an
+  absence, and so every construction site has to say which it is.
+- **"No exports" was the wrong label, not the wrong bucket.** A barrel
+  (`export * from "./x.js"`) exports plenty while declaring nothing this tool
+  can attach a comment to, so it lands there correctly and the row read as a
+  contradiction. Renamed to "Nothing to document", which is true of both kinds.
+  The `filesWithoutExports` JSON key is unchanged — the fix was presentational,
+  and renaming a machine-read key to improve a human label would be a poor
+  trade.
+
 ### A hyphen is not enough to call a token a pragma
 
 - **`@jest-environment` was reported as an unknown tag called `@jest`.**

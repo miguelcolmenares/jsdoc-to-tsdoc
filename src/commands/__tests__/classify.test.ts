@@ -5,7 +5,34 @@ import { join } from "node:path";
 import type { ArgsDef, CommandContext, CommandDef } from "citty";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { summarizeClassification } from "@/commands/classify-report";
 import scanCommand from "@/commands/scan";
+import type { FileClassification } from "@/classifier";
+
+/** A minimal fully-documented file verdict, for the summary unit tests. */
+function validClassification(): FileClassification {
+  return {
+    topology: "valid",
+    confidence: "high",
+    declarations: [
+      {
+        name: "add",
+        line: 1,
+        kind: "function",
+        topology: "valid",
+        gaps: [],
+        stale: [],
+      },
+    ],
+    counts: {
+      valid: 1,
+      partial: 0,
+      "line-comments": 0,
+      "no-docs": 0,
+      stale: 0,
+    },
+  };
+}
 
 let root = "";
 
@@ -287,5 +314,70 @@ describe("scan gates", () => {
 
     const { output } = await run({ "fail-on-missing": true });
     expect(output).toContain("Documentation analysis");
+  });
+});
+
+describe("the JSON report accounts for every scanned file", () => {
+  // #71: files[] used to omit the files with no exports while filesScanned
+  // counted them, so the two could not be reconciled and the bucket the human
+  // table shows could not be enumerated from the machine output at all.
+  it("lists a file with no exports, with a null classification", () => {
+    const summary = summarizeClassification(
+      [
+        { path: "src/a.ts", classification: validClassification() },
+        { path: "src/nothing.ts", classification: null },
+      ],
+      2,
+    );
+
+    expect(summary.files).toHaveLength(2);
+    expect(summary.filesWithoutExports).toBe(1);
+    expect(summary.files[1]).toEqual({
+      path: "src/nothing.ts",
+      classification: null,
+    });
+  });
+
+  it("keeps files.length equal to filesScanned", () => {
+    const summary = summarizeClassification(
+      [
+        { path: "src/a.ts", classification: validClassification() },
+        { path: "src/b.ts", classification: null },
+        { path: "src/c.ts", classification: null },
+      ],
+      3,
+    );
+
+    expect(summary.files).toHaveLength(summary.filesScanned);
+  });
+
+  // The count is measured, not derived. Under the old `filesScanned -
+  // files.length` any file dropped for an unrelated reason was silently
+  // reported as having no exports — a number that could not tell "nothing to
+  // classify here" apart from "we lost this file".
+  it("does not report a dropped file as having no exports", () => {
+    const summary = summarizeClassification(
+      [{ path: "src/a.ts", classification: validClassification() }],
+      // Two files were read; only one reached the list.
+      2,
+    );
+
+    expect(summary.filesWithoutExports).toBe(0);
+    // The discrepancy stays visible instead of being absorbed by the bucket.
+    expect(summary.files.length).not.toBe(summary.filesScanned);
+  });
+
+  it("excludes null-classified files from the topology and confidence counts", () => {
+    const summary = summarizeClassification(
+      [
+        { path: "src/a.ts", classification: validClassification() },
+        { path: "src/nothing.ts", classification: null },
+      ],
+      2,
+    );
+
+    expect(summary.byTopology.valid).toBe(1);
+    expect(summary.byConfidence.high).toBe(1);
+    expect(summary.declarationsClassified).toBe(1);
   });
 });

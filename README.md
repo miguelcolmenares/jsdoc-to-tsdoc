@@ -128,14 +128,14 @@ Every exported declaration is classified, and each file lands in exactly one buc
 
 ```text
 Documentation analysis — 127 file(s) scanned
-┌───────────────┬───────┐
-│ Valid TSDoc   │    84 │
-│ Partial docs  │    12 │
-│ Line comments │     8 │
-│ No docs       │    19 │
-│ Stale docs    │     4 │
-│ No exports    │     0 │
-└───────────────┴───────┘
+┌─────────────────────┬───────┐
+│ Valid TSDoc         │    84 │
+│ Partial docs        │    12 │
+│ Line comments       │     8 │
+│ No docs             │    19 │
+│ Stale docs          │     4 │
+│ Nothing to document │     0 │
+└─────────────────────┴───────┘
 Confidence: HIGH 84 · MEDIUM 12 · LOW 27 · STALE 4
 
 Stale documentation — review these by hand:
@@ -145,7 +145,9 @@ Stale documentation — review these by hand:
 
 Stale documentation is **never rewritten automatically** — only reported. It is also detected conservatively, and deliberately so: a report that flags accurate documentation gets ignored, taking its true findings with it. Concretely, a destructured parameter (`function Card({ title, href }: CardProps)`) has no name in the source, so `@param title` cannot be told apart from a stale tag — parameter staleness is not judged for those signatures at all rather than guessed at.
 
-Files that export nothing are counted apart from valid ones, which would otherwise overstate how much of the project is ready. Test paths are skipped by default, because the ESLint config `init` writes turns both TSDoc rules off for them.
+Files with nothing to document are counted apart from valid ones, which would otherwise overstate how much of the project is ready. Two kinds land there: a file that declares nothing exported, and a barrel that only re-exports — `export * from "./x.js"` exports plenty while declaring nothing this tool can attach a comment to. They share a bucket because they share an answer: there is no work here.
+
+`--report=json` lists **every** scanned file, including those, with `topology: null`. `files.length` always equals `filesScanned`, so the array can be reconciled against the totals. Test paths are skipped by default, because the ESLint config `init` writes turns both TSDoc rules off for them.
 
 The human report shows the summary plus the stale findings; `--report=json` carries the full per-declaration detail, gaps included.
 
