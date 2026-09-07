@@ -78,6 +78,16 @@ verbatim through every rule that runs. A rule that reaches for `comment.replace(
 directly is very likely about to rewrite text inside a fenced example or
 double-touch structural whitespace.
 
+The return value picks between three outcomes, and the difference matters:
+a **string** replaces the line's content, an **empty string** keeps the line
+but emits it as ` *` with the prefix trimmed (a paragraph break, no trailing
+whitespace), and **`null`** or an **empty array** removes the line entirely.
+Reach for `""` when the blank line still separates two paragraphs, and `null`
+when nothing should remain. The trim applies only to a line a rule actually
+emptied — a blank line the author wrote is reconstructed verbatim, trailing
+space included, so `convert` never reports a file whose only change is
+whitespace it normalised on the way past.
+
 ## Data flow per command
 
 Each subcommand composes the same handful of domains in a fixed order; the

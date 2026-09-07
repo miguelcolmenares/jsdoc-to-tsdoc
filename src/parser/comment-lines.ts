@@ -182,7 +182,18 @@ export function mapCommentLines(
     const producedLines = typeof mapped === "string" ? [mapped] : mapped;
     producedLines.forEach((produced, index) => {
       const suffix = index === producedLines.length - 1 ? parts.suffix : "";
-      output.push(`${parts.prefix}${produced}${suffix}`);
+      // A rule that emptied this line would otherwise leave the prefix's
+      // absorbed whitespace behind as ` * ` — valid TSDoc, but trailing
+      // whitespace that fails the consumer's own `prettier --check`, so
+      // `convert` produced a file that passed `check` and failed the format
+      // gate (#88). The prefix is trimmed only when a rule actually emptied
+      // the line: a line the author wrote blank is reconstructed verbatim,
+      // which keeps the round-trip property these prefixes exist to preserve
+      // and keeps `convert` from reporting files whose only change is
+      // whitespace it normalised on its way past.
+      const emptiedByRule = produced === "" && produced !== parts.content;
+      const prefix = emptiedByRule ? parts.prefix.trimEnd() : parts.prefix;
+      output.push(`${prefix}${produced}${suffix}`);
     });
   });
 
