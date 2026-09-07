@@ -3,8 +3,9 @@
  * Compiler API this tool is built on.
  *
  * @remarks
- * Every scanner module reads source through `ts.createSourceFile` and the
- * `ts.ScriptKind` / `ts.SyntaxKind` enums. Two situations produce a package
+ * Every scanner module reads source through `ts.createSourceFile`, walks it
+ * with the `ts.isX` type guards, and reads the `ts.ScriptKind` /
+ * `ts.ScriptTarget` / `ts.SyntaxKind` enums. Two situations produce a package
  * that imports cleanly and then fails on first use:
  *
  * - **TypeScript 7.** Its npm package is restructured around the native/Go
@@ -13,6 +14,8 @@
  *   `Cannot read properties of undefined (reading 'TSX')`, several stack
  *   frames deep in a command, with nothing naming TypeScript as the cause.
  * - **A stub or shimmed module** substituted by a bundler or a monorepo alias.
+ *   Unlike TypeScript 7, a shim can be *partial* — which is why the check
+ *   covers everything the scanner calls rather than a sample of it.
  *
  * Both are cheap to detect once, at startup, and impossible to diagnose from
  * the error they otherwise produce.
@@ -33,17 +36,85 @@ export type CompilerApiCheck =
     };
 
 /**
- * The subset of the TypeScript module this tool cannot run without.
+ * Enum objects the scanner reads members off.
  *
  * @remarks
- * Structural rather than `typeof import("typescript")`, so a test can pass a
- * deliberately broken shape without constructing an entire compiler module.
+ * Kept in sync with the `ts.*` references in `src/` by
+ * `compiler-api.test.ts`, which fails when a new one appears unclassified.
  */
-interface CompilerApiShape {
-  readonly createSourceFile?: unknown;
-  readonly ScriptKind?: unknown;
-  readonly SyntaxKind?: unknown;
-  readonly version?: unknown;
+export const REQUIRED_ENUMS: readonly string[] = Object.freeze([
+  "ScriptKind",
+  "ScriptTarget",
+  "SyntaxKind",
+]);
+
+/**
+ * Functions the scanner calls.
+ *
+ * @remarks
+ * The full set, not a representative sample. A partial shim is a real failure
+ * mode, and a guard that checks three entry points would pass one and then
+ * crash exactly as before — which is the whole reason this module exists.
+ * Kept in sync with `src/` by `compiler-api.test.ts`.
+ */
+export const REQUIRED_FUNCTIONS: readonly string[] = Object.freeze([
+  "canHaveModifiers",
+  "createSourceFile",
+  "getLeadingCommentRanges",
+  "getModifiers",
+  "isArrayLiteralExpression",
+  "isArrowFunction",
+  "isBigIntLiteral",
+  "isBindingElement",
+  "isClassDeclaration",
+  "isComputedPropertyName",
+  "isEnumDeclaration",
+  "isExportAssignment",
+  "isExportDeclaration",
+  "isFunctionDeclaration",
+  "isFunctionExpression",
+  "isIdentifier",
+  "isInterfaceDeclaration",
+  "isJsxElement",
+  "isJsxFragment",
+  "isJsxSelfClosingElement",
+  "isNamedExports",
+  "isNoSubstitutionTemplateLiteral",
+  "isNumericLiteral",
+  "isObjectLiteralExpression",
+  "isRegularExpressionLiteral",
+  "isStringLiteral",
+  "isTemplateExpression",
+  "isTypeAliasDeclaration",
+  "isTypeLiteralNode",
+  "isVariableStatement",
+]);
+
+/** How many missing members the message names before summarising the rest. */
+const MAX_NAMED = 5;
+
+/**
+ * The shape of the TypeScript module this check inspects.
+ *
+ * @remarks
+ * An index signature rather than `typeof import("typescript")`, so a test can
+ * pass a deliberately broken module without constructing an entire compiler.
+ */
+type CompilerApiShape = Readonly<Record<string, unknown>>;
+
+/**
+ * Renders the missing members, capping the list so a wholly empty module does
+ * not print thirty names.
+ *
+ * @param missing - Member names that failed their check.
+ * @returns A comma-separated list, with a count when it was truncated.
+ */
+function summarise(missing: readonly string[]): string {
+  if (missing.length <= MAX_NAMED) {
+    return missing.join(", ");
+  }
+  const shown = missing.slice(0, MAX_NAMED).join(", ");
+  return `${shown} and ${String(missing.length - MAX_NAMED)} more`;
 }
 
 /**
@@ -51,20 +122,17 @@ interface CompilerApiShape {
  *
  * @param api - The imported `typescript` namespace. Injectable so the failure
  *              modes can be tested without installing a broken TypeScript.
- * @returns `{ ok: true }` when every required member is present, otherwise the
- *          reason, naming the resolved version when the package reports one.
+ * @returns `{ ok: true }` when every member the scanner calls is present,
+ *          otherwise the reason, naming the resolved version when the package
+ *          reports one.
  */
 export function checkCompilerApi(api: CompilerApiShape): CompilerApiCheck {
-  const missing: string[] = [];
-  if (typeof api.createSourceFile !== "function") {
-    missing.push("createSourceFile");
-  }
-  if (typeof api.ScriptKind !== "object" || api.ScriptKind === null) {
-    missing.push("ScriptKind");
-  }
-  if (typeof api.SyntaxKind !== "object" || api.SyntaxKind === null) {
-    missing.push("SyntaxKind");
-  }
+  const missing = [
+    ...REQUIRED_FUNCTIONS.filter((name) => typeof api[name] !== "function"),
+    ...REQUIRED_ENUMS.filter(
+      (name) => typeof api[name] !== "object" || api[name] === null,
+    ),
+  ];
 
   if (missing.length === 0) {
     return { ok: true };
@@ -81,6 +149,6 @@ export function checkCompilerApi(api: CompilerApiShape): CompilerApiCheck {
 
   return {
     ok: false,
-    reason: `The resolved \`typescript\` package is missing ${missing.join(", ")}${found}.${hint}`,
+    reason: `The resolved \`typescript\` package is missing ${summarise(missing)}${found}.${hint}`,
   };
 }
