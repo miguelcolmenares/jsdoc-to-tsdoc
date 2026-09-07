@@ -23,6 +23,7 @@ import {
   splitGlobs,
 } from "@/commands/options";
 import { scaffoldSourceText } from "@/commands/scaffold-file";
+import { TEST_FILE_GLOBS } from "@/generator";
 import {
   editInEditor,
   promptFileAction,
@@ -40,7 +41,6 @@ import {
   type Colors,
   type SummaryRow,
 } from "@/reporter";
-import { TEST_FILE_GLOBS } from "@/generator";
 import { TODO_MARKER } from "@/scaffolder";
 import { findSourceFiles, type ExportKind } from "@/scanner";
 import { writeFileText } from "@/writer";
