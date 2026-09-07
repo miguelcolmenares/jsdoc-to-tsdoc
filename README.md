@@ -8,25 +8,7 @@ CLI tool to migrate JSDoc comments to the [TSDoc](https://tsdoc.org/) standard i
 
 TypeScript projects commonly use JSDoc-style documentation comments that include type annotations (`{string}`, `{boolean}`), redundant tags (`@function`, `@typedef`, `@callback`), and non-standard tags. These are incompatible with the [TSDoc specification](https://tsdoc.org/) and cause lint errors when `eslint-plugin-tsdoc` is enabled.
 
-There is **no existing tool** to automate this migration end to end. Two come
-close enough to be worth naming:
-
-- [`@enact/jsdoc-to-ts`](https://github.com/enactjs/jsdoc-to-ts) — actively
-  maintained, and solving a different problem: it reads JSDoc out of a
-  **JavaScript** codebase and generates `.d.ts` declaration files, mapping
-  JSDoc type expressions onto TypeScript types. This tool deletes those types,
-  because in a TypeScript project the signature already carries them.
-- [`wvbe/experimental-jsdoc-to-tsdoc-tool`](https://github.com/wvbe/experimental-jsdoc-to-tsdoc-tool)
-  — the same problem, as a 2022 Deno prototype. It parses each comment to an
-  AST and **re-serializes the tags it knows**, which its README states plainly:
-  *"Tags that are not implemented or ignored are therefore removed."* It also
-  stops at converting comments — no bootstrap, no stub generation, no
-  enforcement, no CI gate.
-
-The second is why this tool edits comments in place rather than rebuilding
-them: a migration that silently drops the tags it does not recognize is one
-you cannot run on a codebase you did not write. See
-[`AGENTS.md`](./AGENTS.md) for the CLI's own architecture and design decisions.
+There is **no existing tool** to automate this migration end to end — see [`AGENTS.md`](./AGENTS.md) for the CLI's own architecture and design decisions.
 
 ## Installation
 
