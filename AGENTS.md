@@ -1162,7 +1162,9 @@ run measured the tool end to end on a repo with **zero prior history with it**:
   either.** The ESLint patch failed because the config uses
   `export default defineConfig(js.configs.recommended, { … }, globalIgnores(…))`
   — ESLint's own documented variadic form, not the `defineConfig([…])` array
-  form `CONTAINER_OPENERS` recognizes. And the tag scan flagged `@class` on the
+  form `CONTAINER_OPENERS` recognized at the time — both that shape and the
+  `create-next-app` one were added later; see the §12 entry above. And the tag
+  scan flagged `@class` on the
   one class in the codebase (`Image`) as "unknown — register or remove", a tag
   `convert`'s `remove-redundant-tags` rule deletes outright two commands later
   in the exact same session. Manual ESLint patching (copy the printed snippet,
