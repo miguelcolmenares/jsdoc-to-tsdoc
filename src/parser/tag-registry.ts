@@ -82,6 +82,7 @@ export const PREFIX_ONLY_TAGS: readonly string[] = Object.freeze([
   "@description",
   "@desc",
   "@classdesc",
+  "@summary",
 ]);
 
 /**

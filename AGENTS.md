@@ -398,8 +398,22 @@ everything in it was either shipped, superseded by this file and
 
 ### Next up
 
-Nothing is scheduled. Nine items are deliberately deferred, each as its own
-GitHub issue labeled `future` (#54–#62) — [browse the list](https://github.com/miguelcolmenares/jsdoc-to-tsdoc/issues?q=is%3Aissue+is%3Aopen+label%3Afuture)
+Two open bugs, both in `convert`, both found by dogfooding rather than by the
+test suite — it writes a file it calls converted that a later gate rejects:
+
+- **#85** — `@throws {Type}` survives conversion and produces two syntax
+  errors. Needs a decision before it can be implemented: widening the
+  `remove-type-braces` pattern clears the errors but deletes the type, which
+  appears in no signature, and the TSDoc convention (`@throws {@link
+  SyntaxError}`) renders a broken link for a non-resolvable type like
+  `{string}`.
+- **#88** — a bare prefix-only tag leaves a trailing space, so the output fails
+  the consumer's `prettier --check` while passing `check`. Also carries a
+  behavioural decision: trimming the line versus dropping it changes whether
+  summary and description stay separate paragraphs.
+
+Beyond those, nine items are deliberately deferred, each as its own GitHub
+issue labeled `future` (#54–#62) — [browse the list](https://github.com/miguelcolmenares/jsdoc-to-tsdoc/issues?q=is%3Aissue+is%3Aopen+label%3Afuture)
 rather than trusting a summary here to stay in sync with it. Picking one up
 means reading its issue for the full context, not just its title.
 
@@ -410,6 +424,35 @@ means reading its issue for the full context, not just its title.
 Newest first. Each entry records what shipped and, more importantly, **the
 non-obvious things** — a decision and its reasoning, or a trap that cost real
 time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
+
+### A registry only governs behaviour if the behaviour reads it
+
+- **`@summary` was missing from `PREFIX_ONLY_TAGS`, and adding it there fixed
+  nothing.** `strip-prefix-tags` built its own regex from a hardcoded
+  `desc(ription)?|classdesc` alternation, so the exported registry described
+  the rule without driving it. The sibling rule two files over
+  (`remove-jsdoc-only-tags`) had always imported `JSDOC_ONLY_TAGS` and applied
+  it directly — the outlier was the one that broke. The regex is now built from
+  the registry, and the test iterates `PREFIX_ONLY_TAGS` so a tag added to the
+  list without working fails immediately.
+- **Take the "one-line fix" in an issue as a hypothesis.** #84 proposed adding
+  the tag to the registry, which reads as obviously right and would have
+  shipped a change with no effect and a passing suite — the existing test only
+  covered `@description`, the tag that already worked. What made it visible was
+  running `convert` on the issue's own reproduction rather than trusting the
+  unit test.
+- **Alternation order does not matter here, and the near-miss does.**
+  `@description` matches whole even with `@desc` earlier in the alternation,
+  because the engine backtracks when the trailing `\s` fails; the case worth a
+  test is `@descriptor`, which must match *nothing* rather than be truncated
+  into `@desc`.
+- **A defect found next door is not part of the fix.** Converting the issue's
+  reproduction surfaced a trailing space on bare prefix-only tags — output that
+  passes `check` and fails the consumer's `prettier --check`. It predates
+  `@summary` and reproduces for all four tags, so folding it in would have
+  changed the output of unrelated comments under a `@summary` heading. Filed as
+  #88 with the behavioural question stated, and the current output pinned by a
+  test in the meantime.
 
 ### A derived count cannot distinguish "nothing here" from "we lost it"
 
