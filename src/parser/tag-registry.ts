@@ -105,7 +105,11 @@ export const PACKAGE_DOC_TAGS: readonly string[] = Object.freeze([
  * not a block tag.
  */
 export function leadingTag(content: string): string | undefined {
-  const match = /^\s*(@[a-zA-Z]+)/.exec(content);
+  // Hyphens are captured deliberately. TSDoc tag names cannot contain one, so
+  // `@jest-environment` is not a tag at all — but truncating it to `@jest`
+  // reported a name that appears nowhere in the source and cannot be grepped
+  // for. Capturing the whole token lets the caller recognize it for what it is.
+  const match = /^\s*(@[a-zA-Z][a-zA-Z0-9-]*)/.exec(content);
   return match?.[1]?.toLowerCase();
 }
 

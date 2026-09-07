@@ -77,9 +77,11 @@ export const KNOWN_CUSTOM_BLOCK_TAGS: readonly string[] = Object.freeze([
  * @remarks
  * - `standard` — part of the TSDoc spec; no action needed.
  * - `custom` — a recognized project custom (registered as a block tag).
+ * - `pragma` — not a TSDoc tag at all: a hyphenated token another tool reads
+ *   out of the same comment, such as Jest's `@jest-environment`.
  * - `unknown` — neither; reported for a human to register or remove.
  */
-export type TagClassification = "standard" | "custom" | "unknown";
+export type TagClassification = "standard" | "custom" | "pragma" | "unknown";
 
 const STANDARD_TAGS: ReadonlySet<string> = new Set([
   ...STANDARD_TSDOC_BLOCK_TAGS,
@@ -88,6 +90,13 @@ const STANDARD_TAGS: ReadonlySet<string> = new Set([
 ]);
 
 const KNOWN_CUSTOM_TAGS: ReadonlySet<string> = new Set(KNOWN_CUSTOM_BLOCK_TAGS);
+
+// A tag-shaped token carrying a hyphen: word characters and hyphens only, with
+// at least one hyphen and no `/` or `.`. TSDoc tag names are letters and digits
+// exclusively, so anything matching this is definitionally not a TSDoc tag —
+// while the slash-bearing shapes a path alias and a scoped package take are
+// excluded, since those are prose hazards rather than pragmas.
+const PRAGMA_TAG = /^@[a-z][a-z0-9]*(?:-[a-z0-9]+)+$/;
 
 /**
  * Classifies a single tag token against the TSDoc standard.
@@ -102,6 +111,20 @@ const KNOWN_CUSTOM_TAGS: ReadonlySet<string> = new Set(KNOWN_CUSTOM_BLOCK_TAGS);
  */
 export function classifyTag(tag: string): TagClassification {
   const normalized = tag.toLowerCase();
+  // A pragma another tool reads out of the same comment —
+  // `@jest-environment`, `@vitest-environment`, `@ts-check` in a block
+  // comment. Registering one in `tsdoc.json` would declare a documentation tag
+  // that is not one; removing it would break the tool that reads it. Neither
+  // is a decision to put in front of a user, so it is classified rather than
+  // reported.
+  //
+  // A hyphen alone is not the test. A path alias (`@/lib/ccds-api`) and a
+  // scoped package (`@scope/pkg-name`) also carry one, and both must keep
+  // classifying as `unknown` so `escapeBareAtSign` still backticks them —
+  // treating a hyphen as sufficient silently stopped it doing that.
+  if (PRAGMA_TAG.test(normalized)) {
+    return "pragma";
+  }
   for (const standard of STANDARD_TAGS) {
     if (standard.toLowerCase() === normalized) {
       return "standard";
