@@ -411,6 +411,37 @@ Newest first. Each entry records what shipped and, more importantly, **the
 non-obvious things** — a decision and its reasoning, or a trap that cost real
 time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
 
+### A lockfile alert on a published library is not a consumer vulnerability
+
+- **Four high advisories against `fast-uri` were reported against
+  `package-lock.json`, and the lockfile is the one artifact consumers never
+  see.** npm ignores a dependency's lockfile: a consumer resolves
+  `@microsoft/tsdoc-config` → `ajv` → `fast-uri` through `ajv`'s own `^3.0.1`
+  and had the patched version from the day it published. The alert was real,
+  but it described *this repository's* installs and CI, not what `npx
+  jsdoc-to-tsdoc` puts on anyone's disk. Worth separating before deciding how
+  urgent one of these is — and worth saying so in the CHANGELOG, since a
+  `### Security` heading otherwise implies a consumer-facing fix.
+- **No `overrides` entry, because the range already allowed the patch.**
+  `ajv@8.18.0` asks for `fast-uri: ^3.0.1`; the lock sat at 3.1.5 only because
+  it was resolved before 3.1.6 existed. `npm audit fix` took it to 3.1.7 and
+  changed three lines. Pinning a floor in `overrides` would have been dead
+  machinery next to a constraint npm already satisfies — and `overrides` does
+  not reach consumers either, so it would buy nothing there. The `esbuild`
+  override already in `package.json` is the contrasting case, and the test to
+  apply: `unbuild` and `mkdist` ask for `^0.25.9`, which genuinely excludes
+  0.28.2, so nothing but an override could take it. Reach for one when a
+  parent's range excludes the fix — not merely because the lock is behind.
+- **Reachability was checked, not assumed.** All four are host-confusion and
+  SSRF classes in `resolve()`/`normalize()`. The only URIs `ajv` resolves here
+  are the TSDoc schema's own `$id`/`$ref` and whatever a project's `tsdoc.json`
+  carries, and nothing performs a request against the result — so none is
+  exploitable through this tool. That is a reason to describe the fix honestly,
+  not a reason to skip it.
+- **Dependabot was not misconfigured.** Security updates are enabled and it had
+  bumped this same package before (#37, 3.1.4 → 3.1.5); the advisories were
+  simply days old. Check that before "fixing" the automation.
+
 ### A type that appears in no signature cannot be stripped
 
 - **`remove-type-braces` was the obvious home for `@throws` and the wrong
