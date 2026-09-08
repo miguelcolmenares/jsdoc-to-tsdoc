@@ -398,10 +398,11 @@ everything in it was either shipped, superseded by this file and
 
 ### Next up
 
-Nothing is scheduled. Nine items are deliberately deferred, each as its own GitHub
-issue labeled `future` (#54–#62) — [browse the list](https://github.com/miguelcolmenares/jsdoc-to-tsdoc/issues?q=is%3Aissue+is%3Aopen+label%3Afuture)
+Nothing is scheduled. Eight items are deliberately deferred, each as its own GitHub
+issue labeled `future` (#54–#57, #59–#62) — [browse the list](https://github.com/miguelcolmenares/jsdoc-to-tsdoc/issues?q=is%3Aissue+is%3Aopen+label%3Afuture)
 rather than trusting a summary here to stay in sync with it. Picking one up
-means reading its issue for the full context, not just its title.
+means reading its issue for the full context, not just its title. (#58, the
+GitHub Action / Bitbucket Pipe wrapper, shipped — see the iteration log.)
 
 ---
 
@@ -410,6 +411,52 @@ means reading its issue for the full context, not just its title.
 Newest first. Each entry records what shipped and, more importantly, **the
 non-obvious things** — a decision and its reasoning, or a trap that cost real
 time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
+
+### A prebuilt GitHub Action and Bitbucket Pipe (#58) — one published, one deliberately not
+
+- **Root `action.yml`, not `.github/actions/…`.** A composite action nested
+  under `.github/actions/` only resolves for workflows inside the same repo;
+  a root `action.yml` is what lets a consumer write
+  `uses: miguelcolmenares/jsdoc-to-tsdoc@main` directly, the pattern every
+  popular reusable action (`actions/checkout`, `actions/setup-node`) follows.
+  There is nothing else at the repo root that a root `action.yml` could
+  collide with.
+- **The action shells out; it does not call the library surface.** `src/`
+  exports a programmatic API (`src/index.ts`), but the action still runs
+  `npx jsdoc-to-tsdoc@<version> <command>` in a bash step rather than an
+  `@actions/*`-based JS action calling in-process. Consistency with the
+  Bitbucket Pipe (which can only ever shell out — a Docker pipe has no access
+  to a JS import) mattered more than the marginal startup cost `npx` adds, and
+  it means both wrappers exercise exactly the same command-line contract a
+  human running `npx` by hand does — no separate integration surface to keep
+  in sync.
+- **The exit code is captured, not trusted to propagate on its own.** A
+  composite action's `run:` step already fails the job on a non-zero exit —
+  but only if nothing downstream swallows it. `set -e` alone was not enough
+  to also expose the code as a step `output` (needed for a caller that wants
+  to branch on `1` vs `2` vs `3` rather than just "failed"), so the script
+  wraps the CLI call in `set +e` / capture / `set -e`, writes
+  `exit-code=<n>` to `$GITHUB_OUTPUT`, then re-raises with an explicit
+  `exit "$code"` — the capture step never gets to quietly become the last
+  word.
+- **The Bitbucket Pipe ships as source only, and says so in three places** —
+  the top of `pipe/README.md`, a comment at the top of `pipe/pipe.yml` next to
+  the placeholder `image:` tag, and the README's CI-integration section.
+  Publishing needs a Docker Hub (or other registry) account and an Atlassian
+  Marketplace listing, neither of which exists for this repo from an agent
+  session. `pipe/README.md` carries the exact manual checklist rather than
+  leaving the maintainer to reconstruct Atlassian's publishing flow from
+  scratch later.
+- **Verification without the missing accounts.** Neither wrapper has a
+  `src/` unit-test surface, so `.github/workflows/verify-ci-integrations.yml`
+  is the real test: the composite action runs against this repo's own `src/`
+  via `uses: ./` (a local action reference — the closest thing to an
+  integration test a composite action gets), and the pipe is `docker build`
+  and smoke-run against the same source. Both were also run by hand during
+  development — `docker build` + `docker run` locally, and the extracted
+  action step script run directly with `bash` — against the real published
+  CLI, including the unsupported-command failure path, before either landed
+  in CI.
 
 ### A lockfile alert on a published library is not a consumer vulnerability
 

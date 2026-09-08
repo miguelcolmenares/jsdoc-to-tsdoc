@@ -403,6 +403,91 @@ Two behaviours keep the gate honest rather than merely strict:
 
 Exit codes: `0` clean · `2` unreadable `tsdoc.json` · `3` problems found.
 
+## CI integration
+
+`check` and `scan --fail-on-missing`/`--fail-on-stale` are meant to run as a
+CI gate (see [Using `check` in CI](#using-check-in-ci) above). Two prebuilt
+wrappers exist so a consuming repo doesn't have to hand-roll the `npx`
+invocation and exit-code handling itself — both just shell out to
+`npx jsdoc-to-tsdoc@<version> <command> <flags>` and propagate the CLI's own
+exit code (`0` OK · `1` logic error · `2` parse failure · `3` violations) as
+their own success/failure.
+
+### GitHub Action
+
+A composite action at the repo root (`action.yml`), usable directly as
+`miguelcolmenares/jsdoc-to-tsdoc@main` (or pin a tag once one is cut):
+
+```yaml
+# .github/workflows/tsdoc.yml
+name: TSDoc
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: miguelcolmenares/jsdoc-to-tsdoc@main
+        with:
+          command: check
+          version: "0.2.1" # pin for a reproducible gate
+```
+
+Or the documentation-gap gate:
+
+```yaml
+      - uses: miguelcolmenares/jsdoc-to-tsdoc@main
+        with:
+          command: scan
+          version: "0.2.1"
+          fail-on-missing: "true"
+          fail-on-stale: "true"
+```
+
+Inputs: `command` (`check` or `scan`, default `check`), `version` (npm
+version to run via `npx`, default `latest`), `node-version` (default `22`),
+`cwd`, `fail-on-missing` / `fail-on-stale` (`scan` only), `syntax-only`
+(`check` only), `include-tests`, `only`, `exclude`, `report`. Output:
+`exit-code`, the CLI's own exit code, for a step that wants to inspect it
+without failing the job. See [`action.yml`](./action.yml) for the full list.
+
+### Bitbucket Pipe
+
+> **Not yet published.** [`pipe/`](./pipe/) ships a buildable, correct
+> Dockerfile / `pipe.yml` / `pipe.sh` — it is **not** on the Bitbucket Pipe
+> marketplace or any Docker registry yet. That needs the maintainer's own
+> Docker Hub/registry and Atlassian Marketplace accounts, which this
+> repository does not have. See
+> [`pipe/README.md`](./pipe/README.md#publish-checklist-maintainer-only--not-run-by-this-pr)
+> for the exact steps still to run, and
+> [`.github/workflows/verify-ci-integrations.yml`](./.github/workflows/verify-ci-integrations.yml)
+> for how it is verified in the meantime (`docker build` + a smoke run against
+> this repo's own source, in GitHub Actions — there is no way to exercise it
+> through actual Bitbucket Pipelines from here).
+
+Once published, usage will look like:
+
+```yaml
+# bitbucket-pipelines.yml
+pipelines:
+  default:
+    - step:
+        name: jsdoc-to-tsdoc check
+        script:
+          - pipe: miguelcolmenares/jsdoc-to-tsdoc-pipe:0.1.0
+            variables:
+              COMMAND: "check"
+              VERSION: "0.2.1"
+```
+
+Variables mirror the GitHub Action's inputs (`COMMAND`, `VERSION`, `CWD`,
+`FAIL_ON_MISSING`, `FAIL_ON_STALE`, `SYNTAX_ONLY`, `INCLUDE_TESTS`, `ONLY`,
+`EXCLUDE`, `REPORT`) — see [`pipe/pipe.yml`](./pipe/pipe.yml).
+
 ## Development
 
 ```bash

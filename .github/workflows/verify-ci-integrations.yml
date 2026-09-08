@@ -1,0 +1,89 @@
+name: Verify CI integrations
+
+# Dogfoods the two CI-integration wrappers this repo ships against its own
+# source: the composite GitHub Action (`uses: ./`) and the Bitbucket Pipe
+# (built and run locally with Docker — there is no way to run it through
+# actual Bitbucket Pipelines from here). Neither has a src/ unit-test
+# surface, so this workflow is the real verification for both.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  github-action:
+    name: GitHub Action (uses ./)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Run the action against this repo's own src/
+        id: check
+        uses: ./
+        with:
+          command: check
+          version: latest
+          exclude: "fixtures/**"
+
+      - name: Assert it reported success
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.check.outputs.exit-code }}" != "0" ]; then
+            echo "::error::Expected exit-code 0, got ${{ steps.check.outputs.exit-code }}"
+            exit 1
+          fi
+          echo "exit-code output: ${{ steps.check.outputs.exit-code }}"
+
+      - name: Run the action with an unsupported command (expect failure)
+        id: bad-command
+        continue-on-error: true
+        uses: ./
+        with:
+          command: bogus
+
+      - name: Assert the bad-command step actually failed
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.bad-command.outcome }}" != "failure" ]; then
+            echo "::error::Expected the unsupported-command step to fail, but it reported '${{ steps.bad-command.outcome }}' — the action is swallowing a bad input instead of failing on it."
+            exit 1
+          fi
+          echo "Unsupported command correctly failed the step."
+
+  bitbucket-pipe:
+    name: Bitbucket Pipe (docker build + smoke run)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build the pipe image
+        run: docker build -t jsdoc-to-tsdoc-pipe:ci pipe/
+
+      - name: Smoke run — check against this repo's own src/
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -v "${{ github.workspace }}:/repo" \
+            -e BITBUCKET_CLONE_DIR=/repo \
+            -e COMMAND=check \
+            -e EXCLUDE="fixtures/**" \
+            jsdoc-to-tsdoc-pipe:ci
+
+      - name: Smoke run — unsupported command exits non-zero
+        run: |
+          set -euo pipefail
+          if docker run --rm \
+              -v "${{ github.workspace }}:/repo" \
+              -e BITBUCKET_CLONE_DIR=/repo \
+              -e COMMAND=bogus \
+              jsdoc-to-tsdoc-pipe:ci; then
+            echo "::error::Expected the pipe to fail on an unsupported COMMAND, but it exited 0."
+            exit 1
+          fi
+          echo "Unsupported command correctly exited non-zero."

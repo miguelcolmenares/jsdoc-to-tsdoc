@@ -1,0 +1,136 @@
+name: "jsdoc-to-tsdoc check"
+description: >-
+  Run jsdoc-to-tsdoc's check or scan --classify gate against a TypeScript
+  repo and fail the job on the CLI's own exit code — no hand-rolled npx
+  invocation or exit-code handling in the consuming workflow.
+author: "Miguel Colmenares"
+
+branding:
+  icon: "check-circle"
+  color: "blue"
+
+inputs:
+  command:
+    description: >-
+      Which jsdoc-to-tsdoc command to run: "check" (validate TSDoc syntax
+      and completeness) or "scan" (documentation-gap gate, always run with
+      --classify; pair it with fail-on-missing/fail-on-stale below).
+    required: false
+    default: "check"
+  version:
+    description: >-
+      jsdoc-to-tsdoc version to run via npx, e.g. "0.2.1" or "latest". Pin
+      an exact version so the gate is reproducible across runs.
+    required: false
+    default: "latest"
+  node-version:
+    description: "Node.js version to set up before running the CLI."
+    required: false
+    default: "22"
+  cwd:
+    description: "Project directory to scan (--cwd)."
+    required: false
+    default: "."
+  fail-on-missing:
+    description: >-
+      scan only: exit 3 when any export has no TSDoc comment
+      (--fail-on-missing).
+    required: false
+    default: "false"
+  fail-on-stale:
+    description: >-
+      scan only: exit 3 when any comment contradicts its signature
+      (--fail-on-stale).
+    required: false
+    default: "false"
+  syntax-only:
+    description: "check only: only validate comment syntax (--syntax-only)."
+    required: false
+    default: "false"
+  include-tests:
+    description: >-
+      Also inspect the test paths init's generated ESLint config exempts
+      (--include-tests).
+    required: false
+    default: "false"
+  only:
+    description: 'Comma-separated globs to include, e.g. "src/lib/**" (--only).'
+    required: false
+    default: ""
+  exclude:
+    description: >-
+      Comma-separated globs to exclude, e.g. "**/*.test.ts" (--exclude).
+    required: false
+    default: ""
+  report:
+    description: 'Machine-readable output written to stdout: "json" or "md" (--report).'
+    required: false
+    default: ""
+
+outputs:
+  exit-code:
+    description: >-
+      The exit code jsdoc-to-tsdoc returned: 0 OK, 1 logic error, 2 parse
+      failure, 3 violations found.
+    value: ${{ steps.run.outputs.exit-code }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Node ${{ inputs.node-version }}
+      uses: actions/setup-node@v7
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Run jsdoc-to-tsdoc ${{ inputs.command }}
+      id: run
+      shell: bash
+      env:
+        JTT_COMMAND: ${{ inputs.command }}
+        JTT_VERSION: ${{ inputs.version }}
+        JTT_CWD: ${{ inputs.cwd }}
+        JTT_FAIL_ON_MISSING: ${{ inputs.fail-on-missing }}
+        JTT_FAIL_ON_STALE: ${{ inputs.fail-on-stale }}
+        JTT_SYNTAX_ONLY: ${{ inputs.syntax-only }}
+        JTT_INCLUDE_TESTS: ${{ inputs.include-tests }}
+        JTT_ONLY: ${{ inputs.only }}
+        JTT_EXCLUDE: ${{ inputs.exclude }}
+        JTT_REPORT: ${{ inputs.report }}
+      run: |
+        set -euo pipefail
+
+        args=("$JTT_COMMAND")
+
+        case "$JTT_COMMAND" in
+          scan)
+            args+=("--classify")
+            [ "$JTT_FAIL_ON_MISSING" = "true" ] && args+=("--fail-on-missing")
+            [ "$JTT_FAIL_ON_STALE" = "true" ] && args+=("--fail-on-stale")
+            ;;
+          check)
+            [ "$JTT_SYNTAX_ONLY" = "true" ] && args+=("--syntax-only")
+            ;;
+          *)
+            echo "::error::Unsupported command '${JTT_COMMAND}' — use 'check' or 'scan'."
+            exit 1
+            ;;
+        esac
+
+        args+=("--cwd" "$JTT_CWD")
+        [ "$JTT_INCLUDE_TESTS" = "true" ] && args+=("--include-tests")
+        [ -n "$JTT_ONLY" ] && args+=("--only" "$JTT_ONLY")
+        [ -n "$JTT_EXCLUDE" ] && args+=("--exclude" "$JTT_EXCLUDE")
+        [ -n "$JTT_REPORT" ] && args+=("--report" "$JTT_REPORT")
+
+        echo "Running: npx --yes jsdoc-to-tsdoc@${JTT_VERSION} ${args[*]}"
+
+        # Capture the CLI's own exit code instead of letting `set -e` stop the
+        # script here — it still has to be recorded as a step output and then
+        # re-raised below so the step (and the job) fails on it.
+        set +e
+        npx --yes "jsdoc-to-tsdoc@${JTT_VERSION}" "${args[@]}"
+        code=$?
+        set -e
+
+        echo "exit-code=${code}" >> "$GITHUB_OUTPUT"
+        exit "$code"

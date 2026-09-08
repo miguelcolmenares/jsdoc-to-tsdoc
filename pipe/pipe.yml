@@ -1,0 +1,41 @@
+# Bitbucket Pipe metadata.
+#
+# `image` is a placeholder until the maintainer publishes this to a Docker
+# registry (see pipe/README.md for the checklist) — it is not live on Docker
+# Hub yet, so `pipe: miguelcolmenares/jsdoc-to-tsdoc-pipe:0.1.0` will not
+# resolve until that happens.
+name: jsdoc-to-tsdoc check
+image: miguelcolmenares/jsdoc-to-tsdoc-pipe:0.1.0
+description: >-
+  Run jsdoc-to-tsdoc's check or scan --classify gate against your TypeScript
+  repo and fail the pipeline on the CLI's own exit code.
+category: TEST
+vendor:
+  name: Miguel Colmenares
+  link: https://github.com/miguelcolmenares
+repository: https://github.com/miguelcolmenares/jsdoc-to-tsdoc
+maintainer:
+  name: Miguel Colmenares
+  link: https://github.com/miguelcolmenares/jsdoc-to-tsdoc/issues
+
+variables:
+  - name: COMMAND
+    default: "check"
+  - name: VERSION
+    default: "latest"
+  - name: CWD
+    default: "."
+  - name: FAIL_ON_MISSING
+    default: "false"
+  - name: FAIL_ON_STALE
+    default: "false"
+  - name: SYNTAX_ONLY
+    default: "false"
+  - name: INCLUDE_TESTS
+    default: "false"
+  - name: ONLY
+    default: ""
+  - name: EXCLUDE
+    default: ""
+  - name: REPORT
+    default: ""
