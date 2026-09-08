@@ -12,9 +12,28 @@ import scaffoldCommand from "@/commands/scaffold";
 
 const run = promisify(execFile);
 
+/**
+ * Env vars a parent git process (a hook, `git rebase --exec`) sets for every
+ * child it spawns, overriding normal cwd-based repo discovery. Stripped from
+ * every `git` call this file makes so the fixtures below build correctly even
+ * when the suite itself runs nested inside this repo's own `pre-push` hook —
+ * the same leak fixed for production code and `committer/__tests__/git.test.ts`
+ * in #93; this file has its own separate copy of the same helper.
+ */
+const GIT_DISCOVERY_ENV_VARS = [
+  "GIT_DIR",
+  "GIT_WORK_TREE",
+  "GIT_INDEX_FILE",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  "GIT_CEILING_DIRECTORIES",
+] as const;
+
 /** Runs git in `cwd` and returns trimmed stdout. */
 async function git(cwd: string, ...args: string[]): Promise<string> {
-  const { stdout } = await run("git", args, { cwd });
+  const env = { ...process.env };
+  for (const key of GIT_DISCOVERY_ENV_VARS) delete env[key];
+  const { stdout } = await run("git", args, { cwd, env });
   return stdout.trim();
 }
 
