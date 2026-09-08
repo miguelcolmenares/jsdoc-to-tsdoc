@@ -21,6 +21,8 @@ messages); this file is the technical reference for the parser's own rules.
 | Hazard | Why TSDoc rejects it | Handled by |
 | --- | --- | --- |
 | `{Type}` in `@param`/`@returns` | TSDoc reads `{` as the start of an inline tag; a JSDoc type annotation is never one | `remove-type-braces` |
+| `{Type}` in `@throws` | Same `{` hazard, but the type is **not** redundant — it appears in no signature, so it is rewritten as a `{@link}` reference rather than stripped | `link-throws-type` (plain prose when the type could never resolve, e.g. a primitive or a union) |
+| `@exception` instead of `@throws` | JSDoc synonym; TSDoc defines only `@throws` | `rename-tags` |
 | `@return` instead of `@returns` | Not a recognized TSDoc tag name | `rename-tags` |
 | `@template` instead of `@typeParam` | Same — JSDoc/TypeScript spelling, not TSDoc's | `rename-tags` |
 | `@param [x=1]` (JSDoc optional brackets) | TSDoc has no optional-parameter syntax; the type already carries `?` | `strip-optional-param-brackets` |

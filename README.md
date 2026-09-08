@@ -205,7 +205,8 @@ The human report shows the summary plus the stale findings; `--report=json` carr
 Deterministic, formatting-preserving transformations derived from real-world migrations:
 
 - Strips `{Type}` braces from `@param` / `@returns` / `@property`.
-- Renames `@return` → `@returns`, `@template` → `@typeParam`, `@default` → `@defaultValue`.
+- Rewrites a thrown type into TSDoc's link form: `@throws {SyntaxError}` → `@throws {@link SyntaxError}`. Unlike `@param`, the braces are not simply stripped — the thrown type appears in no signature, so removing it would delete the only thing the tag says. A type that could never resolve (a primitive, a union, a generic) becomes plain prose instead of a link that would render broken.
+- Renames `@return` → `@returns`, `@template` → `@typeParam`, `@default` → `@defaultValue`, `@exception` → `@throws`.
 - Removes `Promise<T>` wrappers from `@returns` descriptions.
 - Removes JSDoc optional-parameter brackets: `@param [id=1]` → `@param id`.
 - Inserts the mandatory `name - description` hyphen in `@param` / `@typeParam`.

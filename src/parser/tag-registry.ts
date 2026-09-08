@@ -21,6 +21,7 @@ export const TAG_RENAMES: Readonly<Record<string, string>> = Object.freeze({
   "@default": "@defaultValue",
   "@yield": "@returns",
   "@yields": "@returns",
+  "@exception": "@throws",
 });
 
 /**

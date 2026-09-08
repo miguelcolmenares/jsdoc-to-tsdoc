@@ -22,6 +22,49 @@ describe("runPipeline", () => {
     expect(result.appliedRules).toEqual([]);
   });
 
+  // The link the rule writes contains a bare `@`, and `escape-bare-at-sign`
+  // runs earlier in the order — so only a full second pass proves the output
+  // is not mangled the next time `convert` runs over the same file.
+  it("leaves the @throws link it produced untouched on a second pass", () => {
+    const input = comment(
+      "/**",
+      " * Parses a config file.",
+      " * @exception {SyntaxError} When the file is not valid JSON.",
+      " */",
+    );
+
+    const once = runPipeline(input, { lite: false }).output;
+    const twice = runPipeline(once, { lite: false });
+
+    expect(once).toContain("@throws {@link SyntaxError}");
+    expect(twice.changed).toBe(false);
+    expect(twice.output).toBe(once);
+  });
+
+  // #85: the rename has to land before the link rule sees the line, which only
+  // the real rule order proves.
+  it("renames @exception and links its type in one pass", () => {
+    const input = comment(
+      "/**",
+      " * Parses a config file.",
+      " * @exception {SyntaxError} When the file is not valid JSON.",
+      " * @throws {string} When the loader rejects.",
+      " */",
+    );
+
+    const result = runPipeline(input, { lite: false });
+
+    expect(result.output).toBe(
+      comment(
+        "/**",
+        " * Parses a config file.",
+        " * @throws {@link SyntaxError} When the file is not valid JSON.",
+        " * @throws string When the loader rejects.",
+        " */",
+      ),
+    );
+  });
+
   it("applies the full JSDoc → TSDoc conversion", () => {
     const input = comment(
       "/**",

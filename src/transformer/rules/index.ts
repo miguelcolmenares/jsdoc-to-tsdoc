@@ -8,7 +8,10 @@
  * Escaping bare `@` in prose runs next, before any rule that reads line-opening
  * tags, so a mid-line `@token` is turned into a code span while the real block
  * tags are still exactly where those rules expect them. Then type braces are
- * stripped and tags renamed before separators are inserted. Folding dotted
+ * stripped and tags renamed before separators are inserted. Linking the `@throws`
+type runs just after the rename, so `@exception` has already become `@throws`
+and only one spelling needs matching, and before anything could mistake the
+`{@link}` it inserts for a bare `@` in prose. Folding dotted
  * `@param parent.child` runs after the hyphen separator, so every child already
  * carries the ` - ` the fold parses. Structural line removals run last so
  * earlier rules see the full comment — dropping a bare `@typeParam` among them,
@@ -27,6 +30,7 @@ import { dropBareTypeParam } from "@/transformer/rules/drop-bare-type-param";
 import { escapeBareAtSign } from "@/transformer/rules/escape-bare-at-sign";
 import { fenceExampleBlocks } from "@/transformer/rules/fence-example-blocks";
 import { foldDottedParam } from "@/transformer/rules/fold-dotted-param";
+import { linkThrowsType } from "@/transformer/rules/link-throws-type";
 import { removeJsdocOnlyTags } from "@/transformer/rules/remove-jsdoc-only-tags";
 import { removeRedundantTags } from "@/transformer/rules/remove-redundant-tags";
 import { removeTypeBraces } from "@/transformer/rules/remove-type-braces";
@@ -43,6 +47,7 @@ export {
   escapeBareAtSign,
   fenceExampleBlocks,
   foldDottedParam,
+  linkThrowsType,
   removeJsdocOnlyTags,
   removeRedundantTags,
   removeTypeBraces,
@@ -61,6 +66,7 @@ export const RULES: readonly Rule[] = Object.freeze([
   removeTypeBraces,
   stripOptionalParamBrackets,
   renameTags,
+  linkThrowsType,
   stripReturnPromise,
   addHyphenSeparator,
   foldDottedParam,

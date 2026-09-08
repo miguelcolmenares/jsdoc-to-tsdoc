@@ -9,6 +9,7 @@ import {
   escapeBareAtSign,
   fenceExampleBlocks,
   foldDottedParam,
+  linkThrowsType,
   removeJsdocOnlyTags,
   removeRedundantTags,
   removeTypeBraces,
@@ -673,6 +674,14 @@ describe("renameTags", () => {
     );
   });
 
+  // TSDoc defines @throws and not @exception, so JSDoc's synonym fails `check`
+  // as an undefined tag until it is renamed (#85).
+  it("renames @exception to @throws", () => {
+    expect(apply(renameTags, "/** @exception {Error} Bad input. */")).toBe(
+      "/** @throws {Error} Bad input. */",
+    );
+  });
+
   it("ignores unmapped tags", () => {
     expect(apply(renameTags, "/** @remarks note */")).toBe(
       "/** @remarks note */",
@@ -1072,6 +1081,81 @@ describe("removeJsdocOnlyTags", () => {
   });
 });
 
+describe("linkThrowsType", () => {
+  it("links a thrown error class", () => {
+    expect(
+      apply(linkThrowsType, "/** @throws {SyntaxError} On bad input. */"),
+    ).toBe("/** @throws {@link SyntaxError} On bad input. */");
+  });
+
+  it("links a dotted declaration reference", () => {
+    expect(
+      apply(linkThrowsType, "/** @throws {errors.ParseError} Bad. */"),
+    ).toBe("/** @throws {@link errors.ParseError} Bad. */");
+  });
+
+  it("keeps a type with no description from trailing a space", () => {
+    expect(apply(linkThrowsType, "/** @throws {RangeError} */")).toBe(
+      "/** @throws {@link RangeError} */",
+    );
+  });
+
+  // `{@link string}` is valid syntax that renders as a permanently broken
+  // link, which asserts a reference that does not exist. Prose is honest.
+  it.each([
+    "string",
+    "number",
+    "boolean",
+    "object",
+    "unknown",
+    "any",
+    "void",
+    "never",
+    "null",
+    "undefined",
+    "symbol",
+    "bigint",
+  ])("leaves the primitive %s as plain prose", (type) => {
+    expect(apply(linkThrowsType, `/** @throws {${type}} Bad input. */`)).toBe(
+      `/** @throws ${type} Bad input. */`,
+    );
+  });
+
+  it.each([
+    ["a union", "Error|TypeError"],
+    ["a generic", "Array<string>"],
+    ["a wildcard", "*"],
+  ])("leaves %s as plain prose", (_label, type) => {
+    expect(apply(linkThrowsType, `/** @throws {${type}} Bad. */`)).toBe(
+      `/** @throws ${type} Bad. */`,
+    );
+  });
+
+  // Re-running convert must not wrap the link a previous run produced.
+  it("is idempotent on a comment it already converted", () => {
+    const converted = "/** @throws {@link SyntaxError} On bad input. */";
+    expect(apply(linkThrowsType, converted)).toBe(converted);
+  });
+
+  it("leaves a @throws with no braces untouched", () => {
+    expect(
+      apply(linkThrowsType, "/** @throws When the file is missing. */"),
+    ).toBe("/** @throws When the file is missing. */");
+  });
+
+  it("drops empty braces rather than emitting an empty link", () => {
+    expect(apply(linkThrowsType, "/** @throws {} Something broke. */")).toBe(
+      "/** @throws Something broke. */",
+    );
+  });
+
+  it("does not touch a @param type, which remove-type-braces owns", () => {
+    expect(
+      apply(linkThrowsType, "/** @param {string} name - The name. */"),
+    ).toBe("/** @param {string} name - The name. */");
+  });
+});
+
 describe("stripPrefixTags", () => {
   it("reduces @description to plain prose", () => {
     expect(apply(stripPrefixTags, "/** @description Formats a value. */")).toBe(
@@ -1159,6 +1243,7 @@ describe("fenced-code safety", () => {
     " * ```ts",
     " * @param name The value",
     " * @return {x} y",
+    " * @throws {Error} y",
     " * @async",
     " * @description keep me",
     " * @access private",
@@ -1174,6 +1259,7 @@ describe("fenced-code safety", () => {
     ["convert-access-tags", convertAccessTags],
     ["remove-redundant-tags", removeRedundantTags],
     ["remove-jsdoc-only-tags", removeJsdocOnlyTags],
+    ["link-throws-type", linkThrowsType],
     ["strip-prefix-tags", stripPrefixTags],
     ["strip-optional-param-brackets", stripOptionalParamBrackets],
   ])("%s leaves fenced example code untouched", (_name, rule) => {

@@ -398,15 +398,7 @@ everything in it was either shipped, superseded by this file and
 
 ### Next up
 
-One open bug, in `convert`, found by dogfooding rather than by the test suite —
-it writes a file it calls converted that a later gate rejects:
-
-- **#85** — `@throws {Type}` survives conversion and produces two syntax
-  errors. Widening the `remove-type-braces` pattern clears the errors but
-  deletes the type, which appears in no signature, so this wants its own rule
-  that rewrites rather than strips.
-
-Beyond that, nine items are deliberately deferred, each as its own GitHub
+Nothing is scheduled. Nine items are deliberately deferred, each as its own GitHub
 issue labeled `future` (#54–#62) — [browse the list](https://github.com/miguelcolmenares/jsdoc-to-tsdoc/issues?q=is%3Aissue+is%3Aopen+label%3Afuture)
 rather than trusting a summary here to stay in sync with it. Picking one up
 means reading its issue for the full context, not just its title.
@@ -418,6 +410,37 @@ means reading its issue for the full context, not just its title.
 Newest first. Each entry records what shipped and, more importantly, **the
 non-obvious things** — a decision and its reasoning, or a trap that cost real
 time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
+
+### A type that appears in no signature cannot be stripped
+
+- **`remove-type-braces` was the obvious home for `@throws` and the wrong
+  one.** It strips `{Type}` because TypeScript still declares the type
+  somewhere; that premise simply does not hold for a thrown type, which appears
+  in no signature. Adding `throws` to its alternation would have cleared both
+  syntax errors and silently deleted the only content the tag carries — a
+  green `check` covering a loss of information. The test that a fix passes is
+  not the one the bug report happens to show.
+- **Link only what could resolve.** `{@link string}` is valid syntax and
+  renders as a permanently broken link, which is worse than prose: it asserts a
+  reference that does not exist. The rule links a dotted identifier path that
+  is not a TypeScript primitive, and drops to plain text for everything else —
+  unions, generics, wildcards. Thrown types are almost always error classes, so
+  the common case links and the exceptions stay honest.
+- **Guard the output form before it becomes the input.** `@throws {@link Foo}`
+  matches the same `\{[^}]*\}` the rule looks for, and without a guard it
+  would be read as a type named `@link Foo` and flattened into prose — the rule
+  breaking correct comments on the second run. Any rule that *writes* brace
+  syntax has to recognise its own output; a test asserts the second pass is a
+  no-op.
+- **`@exception` was the other half of the bug.** It is JSDoc's synonym for
+  `@throws`, was in no list at all, and reached `check` as an undefined tag —
+  the same shape as `@summary` in #84. Renaming it before the link rule runs
+  means the new rule only ever matches one spelling.
+- **The rule's own doc comment tripped the hazard it documents.** An inline
+  code span wrapped across two lines left its backtick unclosed, so the
+  `{Error|TypeError}` inside it parsed as an inline tag and `npm run check`
+  failed on the new file. Prose *about* brace syntax is as exposed to the
+  parser as the code it describes.
 
 ### Fix the reassembler, not the rule that exposed it
 
