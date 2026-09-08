@@ -17,6 +17,43 @@ import { promisify } from "node:util";
 const run = promisify(execFile);
 
 /**
+ * Environment variables git uses to skip its normal directory-based repo
+ * discovery in favor of a repo named by the *invoking* process.
+ *
+ * @remarks
+ * A parent git process (a hook, `git rebase --exec`, `husky`) sets these for
+ * every child it spawns. Left alone, a `git` call this module makes in a
+ * caller-supplied `cwd` would silently operate on the parent's repository
+ * instead — see {@link cleanGitEnv}.
+ */
+const GIT_DISCOVERY_ENV_VARS = [
+  "GIT_DIR",
+  "GIT_WORK_TREE",
+  "GIT_INDEX_FILE",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  "GIT_CEILING_DIRECTORIES",
+] as const;
+
+/**
+ * A copy of `process.env` with every {@link GIT_DISCOVERY_ENV_VARS} entry
+ * removed, so a spawned `git` always discovers its repository from `cwd`.
+ *
+ * @remarks
+ * Deleting the keys, not setting them to `undefined`, matters: Node stringifies
+ * an `undefined` env value to the literal text `"undefined"`, which would set
+ * `GIT_DIR=undefined` and fail in a different, more confusing way than the bug
+ * this exists to prevent.
+ *
+ * @returns An environment object safe to pass as `execFile`'s `env` option.
+ */
+function cleanGitEnv(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  for (const key of GIT_DISCOVERY_ENV_VARS) delete env[key];
+  return env;
+}
+
+/**
  * Runs a `git` subcommand in `cwd` and returns its trimmed stdout.
  *
  * @param cwd - The directory to run `git` in.
@@ -24,7 +61,7 @@ const run = promisify(execFile);
  * @returns The command's stdout, trimmed.
  */
 async function git(cwd: string, args: readonly string[]): Promise<string> {
-  const { stdout } = await run("git", [...args], { cwd });
+  const { stdout } = await run("git", [...args], { cwd, env: cleanGitEnv() });
   return stdout.trim();
 }
 

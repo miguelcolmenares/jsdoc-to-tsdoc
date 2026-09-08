@@ -10,9 +10,27 @@ import { commitFile, ensureCommittable } from "@/committer/git";
 
 const run = promisify(execFile);
 
+/**
+ * Env vars a parent git process (a hook, `git rebase --exec`) sets for every
+ * child it spawns, overriding normal cwd-based repo discovery. Stripped from
+ * every `git` call this file makes so the test harness stays correct
+ * regardless of what polluted `process.env` while a test runs — including the
+ * "git-hook environment leakage" test below, which sets them deliberately.
+ */
+const GIT_DISCOVERY_ENV_VARS = [
+  "GIT_DIR",
+  "GIT_WORK_TREE",
+  "GIT_INDEX_FILE",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  "GIT_CEILING_DIRECTORIES",
+] as const;
+
 /** Runs git in `cwd` and returns trimmed stdout. */
 async function git(cwd: string, ...args: string[]): Promise<string> {
-  const { stdout } = await run("git", args, { cwd });
+  const env = { ...process.env };
+  for (const key of GIT_DISCOVERY_ENV_VARS) delete env[key];
+  const { stdout } = await run("git", args, { cwd, env });
   return stdout.trim();
 }
 
@@ -95,5 +113,45 @@ describe("commitFile", () => {
 
     const files = await git(root, "show", "--name-only", "--pretty=format:");
     expect(files).toBe("a b.ts");
+  });
+});
+
+describe("git-hook environment leakage", () => {
+  // A git hook (pre-push, pre-commit) sets GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE
+  // for every process it spawns, naming *its own* repository. Left unhandled,
+  // a `git` call this module makes for a caller-supplied `cwd` would silently
+  // target that repository instead of `root` — exactly the failure that
+  // surfaced when this suite ran nested inside this project's own pre-push
+  // hook rather than directly via `npm run test`.
+  const pollutingVars = ["GIT_DIR", "GIT_WORK_TREE"] as const;
+  const saved = new Map<string, string | undefined>();
+
+  beforeEach(() => {
+    for (const key of pollutingVars) saved.set(key, process.env[key]);
+    process.env.GIT_DIR = "/nonexistent/should-not-be-used/.git";
+    process.env.GIT_WORK_TREE = "/nonexistent/should-not-be-used";
+  });
+
+  afterEach(() => {
+    for (const key of pollutingVars) {
+      const value = saved.get(key);
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+
+  it("ensureCommittable still resolves against cwd's repo, not the leaked one", async () => {
+    await initRepo(root);
+    await expect(ensureCommittable(root)).resolves.toBeUndefined();
+  });
+
+  it("commitFile still commits into cwd's repo, not the leaked one", async () => {
+    await initRepo(root);
+    await writeFile(join(root, "a.ts"), "export const a = 1;\n");
+
+    await commitFile(root, "a.ts", "docs: convert JSDoc to TSDoc in a.ts");
+
+    const subject = await git(root, "log", "-1", "--pretty=%s");
+    expect(subject).toBe("docs: convert JSDoc to TSDoc in a.ts");
   });
 });
