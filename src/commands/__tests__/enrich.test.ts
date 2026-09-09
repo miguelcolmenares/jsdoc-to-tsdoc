@@ -212,8 +212,14 @@ describe("scan --enrich report shape", () => {
       }[];
     } = JSON.parse(output);
 
-    const greetFile = report.files.find((f) => f.path === "src/greet.ts");
-    const mathFile = report.files.find((f) => f.path === "src/math.ts");
+    // `path` comes from Node's `relative()`, which is backslash-separated on
+    // Windows — normalize before comparing against a forward-slash literal.
+    const greetFile = report.files.find(
+      (f) => f.path.replace(/\\/g, "/") === "src/greet.ts",
+    );
+    const mathFile = report.files.find(
+      (f) => f.path.replace(/\\/g, "/") === "src/math.ts",
+    );
     expect(greetFile?.declarations[0]?.enrichment).toEqual({
       ok: true,
       suggestion: "/** Greets. */",
