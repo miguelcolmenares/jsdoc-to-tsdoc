@@ -23,6 +23,18 @@ name: Auto-merge Dependabot PRs
 # `main`, which lists the nine `check (node … · …)` contexts as required —
 # without that, `gh pr merge --auto` has nothing to wait for. If auto-merge ever
 # starts landing red commits again, check the protection rule before this file.
+#
+# `main` also requires one approving review before anything merges — everyone
+# except Dependabot, so a human (the repo owner) signs off on every other
+# merge. GITHUB_TOKEN cannot supply that review: GitHub blocks a workflow's own
+# default token from approving a pull request in the same repository,
+# specifically to stop a workflow from rubber-stamping itself past this exact
+# kind of gate. The approval step below uses `secrets.AUTO_APPROVE_TOKEN` (a
+# personal access token, `public_repo` scope, belonging to the repo owner)
+# instead — approving Dependabot's PR is not self-review, since the owner
+# didn't author it. Without that secret configured, this step is skipped and
+# Dependabot's PRs fall back to sitting open for a manual review + merge,
+# never auto-merging — a safe failure mode, not a broken one.
 on: pull_request
 
 # Least privilege by default: no token scopes at the workflow level. Only the
@@ -39,6 +51,12 @@ jobs:
       contents: write
       pull-requests: write
       issues: write
+    env:
+      # Job-level, not step-level: a step's own `env:` isn't visible to that
+      # same step's `if:` condition, and `secrets` isn't a context `if:` can
+      # read at all -- this is the one place both the approve step's `if:`
+      # and its `run:` can see whether the secret is configured.
+      AUTO_APPROVE_TOKEN: ${{ secrets.AUTO_APPROVE_TOKEN }}
     steps:
       - name: Fetch Dependabot metadata
         id: metadata
@@ -151,6 +169,20 @@ jobs:
               // comment failure fail the step and imply something merged.
               core.warning(`Could not post cooldown comment: ${err.message}`);
             }
+
+      - name: Approve, satisfying the required-review branch protection rule
+        # Same gating as the merge step below (skip majors, require cooldown
+        # clear) -- an approval with nothing to act on is just noise. Silently
+        # does nothing when the secret isn't set, which is a real state (see
+        # the header comment): Dependabot's PRs then need a manual review.
+        if: >-
+          steps.metadata.outputs.update-type != 'version-update:semver-major' &&
+          steps.cooldown.outputs.merge == 'true' &&
+          env.AUTO_APPROVE_TOKEN != ''
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ env.AUTO_APPROVE_TOKEN }}
+        run: gh pr review --approve "$PR_URL"
 
       - name: Enable auto-merge for minor and patch updates
         # Skip semver-major bumps; they need a human. Also require the cooldown to

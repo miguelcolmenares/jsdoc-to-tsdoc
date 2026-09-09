@@ -27,6 +27,12 @@ All three are tested against a packed tarball, on real projects, not assumed
 equivalent — `yarn dlx` was broken until recently for a reason none of the
 others shared.
 
+Every release also mirrors to [GitHub Packages](https://github.com/miguelcolmenares/jsdoc-to-tsdoc/pkgs/npm/jsdoc-to-tsdoc)
+as `@miguelcolmenares/jsdoc-to-tsdoc` — useful if your environment already
+authenticates against `npm.pkg.github.com` and you'd rather not add npmjs.com
+as a second registry. npmjs.com stays the primary, documented target; the
+mirror carries the same version, published from the same release.
+
 **Do not add it to `dependencies` or `devDependencies`.** Installed, it pins a
 finished migration tool into a dependency graph where it shows up in every
 audit, every Dependabot pass and every lockfile diff, for a command run by hand
