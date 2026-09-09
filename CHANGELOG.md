@@ -41,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Documentation
 
 - **The README never said the CLI is not a project dependency.** Every example used `npx`, which implies it, but nothing stated it and there was no Installation section to state it in — the headings went straight from The Problem to Usage. The reference repo this tool was dogfooded on, set up by the author, carried `jsdoc-to-tsdoc` in its `devDependencies` as a result. There is now an **Installation** section that says plainly there isn't one, gives the invocation for all three package runners, and separates the CLI from the four packages `init` reports — those are the lint gate that outlives the migration, and confusing the two is the whole failure mode. `init`'s own closing output now draws the same line, since that is the moment the decision gets made.
+- **The docs and several source comments named the private repos this tool was dogfooded against.** `AGENTS.md`, `CHANGELOG.md`, `fixtures/README.md`, and TSDoc comments in four transformer rules and their tests referred to them by their real names — proprietary details of a former employer's codebases that don't belong in a public, personal-project repo, even as measurement citations. Every reference is now anonymized (`the reference repo`, `repo-b`/`repo-c`/`repo-d`, a generic `@acme/icons` scope example) while keeping every measured figure — file counts, error counts, commit SHAs — exactly as reported; only the identifying names changed.
 ## [0.2.1] - 2026-09-02
 
 ### Fixed
@@ -83,7 +84,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the target is idempotent. The target is authored independently as the correct
   TSDoc, so a rule that regresses to being consistently wrong fails the test —
   which a self-snapshot could not catch. Committed fixtures are synthetic because
-  the repo is public; the `osa-nextjs` figure (64 of 80 files byte-identical to
+  the repo is public; the reference-repo figure (64 of 80 files byte-identical to
   `convert`) is recorded as a locally-reproducible baseline in `fixtures/README.md`.
 
 - `convert --interactive` / `scaffold --interactive` (`-i`) review each changed

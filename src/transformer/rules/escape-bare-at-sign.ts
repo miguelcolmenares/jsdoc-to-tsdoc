@@ -74,7 +74,7 @@ function escapeLine(content: string): string {
  * undefined name into a `check` error over a comment that was never wrong.
  * Wrapping just the token in backticks makes it an inline code span, which the
  * parser leaves alone, and is exactly what a person migrating by hand writes.
- * On the `osa-nextjs` measurement, path aliases in re-export headers are the
+ * On the reference-repo measurement, path aliases in re-export headers are the
  * whole of this error class.
  *
  * Three things are never touched. A tag that opens its line is a real block tag

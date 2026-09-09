@@ -14,14 +14,14 @@ snapshot — which a self-snapshot could never catch.
 
 ## Why these are synthetic
 
-The richest ground truth is the **`osa-nextjs`** hand migration (a real
-before/human pair). It is **not** committed here: `osa-nextjs` is a private
-company repository and `jsdoc-to-tsdoc` is public. Committing its source would
-publish proprietary code. The fixtures reproduce the same conversion classes
-with invented content instead, and the `osa` figure below is recorded as a
-locally-reproducible baseline.
+The richest ground truth is **the reference repo's** hand migration (a real
+before/human pair). It is **not** committed here: the reference repo is a
+private repository unrelated to this project, and `jsdoc-to-tsdoc` is public.
+Committing its source would publish someone else's code. The fixtures
+reproduce the same conversion classes with invented content instead, and the
+figure below is recorded as a locally-reproducible baseline.
 
-## The `osa` baseline
+## The reference baseline
 
 Measured with the command below, over the pinned pre-migration state:
 
@@ -40,14 +40,13 @@ pinned commits into a throwaway directory:
 
 ```bash
 # From the jsdoc-to-tsdoc repo root, with dist/ built (npm run build).
-# osa: before = master, human = feature/tsdoc-implementation (merge-base 46f01ff)
+# reference repo: before = master, human = feature/tsdoc-implementation (merge-base 46f01ff)
 BEFORE=$(mktemp -d); HUMAN=$(mktemp -d)
-git -C ../osa-nextjs archive master src | tar -x -C "$BEFORE"
-git -C ../osa-nextjs archive feature/tsdoc-implementation src | tar -x -C "$HUMAN"
+git -C ../reference-repo archive master src | tar -x -C "$BEFORE"
+git -C ../reference-repo archive feature/tsdoc-implementation src | tar -x -C "$HUMAN"
 node dist/cli.mjs convert --cwd "$BEFORE"          # note: --cwd, not positional
 # then diff the human-migrated files in $BEFORE against $HUMAN and count matches
 ```
 
-Other repos have pinned pre-migration commits for the same purpose:
-`homecare-nextjs` `9d155e7`, `assistedliving-nextjs` `f1f10ba`,
-`nextjs-boilerplate` `b803d9c`.
+Other private repos have pinned pre-migration commits for the same purpose:
+`repo-b` `9d155e7`, `repo-c` `f1f10ba`, `repo-d` `b803d9c`.

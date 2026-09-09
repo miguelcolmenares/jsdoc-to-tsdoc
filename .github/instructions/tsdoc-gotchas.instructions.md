@@ -8,7 +8,7 @@ applyTo: "src/**/*.ts"
 
 `tsdoc/syntax` is stricter than most JSDoc-trained instinct expects. This is
 the catalog of what actually breaks it in real code, measured across three
-full-repo migrations and a fourth dogfooding pass (`osa-nextjs`) — not a
+full-repo migrations and a fourth dogfooding pass (the reference repo) — not a
 guess at what might be a problem. Each entry names the rule that handles it,
 under [`transformer/rules/`](../../src/transformer/rules/).
 

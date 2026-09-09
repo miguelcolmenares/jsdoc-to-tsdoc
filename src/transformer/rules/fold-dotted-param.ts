@@ -7,14 +7,15 @@
  * as `tsdoc-param-tag-with-invalid-name`. Since the child's documentation exists
  * nowhere else, this does not drop it: each child is folded into the parent's
  * description as a `(child: description, …)` list, preserving every word. That
- * matches what the hand migration on `osa-nextjs` did for its small parameter
- * objects, and is lossless where the human chose brevity over completeness.
+ * matches what the hand migration on the reference repo did for its small
+ * parameter objects, and is lossless where the human chose brevity over
+ * completeness.
  *
  * The fold rewrites and drops whole content lines, so it only handles the block
  * form where each `@param` opens its own line. A single-line comment that packs
  * every tag onto one line (`/** Adds. @param p.a - … *\/`) is left untouched
  * rather than corrupted: splicing within a line is a different rewrite than the
- * line-plan model does, and that shape does not appear in the `osa-nextjs`
+ * line-plan model does, and that shape does not appear in the reference repo's
  * ground truth the rule is measured against.
  *
  * @since 0.1.0

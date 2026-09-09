@@ -155,7 +155,7 @@ function planFences(lines: readonly ContentLine[]): FencePlan {
  * that is fenced is also an example no later rule can rewrite.
  *
  * The rule fences only what would break. Measured against the hand migration on
- * `osa-nextjs`, that reproduces the human's decision on 101 of 102 examples,
+ * the reference repo, that reproduces the human's decision on 101 of 102 examples,
  * and the one difference is an example fenced that did not have to be. That
  * asymmetry is deliberate: a body left unfenced when it needed a fence is a
  * `check` failure, while one fenced without needing it is valid TSDoc that
