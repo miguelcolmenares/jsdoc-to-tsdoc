@@ -463,10 +463,31 @@ src/lib/api.ts
 
 Two behaviours keep the gate honest rather than merely strict:
 
-- **The project's `tsdoc.json` is loaded first.** Without it every `@since` in a real codebase is reported as an undefined tag — violations the project's own lint accepts. If that file exists but cannot be read, `check` exits `2` and inspects nothing, because reporting thousands of bogus problems is worse than stopping. A project that simply has no `tsdoc.json` yet is not an error.
+- **The nearest `tsdoc.json` is loaded first, per file.** Without it every `@since` in a real codebase is reported as an undefined tag — violations the project's own lint accepts. If that file exists but cannot be read, `check` exits `2` and inspects nothing, because reporting thousands of bogus problems is worse than stopping. A project that simply has no `tsdoc.json` yet is not an error.
 - **Test paths are skipped by default**, because the ESLint config `init` generates turns both TSDoc rules off for them. A gate that reported what the tool's own scaffolding excuses would be reporting phantom work. `--include-tests` opts back in.
 
 Exit codes: `0` clean · `2` unreadable `tsdoc.json` · `3` problems found.
+
+### Monorepo: a `tsdoc.json` per package
+
+A workspace can give each package its own `tsdoc.json` — its own custom tags, its own scope — instead of sharing one project-root file. `check` resolves the config for each file by walking up from the file's own directory toward the project root and using the nearest `tsdoc.json` it finds, the same **nearest-ancestor** model ESLint's flat config and TypeScript's `tsconfig.json` both use. A file with no closer override falls back to the project root's `tsdoc.json`, exactly as it would in a single-package project.
+
+```text
+root/
+├── tsdoc.json              # defines @internal-only
+└── packages/
+    ├── api/
+    │   ├── tsdoc.json       # defines @endpoint, on top of the root's tags
+    │   └── src/handler.ts   # resolves to packages/api/tsdoc.json
+    └── ui/
+        └── src/button.tsx   # no override here — resolves to the root tsdoc.json
+```
+
+`packages/api/src/handler.ts` can use `@endpoint` because the nearest `tsdoc.json` walking up from it is `packages/api/tsdoc.json`. `packages/ui/src/button.tsx` cannot — the walk finds nothing under `packages/ui/`, continues past it, and lands on the root's `tsdoc.json`, which never defined that tag. Nothing above the project root (the directory `--cwd` points at) is ever considered, so a `tsdoc.json` sitting outside the repo can't leak in.
+
+A `tsdoc.json` that exists but fails to load — anywhere in the tree, root or nested — still aborts the whole run with exit `2` before anything is reported, and names which one: a config that can't be trusted makes every file under it as untrustworthy as a broken root config always was. `--report=json` lists every config actually applied as `tsdocConfigs`, alongside the existing single-path `tsdocConfig` (the project root's own).
+
+**Only `check` resolves configs this way today.** `init`, `convert`, `scaffold` and `escalate` still assume one project-wide `tsdoc.json` and one ESLint flat config; making those per-workspace-aware is tracked separately (see `AGENTS.md` §11) since "which flat config applies to which workspace" is a different, harder question than "which `tsdoc.json` applies to which file."
 
 ## CI integration
 

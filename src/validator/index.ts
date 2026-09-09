@@ -8,6 +8,10 @@
  */
 
 export {
+  createTsdocValidatorResolver,
+  type TsdocValidatorResolver,
+} from "@/validator/config-resolver";
+export {
   createTsdocValidator,
   type TsdocValidator,
   type TsdocViolation,

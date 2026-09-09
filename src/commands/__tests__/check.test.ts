@@ -277,4 +277,137 @@ describe("check command", () => {
     expect(stdout).toContain("| Category | Count |");
     expect(stdout).toContain("| Exports without TSDoc | 1 |");
   });
+
+  // A monorepo feature that quietly changed single-package behavior would be
+  // worse than not shipping it — this is the regression test that guards
+  // against exactly that. It exercises every path the single-`tsdoc.json`
+  // suite above already covers (a custom tag, several nested directories, no
+  // nested config anywhere) and asserts the outcome — exit code, message
+  // text, and the new `tsdocConfigs` field — is what a project with one root
+  // config has always produced.
+  it("behaves identically to a single root tsdoc.json with deeply nested files", async () => {
+    const source = (tag: string) =>
+      [
+        "/**",
+        " * Adds numbers.",
+        " *",
+        " * @param a - First.",
+        " * @returns The sum.",
+        ` * ${tag} 0.1.0`,
+        " */",
+        "export function add(a: number): number {",
+        "  return a;",
+        "}",
+        "",
+      ].join("\n");
+    const root = await project(
+      {
+        "src/a.ts": DOCUMENTED,
+        "src/deep/nested/dir/b.ts": source("@since"),
+      },
+      tsdocJsonWith("@since"),
+    );
+
+    const { stdout } = await run({ cwd: root, report: "json" });
+    const report = JSON.parse(stdout) as {
+      problems: number;
+      tsdocConfig: string | null;
+      tsdocConfigs: string[];
+    };
+
+    expect(process.exitCode).toBeFalsy();
+    expect(report.problems).toBe(0);
+    expect(report.tsdocConfig).toBe("tsdoc.json");
+    // Every file resolved to the one root config: the nearest-ancestor walk
+    // from `src/deep/nested/dir/` finds nothing on the way down to `src/`
+    // and lands on the same file `src/a.ts` did.
+    expect(report.tsdocConfigs).toEqual(["tsdoc.json"]);
+  });
+
+  describe("monorepo tsdoc.json resolution", () => {
+    const withTag = (tag: string) =>
+      [
+        "/**",
+        " * Adds numbers.",
+        " *",
+        " * @param a - First.",
+        " * @returns The sum.",
+        ` * ${tag} 0.1.0`,
+        " */",
+        "export function add(a: number): number {",
+        "  return a;",
+        "}",
+        "",
+      ].join("\n");
+
+    it("resolves each package's own tsdoc.json, and falls back to root for a package with no override", async () => {
+      // The exact shape the design calls out: root/tsdoc.json +
+      // root/packages/a/tsdoc.json + root/packages/a/src/foo.ts +
+      // root/packages/b/src/bar.ts with no override, resolving to root's.
+      const root = await project(
+        {
+          "packages/a/src/foo.ts": withTag("@pkgTag"),
+          "packages/b/src/bar.ts": withTag("@rootTag"),
+        },
+        tsdocJsonWith("@rootTag"),
+      );
+      await writeFile(
+        join(root, "packages/a", "tsdoc.json"),
+        tsdocJsonWith("@pkgTag"),
+      );
+
+      const { stdout } = await run({ cwd: root, report: "json" });
+      const report = JSON.parse(stdout) as {
+        problems: number;
+        tsdocConfigs: string[];
+      };
+
+      expect(process.exitCode).toBeFalsy();
+      expect(report.problems).toBe(0);
+      expect(report.tsdocConfigs.sort()).toEqual(
+        [join("packages", "a", "tsdoc.json"), "tsdoc.json"].sort(),
+      );
+    });
+
+    it("does not let a package's custom tag leak into a sibling with no override", async () => {
+      const root = await project(
+        {
+          "packages/a/src/foo.ts": withTag("@pkgTag"),
+          "packages/b/src/bar.ts": withTag("@pkgTag"),
+        },
+        undefined,
+      );
+      await writeFile(
+        join(root, "packages/a", "tsdoc.json"),
+        tsdocJsonWith("@pkgTag"),
+      );
+
+      const { stdout } = await run({ cwd: root });
+
+      expect(process.exitCode).toBe(3);
+      // package a's file is clean; only b's undefined `@pkgTag` is reported.
+      expect(stdout).toContain(join("packages", "b", "src", "bar.ts"));
+      expect(stdout).not.toContain(join("packages", "a", "src", "foo.ts"));
+      expect(stdout).toContain("tsdoc-undefined-tag");
+    });
+
+    it("exits 2 and names the broken package when a nested tsdoc.json fails to load", async () => {
+      const root = await project(
+        {
+          "src/a.ts": DOCUMENTED,
+          "packages/a/src/foo.ts": DOCUMENTED,
+        },
+        tsdocJsonWith("@since"),
+      );
+      await writeFile(join(root, "packages/a", "tsdoc.json"), "{ not json");
+
+      const { stdout, stderr } = await run({ cwd: root });
+
+      expect(process.exitCode).toBe(2);
+      expect(stderr).toContain(join("packages", "a", "tsdoc.json"));
+      // Nothing gets checked once any config in scope is untrustworthy — same
+      // guarantee the single-root broken-config case has always made.
+      expect(stdout).toBe("");
+    });
+  });
 });

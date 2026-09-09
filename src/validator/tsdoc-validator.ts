@@ -19,6 +19,13 @@
  * over the whole file buffer rather than `parseString` over the comment text, so
  * reported positions are already file coordinates and need no remapping.
  *
+ * `createTsdocValidator` itself always resolves exactly one directory's
+ * `tsdoc.json` — it has no notion of a project beyond the one it is told to
+ * read. `check` needs a different validator per file in a monorepo with more
+ * than one `tsdoc.json`; that per-file resolution, and the nearest-ancestor
+ * walk it is built on, live in `src/validator/config-resolver.ts`, which
+ * calls this function once per distinct configuration directory it finds.
+ *
  * @since 0.1.0
  */
 
