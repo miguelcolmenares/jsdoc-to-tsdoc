@@ -112,8 +112,9 @@ export function describeStatement(
   }
 
   if (ts.isInterfaceDeclaration(statement)) {
-    // Only the interface header is described. Splitting docs onto each member
-    // is a separate structural step (github.com/miguelcolmenares/jsdoc-to-tsdoc/issues/62).
+    // Only the interface header is described here. Its members are a separate
+    // structural concern, described by `member-declarations.ts` and stubbed
+    // individually under `scaffold --members` (see AGENTS.md §3).
     return {
       ...base,
       name: statement.name.text,
@@ -124,6 +125,10 @@ export function describeStatement(
   }
 
   if (ts.isTypeAliasDeclaration(statement)) {
+    // As above: only the header is described here. A type-literal alias's
+    // members go through `member-declarations.ts` too — `--members` treats an
+    // interface and an object-literal type alias the same way, since both are
+    // just a `ts.TypeElement[]` to the scanner.
     return {
       ...base,
       name: statement.name.text,

@@ -283,4 +283,142 @@ describe("scaffoldSourceText", () => {
     );
     expect(result.orphanedWarnings).toEqual([]);
   });
+
+  describe("with { members: true }", () => {
+    it("stubs every undocumented member individually, in source order", () => {
+      const source = [
+        "export interface HeroProps {",
+        "  title: string;",
+        "  href: string;",
+        "}",
+      ].join("\n");
+
+      const result = scaffoldSourceText(source, "a.ts", { members: true });
+
+      expect(result.memberStubsAdded).toBe(2);
+      // Both the header and each member get their own stub.
+      expect(result.stubsAdded).toBe(1);
+      expect(result.output).toContain(" * Title.");
+      expect(result.output).toContain(" * Href.");
+      // Member stubs land directly above their own member, not bunched above
+      // the interface as a group.
+      const lines = result.output.split("\n");
+      const titleIndex = lines.findIndex((line) =>
+        line.includes("title: string"),
+      );
+      const hrefIndex = lines.findIndex((line) =>
+        line.includes("href: string"),
+      );
+      expect(lines[titleIndex - 1]).toBe("   */");
+      expect(lines[hrefIndex - 1]).toBe("   */");
+    });
+
+    it("does not stub a member that already has its own doc comment", () => {
+      const source = [
+        "export interface HeroProps {",
+        "  /** The title. */",
+        "  title: string;",
+        "  href: string;",
+        "}",
+      ].join("\n");
+
+      const result = scaffoldSourceText(source, "a.ts", { members: true });
+
+      expect(result.memberStubsAdded).toBe(1);
+      expect(result.output.match(/The title\./g)).toHaveLength(1);
+      expect(result.output).toContain(" * Href.");
+    });
+
+    it("stubs undocumented members even when the header is already documented", () => {
+      const source = [
+        "/**",
+        " * Hero props.",
+        " */",
+        "export interface HeroProps {",
+        "  title: string;",
+        "}",
+      ].join("\n");
+
+      const result = scaffoldSourceText(source, "a.ts", { members: true });
+
+      // The header is untouched — only the member gains a stub.
+      expect(result.stubsAdded).toBe(0);
+      expect(result.memberStubsAdded).toBe(1);
+      expect(result.output.match(/Hero props\./g)).toHaveLength(1);
+      expect(result.output).toContain(" * Title.");
+    });
+
+    it("gives a callback-typed member @param/@returns tags", () => {
+      const source = [
+        "export interface HeroProps {",
+        "  onSelect: (id: string) => void;",
+        "}",
+      ].join("\n");
+
+      const result = scaffoldSourceText(source, "a.ts", { members: true });
+
+      expect(result.output).toContain("@param id - TODO(tsdoc): describe id.");
+      expect(result.output).not.toContain("@returns");
+    });
+
+    it("documents a type-literal alias's members the same way as an interface", () => {
+      const source = [
+        "export type Options = {",
+        "  retries: number;",
+        "};",
+      ].join("\n");
+
+      const result = scaffoldSourceText(source, "a.ts", { members: true });
+
+      expect(result.memberStubsAdded).toBe(1);
+      expect(result.output).toContain(" * Retries.");
+    });
+
+    it("is a no-op on a second run — every member and header already documented", () => {
+      const source = [
+        "export interface HeroProps {",
+        "  title: string;",
+        "  href: string;",
+        "}",
+      ].join("\n");
+
+      const first = scaffoldSourceText(source, "a.ts", { members: true });
+      const second = scaffoldSourceText(first.output, "a.ts", {
+        members: true,
+      });
+
+      expect(second.changed).toBe(false);
+      expect(second.stubsAdded).toBe(0);
+      expect(second.memberStubsAdded).toBe(0);
+    });
+
+    it("does not stub members unless the option is passed", () => {
+      const source = [
+        "export interface HeroProps {",
+        "  title: string;",
+        "}",
+      ].join("\n");
+
+      const result = scaffoldSourceText(source, "a.ts");
+
+      expect(result.memberStubsAdded).toBe(0);
+      expect(result.output).not.toContain(" * Title.");
+    });
+
+    it("skips a declaration with no members without affecting other declarations", () => {
+      const source = [
+        'export type Status = "new" | "done";',
+        "",
+        "export interface HeroProps {",
+        "  title: string;",
+        "}",
+      ].join("\n");
+
+      const result = scaffoldSourceText(source, "a.ts", { members: true });
+
+      // Status has no members to stub, but its own header stub still lands.
+      expect(result.output).toContain(" * Status.");
+      expect(result.memberStubsAdded).toBe(1);
+    });
+  });
 });

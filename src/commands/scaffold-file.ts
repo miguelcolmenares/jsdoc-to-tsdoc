@@ -10,7 +10,7 @@
  * @since 0.1.0
  */
 
-import { buildStub } from "@/scaffolder";
+import { buildMemberStub, buildStub } from "@/scaffolder";
 import {
   applyEdits,
   collectExportedDeclarations,
@@ -18,6 +18,26 @@ import {
   type ExportKind,
   type SourceEdit,
 } from "@/scanner";
+
+/**
+ * What one `scaffold` run may do to a file.
+ */
+export interface ScaffoldOptions {
+  /**
+   * Also stub each undocumented interface (or type-literal alias) member,
+   * individually, rather than only the declaration's own header.
+   *
+   * @remarks
+   * Off by default. A per-member stub is generated for every member with no
+   * doc comment of its own, whether or not the declaration's header is
+   * already documented — the two are independent gaps. Off by default because
+   * it can meaningfully multiply how much boilerplate one run produces (one
+   * comment per member instead of one per declaration), matching how
+   * `convert --promote-line-comments` stays opt-in for the same reason: it
+   * edits lines no other mode touches.
+   */
+  readonly members?: boolean;
+}
 
 /**
  * A per-kind tally of the stubs generated for one run.
@@ -48,6 +68,11 @@ export interface FileScaffold {
   readonly changed: boolean;
   /** How many exports received a stub. */
   readonly stubsAdded: number;
+  /**
+   * How many interface/type-literal members received a stub, under
+   * {@link ScaffoldOptions.members}. `0` when the option is off.
+   */
+  readonly memberStubsAdded: number;
   /** How many exports were found, documented or not. */
   readonly exportsFound: number;
   /** The generated stubs broken down by export kind. */
@@ -71,13 +96,21 @@ export interface FileScaffold {
  * single left-to-right pass, so the insertion points captured during the
  * inventory stay valid as edits are applied.
  *
+ * With {@link ScaffoldOptions.members}, an undocumented interface/type-literal
+ * member is stubbed too, regardless of whether its own declaration's header is
+ * already documented — a member insertion is at an offset strictly inside its
+ * declaration, so it never collides with the declaration's own header stub in
+ * the same left-to-right pass.
+ *
  * @param sourceText - The full source file contents.
  * @param fileName - The file name (selects the TS/TSX dialect).
+ * @param options - What this run may also do, beyond header stubs.
  * @returns The rewritten source plus per-file stub metadata.
  */
 export function scaffoldSourceText(
   sourceText: string,
   fileName: string,
+  options: ScaffoldOptions = {},
 ): FileScaffold {
   const declarations = collectExportedDeclarations(sourceText, fileName);
   const undocumented = undocumentedDeclarations(declarations);
@@ -102,11 +135,30 @@ export function scaffoldSourceText(
     });
     counts[declaration.kind] = (counts[declaration.kind] ?? 0) + 1;
   }
+  const stubsAdded = edits.length;
+
+  let memberStubsAdded = 0;
+  if (options.members === true) {
+    for (const declaration of declarations) {
+      for (const member of declaration.members ?? []) {
+        if (member.hasDocComment) {
+          continue;
+        }
+        edits.push({
+          pos: member.insertPos,
+          end: member.insertEnd,
+          text: buildMemberStub(member),
+        });
+        memberStubsAdded += 1;
+      }
+    }
+  }
 
   return {
     output: applyEdits(sourceText, edits),
     changed: edits.length > 0,
-    stubsAdded: edits.length,
+    stubsAdded,
+    memberStubsAdded,
     exportsFound: declarations.length,
     counts,
     orphanedWarnings,

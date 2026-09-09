@@ -46,6 +46,7 @@ export {
 export {
   scaffoldSourceText,
   type FileScaffold,
+  type ScaffoldOptions,
   type StubCounts,
 } from "@/commands/scaffold-file";
 export {
@@ -83,6 +84,7 @@ export {
   type PropertyTag,
 } from "@/parser";
 export {
+  buildMemberStub,
   buildStub,
   inferComponentSummary,
   inferFunctionSummary,
@@ -93,6 +95,7 @@ export {
 export {
   checkCompilerApi,
   collectExportedDeclarations,
+  collectMemberDeclarations,
   collectMemberTargets,
   extractJsDocComments,
   findSourceFiles,
@@ -100,6 +103,7 @@ export {
   type CompilerApiCheck,
   type ExportedDeclaration,
   type ExportKind,
+  type MemberDeclaration,
   type MemberTarget,
   type SourceComment,
 } from "@/scanner";

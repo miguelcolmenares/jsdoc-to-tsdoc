@@ -8,9 +8,12 @@
  * present. The classifier needs two more from the same walk — the attached
  * comment itself, and whether a signature could be read at all — so it can tell
  * documentation that contradicts the code from documentation about code the
- * scanner never saw. All of it comes from the TypeScript compiler API rather
- * than regular expressions, so `export` keywords inside strings, template
- * literals, or nested scopes are never mistaken for real declarations.
+ * scanner never saw. An interface or type-literal alias additionally carries its
+ * own members as individually documentable declarations (`member-declarations.ts`),
+ * read from the same node so a second parse of the file is never needed. All of
+ * it comes from the TypeScript compiler API rather than regular expressions, so
+ * `export` keywords inside strings, template literals, or nested scopes are
+ * never mistaken for real declarations.
  *
  * This module resolves _how_ a declaration reaches the module surface; the shape
  * of each declaration comes from `declaration-shape`, and the stub position and
@@ -37,6 +40,10 @@ import {
   readLeadingComment,
   type LeadingComment,
 } from "@/scanner/insertion-location";
+import {
+  collectMemberDeclarations,
+  type MemberDeclaration,
+} from "@/scanner/member-declarations";
 
 export type { ExportKind, ExportParameter, LeadingComment };
 
@@ -112,6 +119,17 @@ export interface ExportedDeclaration {
    * node, rather than left empty because no signature was reachable.
    */
   readonly hasSignature: boolean;
+  /**
+   * This declaration's own members, as individually documentable
+   * declarations, for `scaffold --members`.
+   *
+   * @remarks
+   * `undefined` when {@link kind} is not `"interface"` or `"type-alias"` —
+   * "not applicable" is a real answer for a function or a class, distinct from
+   * an interface or object-literal alias that happens to declare no members a
+   * `@property` tag could address, which reports an empty array instead.
+   */
+  readonly members: readonly MemberDeclaration[] | undefined;
 }
 
 /**
@@ -192,6 +210,13 @@ export function collectExportedDeclarations(
     const comment = readLeadingComment(sourceFile, statement);
     const orphanedComment =
       comment?.kind === "doc" ? undefined : findOrphanedComment(statement);
+    // Only an interface or a type-alias declaration can carry members a
+    // `@property` tag could address; `collectMemberDeclarations` reads that
+    // shape straight off the node, so nothing here has to re-derive it.
+    const members =
+      shape.kind === "interface" || shape.kind === "type-alias"
+        ? collectMemberDeclarations(statement, sourceFile)
+        : undefined;
     results.push({
       name: shape.name,
       names: shape.names,
@@ -208,6 +233,7 @@ export function collectExportedDeclarations(
       typeParameters: shape.typeParameters,
       hasReturnValue: shape.hasReturnValue,
       hasSignature: shape.hasSignature,
+      members,
     });
   };
 

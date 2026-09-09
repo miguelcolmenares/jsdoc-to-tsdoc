@@ -284,6 +284,89 @@ describe("scaffold command", () => {
     });
   });
 
+  describe("--members", () => {
+    it("does not stub interface members by default", async () => {
+      await captureStdout(() => runHandler(scaffoldCommand, { cwd: root }));
+
+      const written = await readFile(file, "utf8");
+      expect(written).toContain(" * Hero props.");
+      expect(written).not.toContain(" * Title.");
+    });
+
+    it("stubs every undocumented member when passed", async () => {
+      await captureStdout(() =>
+        runHandler(scaffoldCommand, { cwd: root, members: true }),
+      );
+
+      const written = await readFile(file, "utf8");
+      expect(written).toContain(" * Hero props.");
+      expect(written).toContain(" * Title.");
+    });
+
+    it("reports memberStubsAdded in the JSON report", async () => {
+      const output = await captureStdout(() =>
+        runHandler(scaffoldCommand, {
+          cwd: root,
+          "dry-run": true,
+          members: true,
+          report: "json",
+        }),
+      );
+
+      const report = JSON.parse(output) as {
+        stubsAdded: number;
+        memberStubsAdded: number;
+      };
+      expect(report.stubsAdded).toBe(2);
+      expect(report.memberStubsAdded).toBe(1);
+      // Preview only — nothing written.
+      expect(await readFile(file, "utf8")).toBe(undocumented);
+    });
+
+    it("fails --check on an undocumented member even when the header is documented", async () => {
+      await writeFile(
+        file,
+        [
+          "/**",
+          " * Hero props.",
+          " */",
+          "export interface HeroProps {",
+          "  title: string;",
+          "}",
+          "",
+        ].join("\n"),
+      );
+
+      await captureStdout(() =>
+        runHandler(scaffoldCommand, { cwd: root, check: true, members: true }),
+      );
+
+      expect(process.exitCode).toBe(3);
+    });
+
+    it("does not fail --check without --members even when a member is undocumented", async () => {
+      await writeFile(
+        file,
+        [
+          "/**",
+          " * Hero props.",
+          " */",
+          "export interface HeroProps {",
+          "  title: string;",
+          "}",
+          "",
+        ].join("\n"),
+      );
+
+      const output = await captureStdout(() =>
+        runHandler(scaffoldCommand, { cwd: root, check: true }),
+      );
+
+      expect(process.exitCode).toBe(0);
+      expect(output).toContain("Every export already has TSDoc");
+    });
+  });
+
   it("reports failure and exits 1 for an unreadable project directory", async () => {
     const spy = vi
       .spyOn(process.stderr, "write")

@@ -29,5 +29,6 @@ export {
 export {
   scaffoldSourceText,
   type FileScaffold,
+  type ScaffoldOptions,
   type StubCounts,
 } from "@/commands/scaffold-file";

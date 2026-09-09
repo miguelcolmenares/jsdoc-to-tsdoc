@@ -22,6 +22,8 @@ const TYPE_ONLY = new Set([
   "DeclarationWithTypeParameterChildren",
   "ExportAssignment",
   "Expression",
+  "FunctionTypeNode",
+  "MethodSignature",
   "Node",
   "NodeArray",
   "ParameterDeclaration",

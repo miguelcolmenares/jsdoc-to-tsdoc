@@ -32,11 +32,18 @@ export interface MemberTarget {
 /**
  * Reads the members a declaration exposes by name, if it has any.
  *
+ * @remarks
+ * Exported so `member-declarations.ts` can enumerate the same members for
+ * per-member stub generation — a related but distinct concern from the
+ * `@property` relocation this module exists for; see that module's own remarks.
+ *
  * @param node - The declaration a doc comment sits on.
  * @returns The member nodes, or `undefined` when the declaration has no named
  * members to document.
  */
-function membersOf(node: ts.Node): ts.NodeArray<ts.TypeElement> | undefined {
+export function membersOf(
+  node: ts.Node,
+): ts.NodeArray<ts.TypeElement> | undefined {
   if (ts.isInterfaceDeclaration(node)) {
     return node.members;
   }
@@ -59,11 +66,16 @@ function membersOf(node: ts.Node): ts.NodeArray<ts.TypeElement> | undefined {
  * A computed key whose expression is not a literal (`[KEY]: string`) is not:
  * its name exists only at runtime, and no `@property` spelling names it.
  *
+ * @remarks
+ * Exported for the same reason as {@link membersOf}: a per-member stub needs
+ * the identical addressable name, or a member `@property` could relocate onto
+ * would silently be un-stubbable by `--members` and vice versa.
+ *
  * @param name - The member's name node, absent on an index signature.
  * @returns The key as a `@property` tag would write it, or `undefined` when
  * nothing could address the member.
  */
-function keyOf(name: ts.PropertyName | undefined): string | undefined {
+export function keyOf(name: ts.PropertyName | undefined): string | undefined {
   if (name === undefined) {
     return undefined;
   }
