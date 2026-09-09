@@ -421,7 +421,11 @@ everything in it was either shipped, superseded by this file and
 ollama|anthropic` (#55) followed: opt-in LLM suggestions for the LOW-confidence
 and STALE cases classification already finds, with zero effect on the
 deterministic pipeline when the flag is absent — see the iteration log.
-Nothing is currently in flight.
+**1.0.0** is prepared on `release/1.0.0-prep`, calling stable everything
+accumulated in `[Unreleased]` since 0.2.1 — five features (#55, #57, #58,
+#60, #62) and their fixes — but not yet released: no tag or GitHub Release
+has been created, and `publish.yml` fires only on those, never on a merge to
+`main`. Nothing is currently in flight.
 
 ### Next up
 

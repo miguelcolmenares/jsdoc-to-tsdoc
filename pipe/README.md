@@ -24,7 +24,7 @@ pipelines:
           - pipe: miguelcolmenares/jsdoc-to-tsdoc-pipe:0.1.0
             variables:
               COMMAND: "check"
-              VERSION: "0.2.1"
+              VERSION: "1.0.0"
 ```
 
 ## Variables

@@ -1,8 +1,7 @@
 name: "jsdoc-to-tsdoc check"
 description: >-
-  Run jsdoc-to-tsdoc's check or scan --classify gate against a TypeScript
-  repo and fail the job on the CLI's own exit code — no hand-rolled npx
-  invocation or exit-code handling in the consuming workflow.
+  Run jsdoc-to-tsdoc check or scan --classify and fail the job on its exit
+  code — no hand-rolled npx or exit-code handling.
 author: "Miguel Colmenares"
 
 branding:
@@ -19,7 +18,7 @@ inputs:
     default: "check"
   version:
     description: >-
-      jsdoc-to-tsdoc version to run via npx, e.g. "0.2.1" or "latest". Pin
+      jsdoc-to-tsdoc version to run via npx, e.g. "1.0.0" or "latest". Pin
       an exact version so the gate is reproducible across runs.
     required: false
     default: "latest"
