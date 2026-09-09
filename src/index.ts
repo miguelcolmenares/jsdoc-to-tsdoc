@@ -109,7 +109,9 @@ export {
 } from "@/scanner";
 export {
   createTsdocValidator,
+  createTsdocValidatorResolver,
   type TsdocValidator,
+  type TsdocValidatorResolver,
   type TsdocViolation,
 } from "@/validator";
 export {

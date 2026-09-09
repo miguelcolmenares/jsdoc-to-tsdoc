@@ -119,13 +119,22 @@ regardless of severity) → `reporter` diff or `writer`. Both halves respect an
 explicit `off`: the patcher never enables it, and the preflight never overrides
 it. See [`src/commands/escalate.ts`](./src/commands/escalate.ts).
 
-**Data-flow of a `check`:** `validator.createTsdocValidator` (loads
-`<cwd>/tsdoc.json` and configures the **official** parser) → per file
-`commands/check-file.checkSourceText`, which merges three sources: the official
-parser's violations, `scanner.undocumentedDeclarations`, and whether
-`convert` would still rewrite the file → `reporter`. Never writes. Exit `3` on
-problems, `2` when `tsdoc.json` is unreadable. See
-[`src/commands/check.ts`](./src/commands/check.ts).
+**Data-flow of a `check`:** `validator.createTsdocValidatorResolver` resolves,
+per file, the **nearest-ancestor** `tsdoc.json` — walking up from the file's
+own directory toward `--cwd`, the same model ESLint's flat config and
+`tsconfig.json` use — caching both the walk and the built
+`validator.createTsdocValidator` instance per config directory so a project
+with one root config (the common case) pays the filesystem/parse cost once,
+not per file. The root's own config is still resolved and checked first, on
+its own, before any file is discovered — the single-root pre-flight sanity
+check this command has always run. Each file's resolved validator then
+configures the **official** parser for `commands/check-file.checkSourceText`,
+which merges three sources: the official parser's violations,
+`scanner.undocumentedDeclarations`, and whether `convert` would still rewrite
+the file → `reporter`. Never writes. Exit `3` on problems, `2` when any
+`tsdoc.json` in scope — root or nested — is unreadable, before anything is
+reported. See [`src/commands/check.ts`](./src/commands/check.ts) and
+[`src/validator/config-resolver.ts`](./src/validator/config-resolver.ts).
 
 ---
 
@@ -354,6 +363,7 @@ npm run check:tsdoc    # builds, then runs the CLI's own `check` over this repo
 | Change the preflight or the severity patch | `src/escalator/` |
 | Change the rebase-conflict resolver for the severity line | `src/escalator/conflict-resolver.ts`, `src/commands/merge-driver.ts` |
 | Change TSDoc validation or `tsdoc.json` loading | `src/validator/tsdoc-validator.ts` |
+| Change per-file/monorepo `tsdoc.json` resolution | `src/validator/config-resolver.ts` |
 | Change what `check` reports | `src/commands/check-file.ts` |
 | Change how exports reach the module surface | `src/scanner/export-inventory.ts` |
 | Change how a declaration is classified (component/action/hook/…) | `src/scanner/declaration-classifier.ts` |
@@ -415,6 +425,16 @@ means reading its issue for the full context, not just its title. (#58, the
 GitHub Action / Bitbucket Pipe wrapper; #60, the escalation-line merge-driver;
 and #62, `scaffold --members` — all three shipped, see the iteration log.)
 
+**#57 is partially shipped and deliberately stays open.** `check` resolves
+`tsdoc.json` by nearest ancestor now, so a monorepo can give each package its
+own custom tags — see the iteration log for the design and what backward
+compatibility required. `init`, `convert`, `scaffold` and `escalate` still
+assume one project-wide `tsdoc.json` and one ESLint flat config; extending
+them is the part of #57 still open, and it is a harder problem than the part
+that shipped — "which flat config applies to which workspace" has no
+nearest-ancestor answer the way "which `tsdoc.json` applies to which file"
+does.
+
 ---
 
 ## 12. Iteration log (decisions that outlive the context window)
@@ -423,6 +443,59 @@ Newest first. Each entry records what shipped and, more importantly, **the
 non-obvious things** — a decision and its reasoning, or a trap that cost real
 time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
 
+### Nearest-ancestor `tsdoc.json` resolution for `check` (#57) — scoped to the command the issue named
+
+- **Backward compatibility was the actual hard problem, not the walk itself.**
+  The walk is a handful of lines; making a single-root project behave
+  byte-for-byte identically to before is what shaped the design. `check`'s
+  existing pre-flight sanity check — build the root's own validator first, on
+  its own, before any file is discovered, and exit `2` with nothing scanned if
+  it is broken — is preserved verbatim rather than folded into the per-file
+  resolution loop, specifically so the single-root test suite (which asserts
+  `stdout` is empty on that path) keeps passing unmodified. Per-file
+  resolution runs only after that check clears.
+- **The resolver exposes `forDirectory` as the primitive, `forFile` as the
+  convenience.** `check`'s pre-flight check needs to resolve the *root itself*
+  before any file exists to derive a directory from, and it needs that
+  resolution to land in the same cache a later `forFile` call would reuse —
+  otherwise the root's `tsdoc.json` would be parsed twice, changing the
+  "same performance characteristics" guarantee for the common case. `forFile`
+  is just `forDirectory(dirname(filePath))`.
+- **A broken config anywhere aborts the whole run, uniformly.** A nested
+  `tsdoc.json` that fails to load is exactly as untrustworthy as a broken root
+  one was before this feature existed, so resolution happens in two passes:
+  resolve every file's validator first, then check whether any resolved
+  validator carries config errors, and only then start reporting. The
+  alternative — report files as they're checked and abort mid-run on the
+  first broken config encountered — would print a partial, inconsistent
+  report before failing. This is a deliberately conservative choice for a v1;
+  a monorepo where one package's broken config blocks checking every other
+  package is a real cost, and a future iteration could scope the abort to the
+  affected files instead if that trade-off proves wrong in practice.
+- **The walk's boundary is the project root passed to `check`, not the
+  filesystem root.** Matches the issue's own phrasing ("toward the project
+  root … whichever comes first") and is what makes the single-root case exact:
+  a project with no nested `tsdoc.json` anywhere always terminates the walk at
+  `--cwd` and falls back to it, the same directory `createTsdocValidator`
+  already assumed.
+- **Both the walk and the built validator are cached, and they're two
+  different caches for a reason.** A directory-to-config-directory map avoids
+  re-walking the filesystem for every file in a package; a
+  config-directory-to-validator map avoids re-parsing the same `tsdoc.json`
+  when several directories resolve to it (the common case: every file with no
+  closer override shares the root's). Collapsing them into one cache keyed by
+  starting directory would rebuild an identical validator once per directory
+  instead of once per distinct config.
+- **`init`, `convert`, `scaffold` and `escalate` are unchanged, on purpose.**
+  The issue named `validator.createTsdocValidator` specifically, and
+  `generator.detectProject` — the other function the issue's title
+  references — still returns one `ProjectLayout` for one root. Making those
+  commands monorepo-aware means resolving which ESLint flat config applies to
+  which workspace, which has no equivalent nearest-ancestor answer (a
+  monorepo's ESLint setup is far more varied than its TSDoc config), so
+  conflating the two would have under-scoped a harder problem into the same
+  PR as the one the issue actually asked for. #57 stays open, narrowed, to
+  track that remainder — see §11.
 ### `scaffold --members` — per-member stubs, opt-in (#62)
 
 - **Two distinct member-enumeration primitives now exist, on purpose.**

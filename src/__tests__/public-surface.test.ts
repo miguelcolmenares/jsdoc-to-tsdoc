@@ -27,6 +27,7 @@ const PUBLIC_SURFACE = [
   "confidenceOf",
   "convertSourceText",
   "createTsdocValidator",
+  "createTsdocValidatorResolver",
   "detectProject",
   "extractJsDocComments",
   "findSourceFiles",

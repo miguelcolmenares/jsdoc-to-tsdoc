@@ -15,7 +15,7 @@
  */
 
 import { readFile } from "node:fs/promises";
-import { relative, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 
 import { defineCommand } from "citty";
 
@@ -33,7 +33,7 @@ import {
   type SummaryRow,
 } from "@/reporter";
 import { findSourceFiles } from "@/scanner";
-import { createTsdocValidator } from "@/validator";
+import { createTsdocValidatorResolver, type TsdocValidator } from "@/validator";
 
 interface FileReport {
   readonly path: string;
@@ -99,13 +99,19 @@ export default defineCommand({
           shouldUseColor(Boolean(process.stdout.isTTY)),
       );
 
-      const validator = await createTsdocValidator(cwd);
-      if (validator.configErrors.length > 0) {
-        for (const error of validator.configErrors) {
-          process.stderr.write(`${colors.yellow(`✗ tsdoc.json: ${error}`)}\n`);
-        }
-        process.stderr.write(
-          `${colors.dim("Custom tags would be reported as undefined, so no file was checked.")}\n`,
+      // Monorepo support resolves `tsdoc.json` per file (nearest ancestor,
+      // like ESLint's flat config or `tsconfig.json`), but the project root's
+      // own config is still checked first and on its own, before any file is
+      // discovered — the pre-flight sanity check this command has always run,
+      // and the one a single-root project (no nested `tsdoc.json`) depends on
+      // to exit `2` with nothing scanned when its only config is broken.
+      const resolver = createTsdocValidatorResolver(cwd);
+      const rootValidator = await resolver.forDirectory(cwd);
+      if (rootValidator.configErrors.length > 0) {
+        reportBrokenConfigs(
+          [{ dir: cwd, validator: rootValidator }],
+          cwd,
+          colors,
         );
         process.exitCode = 2;
         return;
@@ -122,6 +128,22 @@ export default defineCommand({
         ],
       });
 
+      // Resolve every file's validator before checking anything. A nested
+      // `tsdoc.json` that fails to load is exactly as untrustworthy as a
+      // broken root one, so the run refuses to mix trustworthy and
+      // untrustworthy results in one summary rather than reporting partway
+      // through and then aborting.
+      const fileValidators = new Map<string, TsdocValidator>();
+      for (const file of files) {
+        fileValidators.set(file, await resolver.forFile(file));
+      }
+      const broken = resolver.brokenConfigs();
+      if (broken.length > 0) {
+        reportBrokenConfigs(broken, cwd, colors);
+        process.exitCode = 2;
+        return;
+      }
+
       const reports: FileReport[] = [];
       const totals: Record<ProblemKind, number> = {
         syntax: 0,
@@ -129,8 +151,16 @@ export default defineCommand({
         legacy: 0,
       };
       let problemCount = 0;
+      const configPathsUsed = new Set<string>();
 
       for (const file of files) {
+        // Present for every entry after the resolution pass above; the `?? `
+        // fallback only satisfies `noUncheckedIndexedAccess` and is never the
+        // config actually applied.
+        const validator = fileValidators.get(file) ?? rootValidator;
+        if (validator.configPath !== undefined) {
+          configPathsUsed.add(validator.configPath);
+        }
         const source = await readFile(file, "utf8");
         const result = checkSourceText(source, file, validator, { syntaxOnly });
         if (result.problems.length === 0) {
@@ -150,7 +180,8 @@ export default defineCommand({
           reports,
           totals,
           problemCount,
-          configPath: validator.configPath,
+          configPath: rootValidator.configPath,
+          configPaths: [...configPathsUsed].sort(),
         },
         reportFormat,
         colors,
@@ -165,13 +196,62 @@ export default defineCommand({
   },
 });
 
+/**
+ * Prints every broken `tsdoc.json` this run encountered and why nothing was
+ * checked.
+ *
+ * @remarks
+ * For the single-root case — one entry, and its directory is the project
+ * root — this reproduces the exact message `check` has always printed for a
+ * config it found but could not apply, so a project with no nested
+ * `tsdoc.json` sees byte-identical output. A nested config's message is
+ * prefixed with its path relative to the root so a monorepo user knows which
+ * package's config is the problem.
+ *
+ * @param broken - Every config that failed to load, paired with the
+ * directory it was found in.
+ * @param cwd - The project root, used to decide whether a directory is the
+ * root itself and to relativize a nested one.
+ * @param colors - Style functions for the terminal.
+ */
+function reportBrokenConfigs(
+  broken: readonly {
+    readonly dir: string;
+    readonly validator: TsdocValidator;
+  }[],
+  cwd: string,
+  colors: Colors,
+): void {
+  for (const { dir, validator } of broken) {
+    // `join("", "tsdoc.json")` collapses to `"tsdoc.json"` when `dir` is
+    // `cwd` itself, reproducing the exact single-root message; a nested
+    // directory gets an OS-correct relative prefix instead of a hardcoded
+    // separator.
+    const label = join(relative(cwd, dir), "tsdoc.json");
+    for (const error of validator.configErrors) {
+      process.stderr.write(`${colors.yellow(`✗ ${label}: ${error}`)}\n`);
+    }
+  }
+  process.stderr.write(
+    `${colors.dim("Custom tags would be reported as undefined, so no file was checked.")}\n`,
+  );
+}
+
 interface Summary {
   readonly cwd: string;
   readonly files: number;
   readonly reports: readonly FileReport[];
   readonly totals: Readonly<Record<ProblemKind, number>>;
   readonly problemCount: number;
+  /** The project root's own `tsdoc.json`, unchanged from a single-config run. */
   readonly configPath: string | undefined;
+  /**
+   * Every distinct `tsdoc.json` actually applied while checking `files`, root
+   * included when at least one file resolved to it. Empty on a project with
+   * none at all. A single-root project always reports the same one path here
+   * as in {@link Summary.configPath}.
+   */
+  readonly configPaths: readonly string[];
 }
 
 /**
@@ -198,6 +278,9 @@ function emit(
           summary.configPath === undefined
             ? null
             : relative(summary.cwd, summary.configPath),
+        tsdocConfigs: summary.configPaths.map((path) =>
+          relative(summary.cwd, path),
+        ),
         files: summary.reports,
       })}\n`,
     );
