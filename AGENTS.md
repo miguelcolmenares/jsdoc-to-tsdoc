@@ -409,7 +409,7 @@ twice with 30-minute timeouts and cannot be relied on as a substitute.
 ### Current state
 
 v0.1.0's full scope shipped, dogfooded end-to-end on a 4th real repo
-(`osa-nextjs`, closed two scaffolding gaps), and published to npm on
+(the reference repo, closed two scaffolding gaps), and published to npm on
 2026-08-20. v0.2.0 followed on 2026-08-24: `convert` now proves its own output
 is no worse than the input before writing it, the trailing-blank-line cleanup
 landed, and `PLAN.md` — the original product-plan document — was retired once
@@ -930,9 +930,10 @@ time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
 
 ### Phase-9 fixtures — synthetic, because the ground truth is proprietary
 
-- **The richest fixture cannot be committed.** `osa-nextjs` (the before/human
-  pair phase 9 wanted) is a private company repo; `jsdoc-to-tsdoc` is public.
-  Committing its source would publish proprietary code irreversibly. Committed
+- **The richest fixture cannot be committed.** The reference repo (the
+  before/human pair phase 9 wanted) is a private repo unrelated to this
+  project; `jsdoc-to-tsdoc` is public. Committing its source would publish
+  someone else's code irreversibly. Committed
   fixtures are **synthetic** instead — hand-authored `input.ts`→`expected.ts`
   pairs in `fixtures/convert/`, one per conversion class.
 - **The target must be independent, or the test is theatre.** A self-snapshot
@@ -946,7 +947,7 @@ time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
   which is invalid TSDoc (`@typeParam` needs a name _and_ a hyphen). That is a
   real `convert` gap for a bare, description-less `@template` — filed separately;
   the fixture uses the common described form.
-- **The `osa` figure is a locally-reproducible baseline, not a committed asset.**
+- **The reference-repo figure is a locally-reproducible baseline, not a committed asset.**
   Measured 64 of 80 human-migrated files now byte-identical to `convert` (was 41
   when phase 9 was scoped — the fence / bare-`@` / dotted-`@param` rules raised
   it). `fixtures/README.md` records the re-extraction command, which must run
@@ -1061,7 +1062,7 @@ time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
   accept" would mean reimplementing its HTML parser.
 - **The dogfood found what the corpus could not.** `npm run check` over this
   repo failed on `stub-builder.ts`: its `@example` opens with a prose caption
-  and fences only the code below it, a shape absent from `osa`. The rule saw an
+  and fences only the code below it, a shape absent from the reference repo. The rule saw an
   unfenced first line, and would have nested a fence inside a fence and turned
   the sentence into code. Two fixes: skip a body containing a fence **anywhere**
   rather than only one that opens with it, and strip inline code spans before
@@ -1072,9 +1073,9 @@ time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
   fencing early puts an example beyond their reach before any of them sees it —
   which is the point of a fence: sample code is not documentation to rewrite.
 
-### `osa-nextjs` — the first ground truth, and what it exposed
+### The reference repo — the first ground truth, and what it exposed
 
-`osa-nextjs` has a hand-written migration on `feature/tsdoc-implementation`,
+The reference repo has a hand-written migration on `feature/tsdoc-implementation`,
 branched straight off `master` (merge-base `46f01ff`). That makes it the only
 corpus where the tool's output can be compared against what a person actually
 decided, rather than against our own expectations.
@@ -1094,7 +1095,7 @@ three. Never convert in place — see the fixture-set trap below.
   and its `}` is `tsdoc-escape-right-brace`), dotted `@param params.foo`, which
   TSDoc has no notion of (26), and a bare `@` in prose (18 once the fence rule
   has absorbed the examples that held one — `@/lib/seo` path aliases,
-  `@silverassist/icons` scopes, `@layer third-party`; it is `@/` aliases in
+  `@acme/icons` scopes, `@layer third-party`; it is `@/` aliases in
   re-export headers almost entirely). Four more are a `@param` missing its
   hyphen. **The person fixed all three the same way every time**, so the target
   output is not a guess: fence the example, wrap the `@` in backticks, fold the
@@ -1109,12 +1110,12 @@ three. Never convert in place — see the fixture-set trap below.
   as a census of declarations understates any topology that is not the worst one
   in its file — use `--report=json` and count declarations.
 - **A feature measured on three repos was measured on the wrong three.** Across
-  `homecare`, `assistedliving` and `nextjs-boilerplate` there are 8
-  line-comment declarations in 1,246, all of them `export const revalidate`, and
-  the plan's motivating example — a line-commented function gaining
-  `@param`/`@returns` — occurs zero times. That reading nearly cut the feature.
-  `osa` alone has 18. **Three samples that agree can still be one sample**;
-  these three repos share an author and a house style.
+  three other private repos there are 8 line-comment declarations in 1,246,
+  all of them `export const revalidate`, and the plan's motivating example — a
+  line-commented function gaining `@param`/`@returns` — occurs zero times. That
+  reading nearly cut the feature. The reference repo alone has 18. **Three
+  samples that agree can still be one sample**; those three repos share an
+  author and a house style.
 - **A gate satisfied with nothing is worse than a gate that fails.** Review
   round 1 on PR #21: a bare `//` used as spacing was promotable, and it rendered
   as an empty `/** *\/`. The presence rule accepts that, so `check` went from
@@ -1141,7 +1142,7 @@ three. Never convert in place — see the fixture-set trap below.
   with dotted paths (`@param params.endpoint`); TSDoc has no such form and
   rejects the name (`tsdoc-param-tag-with-invalid-name`). Three shapes were on
   the table — drop the children, fold them into the parent, or promote them onto
-  the parameter's `interface`. The `osa-nextjs` hand migration decides it: across
+  the parameter's `interface`. The reference repo's hand migration decides it: across
   **26** cases the human **folded**, appending the children to the parent's
   description in parentheses. Promotion to the interface was never used, and
   nothing was dropped without a trace.
@@ -1356,7 +1357,7 @@ three. Never convert in place — see the fixture-set trap below.
   against the broken build. Assert at the layer that owns the behaviour.
 - **Validated against a pre-migration commit, not just the migrated repos.**
   The three real repos are already migrated, so they only measure the end
-  state. `nextjs-boilerplate` at `b803d9c` (the parent of the migration merge)
+  state. `repo-d` at `b803d9c` (the parent of the migration merge)
   reports 55 valid / 7 partial / 13 no-docs against 67 / 8 / 0 after — the
   classification reproduces the work the migration actually did. Its blind spot
   is bounded and measured: 26 % of function-like exports destructure and have
@@ -1482,7 +1483,7 @@ three. Never convert in place — see the fixture-set trap below.
 is a different kind of corpus than the first four: no hand-written migration
 exists to diff against, and the codebase already had unusually high JSDoc
 discipline going in — 42 of 66 files carried a doc comment before `init` ever
-ran. Where `osa-nextjs` measured *accuracy against a human's decisions*, this
+ran. Where the reference repo measured *accuracy against a human's decisions*, this
 run measured the tool end to end on a repo with **zero prior history with it**:
 `init` → fix what it couldn't patch → `convert` → hand-author the real gaps →
 `escalate`, using the CLI exactly as the README's own usage section presents it.

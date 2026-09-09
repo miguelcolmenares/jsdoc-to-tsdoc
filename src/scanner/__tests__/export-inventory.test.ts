@@ -565,7 +565,7 @@ describe("collectExportedDeclarations", () => {
   });
 
   describe("orphanedComment", () => {
-    // Reproduces a real bug found scaffolding osa-nextjs: a rich, hand-written
+    // Reproduces a real bug found scaffolding the reference repo: a rich, hand-written
     // doc comment for `fetchWPAPI` sat directly above a `const` that later
     // gained its own one-line comment. Both comments end up in the `const`
     // node's leading trivia, so the real doc — not the nearest of the two — is

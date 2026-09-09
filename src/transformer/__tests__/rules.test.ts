@@ -64,7 +64,7 @@ describe("fenceExampleBlocks", () => {
   });
 
   // Fencing every example would rewrite comments that were never broken. The
-  // hand migration on osa-nextjs left 48 such bodies exactly as written.
+  // hand migration on the reference repo left 48 such bodies exactly as written.
   it("leaves a body TSDoc parses cleanly", () => {
     const input = comment(
       "/**",

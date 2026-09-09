@@ -10,7 +10,7 @@ import { createTsdocValidator, type TsdocValidator } from "@/validator";
 
 // Phase-9 ground-truth fixtures. Each case is a before/after pair: `input.ts`
 // is pre-migration JSDoc, `expected.ts` is the correct TSDoc, authored by hand
-// as the target — the public-repo analogue of the `osa-nextjs` human answer (see
+// as the target — the public-repo analogue of the reference repo's human answer (see
 // fixtures/README.md for why these are synthetic and how to reproduce the real
 // figure). Because the target is independent of what the tool emits today, a
 // rule that regresses to being *consistently* wrong fails here rather than

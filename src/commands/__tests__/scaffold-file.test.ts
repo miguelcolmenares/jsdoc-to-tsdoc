@@ -236,7 +236,7 @@ describe("scaffoldSourceText", () => {
     });
   });
 
-  // Reproduces the osa-nextjs `fetchWPAPI` bug: a hand-written doc comment sat
+  // Reproduces a real bug found on the reference repo's `fetchWPAPI`: a hand-written doc comment sat
   // above a `const` that later grew its own one-line comment, so the real doc
   // ended up shadowed in that `const`'s trivia instead of attached to the
   // function it was written for. Before the orphaned-comment check existed,
