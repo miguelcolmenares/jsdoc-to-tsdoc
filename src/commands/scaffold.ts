@@ -48,6 +48,7 @@ import { writeFileText } from "@/writer";
 interface ScaffoldedFile {
   readonly path: string;
   readonly stubsAdded: number;
+  readonly memberStubsAdded: number;
 }
 
 interface OrphanedWarning {
@@ -156,6 +157,11 @@ export default defineCommand({
       description:
         "Also stub test files, which `init` exempts from the TSDoc rules.",
     },
+    members: {
+      type: "boolean",
+      description:
+        "Also stub each undocumented interface (or type-literal) member, one comment each.",
+    },
     report: {
       type: "string",
       description: "Machine-readable output: json | md.",
@@ -169,6 +175,7 @@ export default defineCommand({
       const reportFormat = parseReportFormat(args.report);
       const interactive = Boolean(args.interactive);
       const commitPerFile = Boolean(args["commit-per-file"]);
+      const members = Boolean(args.members);
       const willWrite = !dryRun && !check;
 
       const conflict = interactiveConflict({
@@ -242,7 +249,7 @@ export default defineCommand({
 
       for (const file of files) {
         const before = await readFile(file, "utf8");
-        const scaffold = scaffoldSourceText(before, file);
+        const scaffold = scaffoldSourceText(before, file, { members });
         exportsFound += scaffold.exportsFound;
 
         // Forward slashes regardless of platform, so the identifier that lands
@@ -260,6 +267,7 @@ export default defineCommand({
         scaffoldedFiles.push({
           path: relativePath,
           stubsAdded: scaffold.stubsAdded,
+          memberStubsAdded: scaffold.memberStubsAdded,
         });
         perFileCounts.push(scaffold.counts);
 
@@ -314,9 +322,13 @@ export default defineCommand({
         });
 
         const written = new Set(result.written);
-        const stubsWritten = scaffoldedFiles
-          .filter((file) => written.has(file.path))
-          .reduce((sum, file) => sum + file.stubsAdded, 0);
+        const writtenFiles = scaffoldedFiles.filter((file) =>
+          written.has(file.path),
+        );
+        const stubsWritten = writtenFiles.reduce(
+          (sum, file) => sum + file.stubsAdded + file.memberStubsAdded,
+          0,
+        );
 
         // Commit the accepted files in review order; an `edit` in `$EDITOR` is
         // already on disk, so the commit captures the user's final content.
@@ -365,6 +377,10 @@ export default defineCommand({
         (sum, file) => sum + file.stubsAdded,
         0,
       );
+      const memberStubsAdded = scaffoldedFiles.reduce(
+        (sum, file) => sum + file.memberStubsAdded,
+        0,
+      );
 
       if (reportFormat === "json") {
         process.stdout.write(
@@ -374,6 +390,7 @@ export default defineCommand({
             filesChanged: scaffoldedFiles.length,
             exportsFound,
             stubsAdded,
+            memberStubsAdded,
             byKind: totalsByKind,
             wrote: willWrite,
             files: scaffoldedFiles,
@@ -401,6 +418,17 @@ export default defineCommand({
             "Stubs added",
           )}\n`,
         );
+        if (members) {
+          const memberRows: SummaryRow[] = scaffoldedFiles
+            .filter((file) => file.memberStubsAdded > 0)
+            .map((file) => ({
+              label: file.path,
+              value: file.memberStubsAdded,
+            }));
+          process.stdout.write(
+            `\n${toMarkdownTable("File", memberRows, "Member stubs added")}\n`,
+          );
+        }
         if (orphanedWarnings.length > 0) {
           const warningRows: SummaryRow[] = orphanedWarnings.map((warning) => ({
             label: `${warning.path}:${String(warning.line)} ${warning.name}`,
@@ -426,22 +454,26 @@ export default defineCommand({
             rows.push({ label: `  ${label}`, value: count });
           }
         }
+        if (members) {
+          rows.push({ label: "Member stubs added", value: memberStubsAdded });
+        }
         process.stdout.write(`${formatTable(rows, colors)}\n`);
 
-        if (stubsAdded === 0 && orphanedWarnings.length === 0) {
+        const totalStubs = stubsAdded + memberStubsAdded;
+        if (totalStubs === 0 && orphanedWarnings.length === 0) {
           process.stdout.write(
             `${colors.green("✓ Every export already has TSDoc.")}\n`,
           );
         } else if (willWrite) {
-          if (stubsAdded > 0) {
+          if (totalStubs > 0) {
             process.stdout.write(
-              `${colors.bold(`Added ${String(stubsAdded)} stub(s) across ${String(scaffoldedFiles.length)} file(s).`)}\n`,
+              `${colors.bold(`Added ${String(totalStubs)} stub(s) across ${String(scaffoldedFiles.length)} file(s).`)}\n`,
             );
             process.stdout.write(
               `${colors.dim(`Review the generated prose: grep -rn "${TODO_MARKER}" .`)}\n`,
             );
           }
-        } else if (stubsAdded > 0) {
+        } else if (totalStubs > 0) {
           process.stdout.write(
             `${colors.dim("Preview only — re-run without --dry-run/--check to apply.")}\n`,
           );
@@ -456,7 +488,10 @@ export default defineCommand({
         }
       }
 
-      if (check && (stubsAdded > 0 || orphanedWarnings.length > 0)) {
+      if (
+        check &&
+        (stubsAdded > 0 || memberStubsAdded > 0 || orphanedWarnings.length > 0)
+      ) {
         process.exitCode = 3;
       }
     } catch (error) {

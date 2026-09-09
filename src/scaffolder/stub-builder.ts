@@ -10,6 +10,11 @@
  * Stubs are rendered as comment lines and indented to match the declaration they
  * document, so inserting one never disturbs surrounding code layout.
  *
+ * {@link renderComment}, {@link placeStub}, and {@link paramLines} are exported
+ * for `member-stub-builder.ts` to reuse: a per-member stub is rendered and
+ * placed exactly like a per-declaration one, and only what goes into the
+ * summary and tag lines differs.
+ *
  * @since 0.1.0
  */
 
@@ -38,7 +43,9 @@ export const TODO_MARKER = "TODO(tsdoc): verify this generated summary.";
  * @param parameters - The declaration's parameters.
  * @returns One `@param` line per parameter, in source order.
  */
-function paramLines(parameters: readonly ExportParameter[]): readonly string[] {
+export function paramLines(
+  parameters: readonly ExportParameter[],
+): readonly string[] {
   return parameters.map((parameter) => {
     const optional = parameter.isOptional ? " (optional)" : "";
     return `@param ${parameter.name} - TODO(tsdoc): describe ${parameter.name}${optional}.`;
@@ -130,7 +137,7 @@ function tagLinesFor(declaration: ExportedDeclaration): readonly string[] {
  * @returns The full comment block, newline-terminated so it can be spliced
  * directly above the declaration.
  */
-function renderComment(
+export function renderComment(
   summary: string,
   tagLines: readonly string[],
   indent: string,
@@ -151,6 +158,38 @@ function renderComment(
 
   body.push(`${indent} */`);
   return `${body.join("\n")}\n`;
+}
+
+/**
+ * Positions a rendered comment relative to the code it documents.
+ *
+ * @remarks
+ * Shared by {@link buildStub} and `member-stub-builder.ts`'s `buildMemberStub`:
+ * an interface member can share its line with a preceding member exactly as a
+ * top-level declaration can share its line with a preceding statement, and the
+ * fix is the same either way.
+ *
+ * @param comment - The rendered comment block, as returned by
+ * {@link renderComment}.
+ * @param indent - The documented code's own indentation.
+ * @param ownsLine - Whether the documented code is the first thing on its
+ * line.
+ * @returns The comment, ready to insert directly above the code.
+ */
+export function placeStub(
+  comment: string,
+  indent: string,
+  ownsLine: boolean,
+): string {
+  if (ownsLine) {
+    return comment;
+  }
+
+  // The code shares its line with something earlier. A comment that opens on
+  // that same line is parsed as the earlier statement's trailing comment, so the
+  // stub starts a fresh line; the trailing indent then carries the documented
+  // code itself over at the surrounding indentation instead of column 0.
+  return `\n${comment}${indent}`;
 }
 
 /**
@@ -185,13 +224,5 @@ export function buildStub(declaration: ExportedDeclaration): string {
     declaration.indent,
   );
 
-  if (declaration.ownsLine) {
-    return comment;
-  }
-
-  // The declaration shares its line with earlier code. A comment that opens on
-  // that same line is parsed as the earlier statement's trailing comment, so the
-  // stub starts a fresh line; the trailing indent then carries the declaration
-  // itself over at the surrounding indentation instead of column 0.
-  return `\n${comment}${declaration.indent}`;
+  return placeStub(comment, declaration.indent, declaration.ownsLine);
 }

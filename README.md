@@ -110,6 +110,7 @@ npx jsdoc-to-tsdoc escalate --check
 | `--interactive` / `-i` | `convert`, `scaffold` | Review each changed file — accept · skip · edit (in `$EDITOR`) · quit. Needs a TTY (stdin and stdout); not combinable with `--dry-run`/`--preview`/`--check`/`--report`. |
 | `--lite` | `scan`, `convert` | Only `@param` / `@returns` hygiene; leave prose and structural tags. |
 | `--promote-line-comments` | `convert` | Rewrite a run of `//` prose above an undocumented export as the `/** */` comment it was already serving as. Off by default. |
+| `--members` | `scaffold` | Also stub each undocumented interface (or type-literal alias) member, one comment each, in addition to the declaration's own header. Off by default. |
 | `--severity <level>` | `escalate` | Target severity: `error` (default) or `warn` to walk it back. |
 | `--skip-preflight` | `escalate` | Patch the config without running ESLint first. |
 | `--syntax-only` | `check` | Only validate comment syntax; ignore undocumented exports and legacy JSDoc. |
@@ -343,6 +344,50 @@ grep -rn "TODO(tsdoc)" src
 ```
 
 Stub tag order follows the TSDoc convention — summary, `@remarks`, `@typeParam`/`@param`, `@returns` — and the generated output is valid under `tsdoc/syntax` and satisfies `tsdoc-require-2/require`. Running `scaffold` twice is a no-op.
+
+### `--members`
+
+By default `scaffold` only documents an interface's (or type-literal alias's) own header — `export interface HeroSectionProps` gets one stub, "Hero section props.", regardless of how many properties it declares. `--members` additionally stubs every undocumented member of that declaration, one comment each, inferred the same deterministic way as a top-level export — from the member's own name and its declared type, never a guess at what it means:
+
+```ts
+export interface HeroSectionProps {
+  /** The title. */
+  title: string;
+  href: string;
+  onSelect: (id: string) => void;
+}
+```
+
+```bash
+$ npx jsdoc-to-tsdoc scaffold --members
+```
+
+```ts
+export interface HeroSectionProps {
+  /** The title. */
+  title: string; // already documented — left alone
+  /**
+   * Href.
+   *
+   * @remarks TODO(tsdoc): verify this generated summary.
+   */
+  href: string;
+  /**
+   * On select.
+   *
+   * @remarks TODO(tsdoc): verify this generated summary.
+   *
+   * @param id - TODO(tsdoc): describe id.
+   */
+  onSelect: (id: string) => void;
+}
+```
+
+A member whose declared type is callable — a method signature or a property typed as a function, like `onSelect` above — gets `@param`/`@returns` tags the same way a function declaration would; the summary sentence itself still comes from the same name-inference heuristics every stub uses, so `onSelect` reads as a plain noun phrase ("On select.") rather than a verb sentence, because `on` isn't a recognized leading verb. A plain data property, like `href`, gets a noun-phrase summary the same way. A member that already has its own doc comment is left untouched (`title` above), independent of whether the interface's own header is documented — the two are separate gaps, and `--members` closes both.
+
+It applies to type-literal aliases (`export type Options = { … }`) the same way, since the scanner already treats the two identically for member purposes (the same mechanism `convert` uses to relocate an existing `@property` description onto a member).
+
+**Off by default**, because it can meaningfully multiply how much boilerplate one run produces — a wide interface goes from one stub to one per property — matching how `convert --promote-line-comments` stays opt-in for the same reason.
 
 ## What `escalate` does
 

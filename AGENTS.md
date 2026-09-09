@@ -92,11 +92,19 @@ decision lives there and not in a rule.
 
 **Data-flow of a `scaffold`:** `scanner.collectExportedDeclarations` (via the TS
 compiler API — classifies each export, records its insertion offset and indent,
-flags existing docs) → `scanner.undocumentedDeclarations` → for each,
-`scaffolder.buildStub` (name inference + per-kind template) → `scanner.applyEdits`
-(zero-width insertions, applied in one left-to-right pass) → `writer` or `reporter`.
-The shared orchestrator is [`src/commands/scaffold-file.ts`](./src/commands/scaffold-file.ts)
-(pure, no I/O). Re-exports are skipped; a second run is a no-op (idempotent).
+flags existing docs, and for an interface/type-alias also reads its own members
+via `scanner.collectMemberDeclarations` — same node, no second parse) →
+`scanner.undocumentedDeclarations` → for each, `scaffolder.buildStub` (name
+inference + per-kind template) → `scanner.applyEdits` (zero-width insertions,
+applied in one left-to-right pass) → `writer` or `reporter`. With `--members`,
+every declaration's own undocumented members are additionally stubbed via
+`scaffolder.buildMemberStub` (name + declared-type inference — a callback-typed
+member gets `@param`/`@returns`, a plain data member gets a noun phrase), each
+inserted at its own offset inside the declaration — independent of whether the
+declaration's header is itself documented. The shared orchestrator is
+[`src/commands/scaffold-file.ts`](./src/commands/scaffold-file.ts) (pure, no
+I/O). Re-exports are skipped; a second run is a no-op (idempotent), members
+included.
 
 **Data-flow of an `init`:** `generator.detectProject` (layout) +
 `generator.collectProjectTags` (classify tags) → `generator.generateTsdocJson`/
@@ -199,6 +207,7 @@ npx jsdoc-to-tsdoc check     # CI gate: validate TSDoc, exit 3 on problems
 | `--interactive` / `-i` | `convert`, `scaffold` | Per-file review: accept/skip/edit/quit. Needs a TTY (stdin + stdout); excludes `--dry-run`/`--preview`/`--check`/`--report`. |
 | `--syntax-only` | `check` | Only validate comment syntax. |
 | `--include-tests` | `check`, `scaffold`, `scan --classify` | Also inspect the test paths `init` exempts. Not on `convert` or the default `scan` inventory — see §12. |
+| `--members` | `scaffold` | Also stub each undocumented interface/type-literal member individually, not just the declaration header. Off by default — multiplies boilerplate the way `convert --promote-line-comments` does. |
 | `--lite` | `scan`, `convert` | Only `@param`/`@returns` hygiene (`Rule.liteSafe`). |
 | `--severity <level>` | `escalate` | Target severity: `error` (default) or `warn`. |
 | `--skip-preflight` | `escalate` | Patch without running ESLint first. |
@@ -399,12 +408,12 @@ everything in it was either shipped, superseded by this file and
 
 ### Next up
 
-Nothing is scheduled. Seven items are deliberately deferred, each as its own GitHub
-issue labeled `future` (#54–#57, #59, #61–#62) — [browse the list](https://github.com/miguelcolmenares/jsdoc-to-tsdoc/issues?q=is%3Aissue+is%3Aopen+label%3Afuture)
+Nothing is scheduled. Six items are deliberately deferred, each as its own GitHub
+issue labeled `future` (#54–#57, #59, #61) — [browse the list](https://github.com/miguelcolmenares/jsdoc-to-tsdoc/issues?q=is%3Aissue+is%3Aopen+label%3Afuture)
 rather than trusting a summary here to stay in sync with it. Picking one up
 means reading its issue for the full context, not just its title. (#58, the
-GitHub Action / Bitbucket Pipe wrapper, shipped — see the iteration log. #60,
-the escalation-line merge-driver, shipped — see §10.)
+GitHub Action / Bitbucket Pipe wrapper; #60, the escalation-line merge-driver;
+and #62, `scaffold --members` — all three shipped, see the iteration log.)
 
 ---
 
@@ -413,6 +422,50 @@ the escalation-line merge-driver, shipped — see §10.)
 Newest first. Each entry records what shipped and, more importantly, **the
 non-obvious things** — a decision and its reasoning, or a trap that cost real
 time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
+
+### `scaffold --members` — per-member stubs, opt-in (#62)
+
+- **Two distinct member-enumeration primitives now exist, on purpose.**
+  `scanner/member-targets.ts` answers "which members could an existing
+  `@property` tag's description relocate onto", keyed by a comment that already
+  sits above the declaration — it has nothing to key by on the undocumented
+  header `scaffold` normally runs against. `scanner/member-declarations.ts`
+  answers a different question, "what are this declaration's members as
+  insertion targets of their own", starting from the declaration node instead
+  of a comment, so it works whether or not the header — or any member — is
+  already documented. The two share their lowest-level helpers (`membersOf`,
+  `keyOf`, now exported) rather than each re-deriving "what counts as an
+  addressable member"; diverging there would let `--members` stub a member
+  `convert`'s `@property` relocation could never have addressed, or vice versa.
+- **Reused `insertion-location.ts` one level down, not `member-targets.ts`'s own
+  position math.** `locateInsertion`/`readLeadingComment` are already generic
+  over `ts.Node` — they exist for placing a stub above a top-level declaration
+  — so calling them on a `ts.TypeElement` instead gets the exact same
+  shared-line handling `scaffold` already relies on for declarations, with no
+  new code to get that case right a second time.
+- **Interfaces and type-literal aliases are treated identically, deliberately.**
+  `member-targets.ts`'s `membersOf` already erases the distinction (`ts.TypeElement[]`
+  either way), so extending only interfaces would have been an arbitrary
+  restriction rather than a safer one — the same insertion mechanics apply to
+  both, and the fixtures cover both.
+- **A member's declared type decides the template, never its name.** A member
+  whose type is callable — a method signature or a property typed as a
+  function — gets `@param`/`@returns` tags via `inferFunctionSummary`; a plain
+  data property gets `inferNounSummary`. This is syntax, not semantics: naming
+  a callback prop `data` still gets the function template, keeping
+  `--members` in the same deterministic spirit as every other rule here
+  (AGENTS.md §4.2) rather than guessing at what a member *means*.
+- **Off by default, matching `convert --promote-line-comments`'s precedent.**
+  A per-member stub multiplies a run's output — one comment per property
+  instead of one per declaration — which is exactly the "edits lines no other
+  mode touches" bar that flag already set for staying opt-in. Making it the
+  default would have surprised every existing `scaffold` user on their very
+  next run.
+- **A member stub is independent of its header's own documentation state.**
+  Even when an interface's header already carries hand-written prose,
+  `--members` still stubs its undocumented members — the two are separate
+  gaps, and leaving one because the other is closed would silently under-serve
+  the common case of a documented-but-incomplete interface.
 
 ### A prebuilt GitHub Action and Bitbucket Pipe (#58) — one published, one deliberately not
 

@@ -1,7 +1,8 @@
 /**
  * @packageDocumentation
  * Public API of the scaffolder domain: deterministic summary inference from
- * identifier names and TSDoc stub rendering for undocumented exports.
+ * identifier names and TSDoc stub rendering for undocumented exports and their
+ * interface/type-literal members.
  *
  * @since 0.1.0
  */
@@ -16,3 +17,5 @@ export {
 } from "@/scaffolder/name-inference";
 
 export { buildStub, TODO_MARKER } from "@/scaffolder/stub-builder";
+
+export { buildMemberStub } from "@/scaffolder/member-stub-builder";

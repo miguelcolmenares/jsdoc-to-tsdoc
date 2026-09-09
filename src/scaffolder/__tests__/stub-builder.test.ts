@@ -20,6 +20,7 @@ const declaration = (
   hasSignature: true,
   names: [overrides.name],
   ownsLine: true,
+  members: undefined,
   ...overrides,
 });
 
