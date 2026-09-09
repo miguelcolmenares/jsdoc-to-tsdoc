@@ -9,6 +9,7 @@ export { default as checkCommand } from "@/commands/check";
 export { default as convertCommand } from "@/commands/convert";
 export { default as escalateCommand } from "@/commands/escalate";
 export { default as initCommand } from "@/commands/init";
+export { default as mergeDriverCommand } from "@/commands/merge-driver";
 export { default as scaffoldCommand } from "@/commands/scaffold";
 export { default as scanCommand } from "@/commands/scan";
 

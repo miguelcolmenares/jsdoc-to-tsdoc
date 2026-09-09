@@ -369,6 +369,26 @@ The result is a one-line diff — the only line that ever conflicts when a long-
 
 Use `--check` as a cheap CI gate that asks "is this repo locked in yet?" (exit `3` if not, no lint run), `--dry-run` to preview the diff, and `--severity warn` to walk an escalation back.
 
+### Automatic conflict resolution for the escalation line
+
+That one-line diff is also the only line that ever *conflicts* on a long-lived escalation branch — two branches (or a branch and a rebased `main`) each flip the same rule, and a plain `git rebase`/`merge` stops to ask a human to pick `"warn"` or `"error"` on a line where the answer is always "whichever one is `error`". The `merge-driver` subcommand is a [git merge driver](https://git-scm.com/docs/gitattributes#_defining_a_custom_merge_driver) that resolves exactly that conflict and nothing else: if the two conflicting versions of the file differ *only* in that one severity value, it writes back whichever side already escalated to `"error"`; if anything else on the file differs too, it makes no changes and exits non-zero so git falls back to `git merge-file`'s normal conflict markers — the same markers you would get with no driver configured at all.
+
+Unlike the other commands, `merge-driver` is never run by hand — `git` invokes it per its [merge-driver file protocol](https://git-scm.com/docs/gitattributes#_defining_a_custom_merge_driver), passing the common-ancestor, "ours", and "theirs" versions of the file as three temporary paths. Wiring it into a repository is a **one-time, local setup step**, not something a committed file alone can do — git deliberately does not let a `.gitattributes` line register an executable on its own, since that would let a cloned repository run arbitrary commands during `git merge` with no consent. Two things, both scoped to the file `init` already writes:
+
+1. Commit a `.gitattributes` entry naming the driver:
+
+   ```text
+   eslint.config.mjs merge=jsdoc-to-tsdoc-severity
+   ```
+
+2. Each contributor registers the driver once, locally (this is the step that can't be committed):
+
+   ```bash
+   git config merge.jsdoc-to-tsdoc-severity.driver "npx jsdoc-to-tsdoc merge-driver %O %A %B"
+   ```
+
+After that, a `git rebase` or `git merge` that only conflicts on the severity line resolves silently; anything else still stops for review exactly as it does today. `init`/`generator` do **not** wire this up automatically — running an arbitrary command during every future merge is a decision this project leaves to the human who owns the repository, not something the CLI grants itself as a side effect of bootstrapping.
+
 ## What `check` does
 
 The CI gate, and the only command that validates rather than transforms. It never writes.

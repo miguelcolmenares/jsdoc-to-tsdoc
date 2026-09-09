@@ -50,11 +50,13 @@ export {
 } from "@/commands/scaffold-file";
 export {
   PRESENCE_RULE_ID,
+  resolveSeverityConflict,
   runPreflight,
   updateRuleSeverity,
   type PreflightResult,
   type RuleSeverity,
   type RuleSeverityUpdate,
+  type SeverityConflictOutcome,
   type SeverityOccurrence,
 } from "@/escalator";
 export {

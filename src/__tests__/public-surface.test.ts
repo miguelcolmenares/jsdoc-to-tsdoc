@@ -41,6 +41,7 @@ const PUBLIC_SURFACE = [
   "missingPackages",
   "patchEslintFlatConfig",
   "readPropertyTags",
+  "resolveSeverityConflict",
   "runPipeline",
   "runPreflight",
   "scaffoldSourceText",
