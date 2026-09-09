@@ -1,14 +1,16 @@
-name: Publish Package to npm
+name: Publish Package
 
-# Publishes to npm on a GitHub Release. A bare tag does NOT trigger this --
-# `on: release` fires on the Release event, not on the tag push.
+# Publishes to npm and to GitHub Packages on a GitHub Release. A bare tag does
+# NOT trigger this -- `on: release` fires on the Release event, not on the tag
+# push.
 on:
   release:
     types: [created]
   workflow_dispatch:
 
 jobs:
-  build:
+  publish-npm:
+    name: Publish to npmjs.com
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -55,3 +57,55 @@ jobs:
           echo "**Version:** \`$PACKAGE_VERSION\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- [View on npm](https://www.npmjs.com/package/jsdoc-to-tsdoc/v/$PACKAGE_VERSION)" >> $GITHUB_STEP_SUMMARY
+
+  publish-github-packages:
+    name: Publish to GitHub Packages
+    # Independent of publish-npm's OIDC trusted-publishing path (GitHub
+    # Packages doesn't support it) -- only gated so a broken npmjs publish
+    # doesn't leave a release with one registry ahead of the other.
+    needs: publish-npm
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@miguelcolmenares"
+          package-manager-cache: false
+
+      - run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Verify CLI syntax
+        run: node --check dist/cli.mjs
+
+      # GitHub Packages' npm registry only accepts a name scoped to the
+      # repository owner -- `jsdoc-to-tsdoc` (the npmjs name) is rejected
+      # outright. The rename is local to this job's checkout and never
+      # committed, so the npmjs publish above is unaffected.
+      - name: Scope package name for GitHub Packages
+        run: npm pkg set name="@miguelcolmenares/jsdoc-to-tsdoc"
+
+      # GITHUB_TOKEN is sufficient for GitHub Packages (unlike npmjs, it has
+      # no OIDC trusted-publishing story yet) -- setup-node's registry-url
+      # already wrote it into .npmrc as NODE_AUTH_TOKEN.
+      - run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create summary
+        if: success()
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          echo "## 📦 Mirrored to GitHub Packages" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** \`$PACKAGE_VERSION\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- [View on GitHub Packages](https://github.com/miguelcolmenares/jsdoc-to-tsdoc/pkgs/npm/jsdoc-to-tsdoc)" >> $GITHUB_STEP_SUMMARY

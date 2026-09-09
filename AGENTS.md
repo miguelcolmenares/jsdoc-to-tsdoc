@@ -454,6 +454,34 @@ Newest first. Each entry records what shipped and, more importantly, **the
 non-obvious things** — a decision and its reasoning, or a trap that cost real
 time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
 
+### GitHub Packages mirror, and a required-review gate on `main`
+
+- **The scoped rename lives only in CI, never in the committed `package.json`.**
+  GitHub Packages' npm registry rejects an unscoped package name outright, but
+  npmjs.com is the documented, primary name (`jsdoc-to-tsdoc`) and changing it
+  repo-wide would break every existing install instruction in the README.
+  `publish-github-packages` runs `npm pkg set name=…` against its own
+  checkout, after `publish-npm` has already succeeded, so the two jobs publish
+  the same build under two different names without either file or job
+  affecting the other.
+- **Required reviews and Dependabot's auto-merge are in genuine tension, and
+  the fix is a second identity, not a bypass.** Enabling
+  `required_pull_request_reviews` on `main` blocks any merge lacking an
+  approval — including Dependabot's own `gh pr merge --auto` step, since
+  GitHub explicitly refuses to let a workflow's default `GITHUB_TOKEN` approve
+  a pull request in its own repository (precisely to stop a workflow from
+  clearing its own gate). Dependabot didn't author the PR as the *repo owner*,
+  though, so an approval from the owner's own personal access token
+  (`secrets.AUTO_APPROVE_TOKEN`) is not self-review and satisfies the rule
+  legitimately. Every other merge — including an agent's — now needs either a
+  real review or the owner's explicit `gh pr merge --admin` override.
+- **`enforce_admins` stays `false`, deliberately.** Turning it on would also
+  block the repo owner's own admin-override merge, and since GitHub already
+  refuses to let a PR author approve their own PR, a solo maintainer with
+  `enforce_admins: true` and required reviews could lock themselves out of
+  merging their own work entirely. Leaving it `false` keeps the override
+  available as a conscious, explicit action rather than the default path.
+
 ### LLM-assisted enrichment (#55) — a new domain, opt-in only, and one seam per provider
 
 - **The gate is one function, not a scattered set of `if`s.** Every reference
