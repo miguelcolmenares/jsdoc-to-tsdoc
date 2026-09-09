@@ -343,6 +343,7 @@ npm run check:tsdoc    # builds, then runs the CLI's own `check` over this repo
 | Add a JSDoc→TSDoc transform | `src/transformer/rules/` + register in `rules/index.ts` |
 | Add/adjust a stub template or summary inference | `src/scaffolder/stub-builder.ts`, `src/scaffolder/name-inference.ts` |
 | Change the preflight or the severity patch | `src/escalator/` |
+| Change the rebase-conflict resolver for the severity line | `src/escalator/conflict-resolver.ts`, `src/commands/merge-driver.ts` |
 | Change TSDoc validation or `tsdoc.json` loading | `src/validator/tsdoc-validator.ts` |
 | Change what `check` reports | `src/commands/check-file.ts` |
 | Change how exports reach the module surface | `src/scanner/export-inventory.ts` |
@@ -398,11 +399,12 @@ everything in it was either shipped, superseded by this file and
 
 ### Next up
 
-Nothing is scheduled. Eight items are deliberately deferred, each as its own GitHub
-issue labeled `future` (#54–#57, #59–#62) — [browse the list](https://github.com/miguelcolmenares/jsdoc-to-tsdoc/issues?q=is%3Aissue+is%3Aopen+label%3Afuture)
+Nothing is scheduled. Seven items are deliberately deferred, each as its own GitHub
+issue labeled `future` (#54–#57, #59, #61–#62) — [browse the list](https://github.com/miguelcolmenares/jsdoc-to-tsdoc/issues?q=is%3Aissue+is%3Aopen+label%3Afuture)
 rather than trusting a summary here to stay in sync with it. Picking one up
 means reading its issue for the full context, not just its title. (#58, the
-GitHub Action / Bitbucket Pipe wrapper, shipped — see the iteration log.)
+GitHub Action / Bitbucket Pipe wrapper, shipped — see the iteration log. #60,
+the escalation-line merge-driver, shipped — see §10.)
 
 ---
 

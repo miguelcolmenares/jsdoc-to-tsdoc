@@ -14,6 +14,7 @@ import {
   convertCommand,
   escalateCommand,
   initCommand,
+  mergeDriverCommand,
   scaffoldCommand,
   scanCommand,
 } from "@/commands";
@@ -44,6 +45,7 @@ const main = defineCommand({
     scaffold: scaffoldCommand,
     escalate: escalateCommand,
     check: checkCommand,
+    "merge-driver": mergeDriverCommand,
   },
 });
 
