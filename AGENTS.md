@@ -46,7 +46,8 @@ init  →  convert  →  scaffold  →  escalate
 | `check`   | **shipped**  | CI gate — validates comments with the official `@microsoft/tsdoc` parser, reports undocumented exports and leftover JSDoc. |
 
 Domains present: `parser`, `scanner`, `transformer`, `scaffolder`, `generator`,
-`escalator`, `validator`, `classifier`, `reporter`, `prompter`, `writer`, `commands`.
+`escalator`, `validator`, `classifier`, `enricher`, `reporter`, `prompter`,
+`writer`, `commands`.
 Every command in the table above has shipped; v0.1.0's full scope is done and
 v0.2.0 is published (see `CHANGELOG.md`).
 
@@ -222,6 +223,7 @@ npx jsdoc-to-tsdoc check     # CI gate: validate TSDoc, exit 3 on problems
 | `--skip-preflight` | `escalate` | Patch without running ESLint first. |
 | `--only` / `--exclude <globs>` | `scan`, `convert`, `scaffold`, `check` | Comma-separated include/exclude globs. |
 | `--report <fmt>` | all | `json` or `md` to stdout. |
+| `--enrich <provider>` | `scan` | Opt-in LLM suggestions for LOW-confidence/STALE cases: `copilot`\|`ollama`\|`anthropic`. Implies `--classify`. Never runs unless passed — see `src/enricher/`. |
 
 **Exit codes:** `0` OK · `1` logic error · `2` parse failure · `3` violations
 in `--check` mode.
@@ -376,6 +378,7 @@ npm run check:tsdoc    # builds, then runs the CLI's own `check` over this repo
 | Comment-aware reading of flat-config text | `src/generator/config-source.ts` |
 | Which TSDoc tags are standard vs custom | `src/generator/tsdoc-tags.ts` |
 | Output formatting (diffs, tables, JSON/MD) | `src/reporter/` |
+| Add/change a `scan --enrich` provider, or the LOW/STALE target selection | `src/enricher/` |
 | Deliberately deferred future work | GitHub issues labeled [`future`](https://github.com/miguelcolmenares/jsdoc-to-tsdoc/issues?q=is%3Aissue+is%3Aopen+label%3Afuture) |
 
 ---
@@ -414,16 +417,24 @@ v0.1.0's full scope shipped, dogfooded end-to-end on a 4th real repo
 is no worse than the input before writing it, the trailing-blank-line cleanup
 landed, and `PLAN.md` — the original product-plan document — was retired once
 everything in it was either shipped, superseded by this file and
-`CHANGELOG.md`, or filed as a tracked issue. Nothing is currently in flight.
+`CHANGELOG.md`, or filed as a tracked issue. `scan --classify --enrich=copilot|
+ollama|anthropic` (#55) followed: opt-in LLM suggestions for the LOW-confidence
+and STALE cases classification already finds, with zero effect on the
+deterministic pipeline when the flag is absent — see the iteration log.
+Nothing is currently in flight.
 
 ### Next up
 
-Nothing is scheduled. Six items are deliberately deferred, each as its own GitHub
-issue labeled `future` (#54–#57, #59, #61) — [browse the list](https://github.com/miguelcolmenares/jsdoc-to-tsdoc/issues?q=is%3Aissue+is%3Aopen+label%3Afuture)
+Nothing is scheduled. Five items are deliberately deferred, each as its own GitHub
+issue labeled `future` (#54, #56, #57, #59, #61) — [browse the list](https://github.com/miguelcolmenares/jsdoc-to-tsdoc/issues?q=is%3Aissue+is%3Aopen+label%3Afuture)
 rather than trusting a summary here to stay in sync with it. Picking one up
 means reading its issue for the full context, not just its title. (#58, the
 GitHub Action / Bitbucket Pipe wrapper; #60, the escalation-line merge-driver;
-and #62, `scaffold --members` — all three shipped, see the iteration log.)
+#62, `scaffold --members`; and #55, LLM-assisted enrichment — all four shipped,
+see the iteration log.) #55's issue named "Anthropic / OpenAI" as one option;
+only `anthropic` matches the flag enum it also specified and is what shipped —
+an equally-shaped OpenAI provider (`--enrich=openai`) is the one part of it
+still open, and has no tracked issue yet.
 
 **#57 is partially shipped and deliberately stays open.** `check` resolves
 `tsdoc.json` by nearest ancestor now, so a monorepo can give each package its
@@ -443,6 +454,61 @@ Newest first. Each entry records what shipped and, more importantly, **the
 non-obvious things** — a decision and its reasoning, or a trap that cost real
 time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
 
+### LLM-assisted enrichment (#55) — a new domain, opt-in only, and one seam per provider
+
+- **The gate is one function, not a scattered set of `if`s.** Every reference
+  to `@/enricher` in `src/commands/scan.ts` lives inside the branch guarded by
+  `enrichProvider !== undefined`, and `createEnrichmentProvider` is the single
+  point of entry into provider construction. The opt-in gating test
+  (`src/commands/__tests__/enrich.test.ts`) spies on that function directly
+  (via `vi.mock("@/enricher", …)`) rather than trusting a code read — it is
+  the one test in the PR that matters most, per the issue's own framing of
+  "never default-on" as load-bearing, not a preference.
+- **`--enrich` implies `--classify`, the same way `--fail-on-missing` and
+  `--fail-on-stale` already do.** It has nothing to enrich without a
+  classification to pull LOW-confidence/STALE declarations from, so treating
+  it as a fourth classify-implying flag rather than a separate concept kept
+  `scan`'s argument handling in one place instead of two.
+- **The report gained a field, not a shape.** `enrichment` is attached only to
+  the declarations `--enrich` actually asked a provider about — a `DeclarationClassification`
+  the classifier produced is never mutated or re-typed; the JSON builder in
+  `scan.ts` spreads a fresh object only when an outcome exists for that
+  declaration, so a run without `--enrich` is byte-identical to one before this
+  PR (proven by the fact that no existing test needed to change).
+- **`@anthropic-ai/sdk` stays a `devDependency`, deliberately not a
+  `dependency` — even a lazily-imported one.** The precedent for "heavy dep,
+  lazy-imported" in this repo (`@microsoft/tsdoc-config`, `@clack/prompts`) is
+  about startup cost: the package is still downloaded by every consumer, just
+  not evaluated until needed. An LLM SDK that only ever matters to a consumer
+  who explicitly opts into `--enrich=anthropic` is a different case — as a
+  `dependency`, npm downloads it for every `npx jsdoc-to-tsdoc` regardless.
+  Kept as a `devDependency` and imported behind `await import(...)` from
+  inside the provider only, listed in `build.config.ts`'s `externals` so
+  unbuild does not try to inline it: zero-LLM users pay nothing, and
+  `--enrich=anthropic` needs the SDK installed in the consuming project the
+  same way `--enrich=copilot` needs the CLI on `$PATH`.
+- **A real `copilot` CLI happened to be on the sandbox's `$PATH` during
+  manual verification, and `copilot -p <prompt>` worked exactly as guessed.**
+  The invocation shape wasn't documented anywhere accessible while writing
+  the adapter, so it was built from the most plausible non-interactive form
+  and the uncertainty was flagged for the PR description. A smoke run against
+  a real fixture returned a correctly-shaped TSDoc suggestion for the target
+  function, which is the closest thing to a live-integration proof this repo
+  can commit — but it is one anecdotal run against one CLI version, not a
+  pinned contract, and the PR still calls this out as unverified against a
+  documented spec.
+- **Every provider's failure is a discriminated union, never a throw** (`{ ok:
+  false, reason: "unavailable" | "error", detail }`), so a missing binary, an
+  unreachable daemon, or an unset API key degrades to "Enrichment unavailable
+  for N entries" in the still-fully-printed deterministic report rather than
+  crashing `scan`. `"unavailable"` (the provider itself could not be reached)
+  and `"error"` (it was reached, the request failed) are kept distinct because
+  they point a user at different fixes — install/configure vs. retry.
+- **Only `anthropic` shipped from the issue's "Anthropic / OpenAI" framing.**
+  The flag enum in the issue title names only `anthropic`; scope-creeping a
+  fourth provider not in that enum would have been the wrong kind of
+  thorough. An equally-shaped OpenAI provider is the recorded follow-up (§11),
+  not silently folded into this PR.
 ### Nearest-ancestor `tsdoc.json` resolution for `check` (#57) — scoped to the command the issue named
 
 - **Backward compatibility was the actual hard problem, not the walk itself.**

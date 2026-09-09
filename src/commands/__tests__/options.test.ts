@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   commitPerFileConflict,
   interactiveConflict,
+  parseEnrichProvider,
   parseReportFormat,
   splitGlobs,
 } from "@/commands/options";
@@ -44,6 +45,20 @@ describe("parseReportFormat", () => {
     expect(parseReportFormat("table")).toBeUndefined();
     expect(parseReportFormat("xml")).toBeUndefined();
     expect(parseReportFormat(undefined)).toBeUndefined();
+  });
+});
+
+describe("parseEnrichProvider", () => {
+  it("accepts the three known providers", () => {
+    expect(parseEnrichProvider("copilot")).toBe("copilot");
+    expect(parseEnrichProvider("ollama")).toBe("ollama");
+    expect(parseEnrichProvider("anthropic")).toBe("anthropic");
+  });
+
+  it("returns undefined for unknown or missing values", () => {
+    expect(parseEnrichProvider("chatgpt")).toBeUndefined();
+    expect(parseEnrichProvider("")).toBeUndefined();
+    expect(parseEnrichProvider(undefined)).toBeUndefined();
   });
 });
 
