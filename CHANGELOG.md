@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-09-09
+
+First stable release. Everything below accumulated since 0.2.1 as the `[Unreleased]` backlog `AGENTS.md` describes as deliberately deferred — held until there was enough of it to call a stable line.
+
 ### Added
 
 - **Every release now also publishes to GitHub Packages, mirroring npmjs.com.** `publish.yml` gains a second job, `publish-github-packages`, that runs after the npmjs publish succeeds and republishes the same build under the scoped name GitHub Packages requires (`@miguelcolmenares/jsdoc-to-tsdoc` — its npm registry rejects an unscoped name outright). The rename happens only inside that job's own checkout via `npm pkg set`, so it never touches the committed `package.json` or the npmjs publish, which keeps the unscoped `jsdoc-to-tsdoc` name. Auth is the workflow's own `GITHUB_TOKEN` (`packages: write`) — GitHub Packages has no OIDC trusted-publishing story yet, unlike the npmjs job.

@@ -567,7 +567,7 @@ jobs:
       - uses: miguelcolmenares/jsdoc-to-tsdoc@main
         with:
           command: check
-          version: "0.2.1" # pin for a reproducible gate
+          version: "1.0.0" # pin for a reproducible gate
 ```
 
 Or the documentation-gap gate:
@@ -576,7 +576,7 @@ Or the documentation-gap gate:
       - uses: miguelcolmenares/jsdoc-to-tsdoc@main
         with:
           command: scan
-          version: "0.2.1"
+          version: "1.0.0"
           fail-on-missing: "true"
           fail-on-stale: "true"
 ```
@@ -614,7 +614,7 @@ pipelines:
           - pipe: miguelcolmenares/jsdoc-to-tsdoc-pipe:0.1.0
             variables:
               COMMAND: "check"
-              VERSION: "0.2.1"
+              VERSION: "1.0.0"
 ```
 
 Variables mirror the GitHub Action's inputs (`COMMAND`, `VERSION`, `CWD`,
