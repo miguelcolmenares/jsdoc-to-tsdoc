@@ -12,6 +12,14 @@ import { defineBuildConfig } from "unbuild";
  * `typescript` is listed in `externals` and is never bundled: it is a runtime
  * dependency the package runner installs alongside the CLI, not code we ship.
  * The bundle target is `< 500 KB` gzipped (asserted in CI).
+ *
+ * `@anthropic-ai/sdk` is also external, for a different reason: it is a
+ * `devDependency`, imported only from inside `enricher/anthropic-provider.ts`
+ * behind `await import(...)`, so that `--enrich=anthropic` stays possible
+ * without every consumer downloading an LLM SDK they never use. Rollup can
+ * usually see through a dynamic import of a listed dependency and inline it
+ * anyway; excluding it here is what keeps it out of the bundle it would
+ * otherwise blow the size budget with.
  */
 export default defineBuildConfig({
   entries: ["src/cli", "src/index"],
@@ -27,6 +35,6 @@ export default defineBuildConfig({
   alias: {
     "@": fileURLToPath(new URL("./src", import.meta.url)),
   },
-  externals: ["typescript"],
+  externals: ["typescript", "@anthropic-ai/sdk"],
   failOnWarn: false,
 });

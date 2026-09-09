@@ -4,6 +4,7 @@
  * @since 0.1.0
  */
 
+import type { EnrichProviderName } from "@/enricher";
 import type { Severity } from "@/generator";
 import type { ReportFormat } from "@/reporter";
 
@@ -137,6 +138,24 @@ export function commitPerFileConflict(context: {
  */
 export function parseSeverity(value: unknown): Severity | undefined {
   if (value === "warn" || value === "error") {
+    return value;
+  }
+  return undefined;
+}
+
+/**
+ * Parses the `--enrich` option into a known {@link EnrichProviderName}.
+ *
+ * @param value - The raw option value.
+ * @returns The provider, or `undefined` for anything unrecognized — the
+ * caller distinguishes "not passed" from "passed with a typo" by checking
+ * whether `value` was `undefined` in the first place, and reports the latter
+ * rather than silently running with no enrichment.
+ */
+export function parseEnrichProvider(
+  value: unknown,
+): EnrichProviderName | undefined {
+  if (value === "copilot" || value === "ollama" || value === "anthropic") {
     return value;
   }
   return undefined;

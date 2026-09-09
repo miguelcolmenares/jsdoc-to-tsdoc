@@ -5,6 +5,10 @@
  * `--classify` it reports how well each export is documented, how far that can
  * be trusted, and the next action per file. `--fail-on-missing` and
  * `--fail-on-stale` turn the second mode into a CI gate that exits `3`.
+ * `--enrich=copilot|ollama|anthropic` asks an LLM provider to suggest
+ * documentation for the LOW-confidence and STALE cases classification finds —
+ * opt-in only, and gated so that omitting the flag never imports, constructs,
+ * or calls into the `enricher` domain at all.
  *
  * Neither mode ever writes.
  *
@@ -16,10 +20,11 @@ import { relative, resolve } from "node:path";
 
 import { defineCommand } from "citty";
 
-import { classifyFile } from "@/classifier";
+import { classifyFile, type DeclarationClassification } from "@/classifier";
 import {
   actionLines,
   confidenceLine,
+  enrichmentFindings,
   missingCount,
   staleCount,
   staleFindings,
@@ -27,10 +32,22 @@ import {
   topologyRows,
   type ClassifiedFile,
   type ClassifySummary,
+  type EnrichmentFinding,
 } from "@/commands/classify-report";
 import { convertSourceText } from "@/commands/convert-file";
 import { reportCommandFailure } from "@/commands/command-failure";
-import { parseReportFormat, splitGlobs } from "@/commands/options";
+import {
+  parseEnrichProvider,
+  parseReportFormat,
+  splitGlobs,
+} from "@/commands/options";
+import {
+  createEnrichmentProvider,
+  enrichTargets,
+  selectEnrichmentTargets,
+  type EnrichmentOutcome,
+  type EnrichProviderName,
+} from "@/enricher";
 import { TEST_FILE_GLOBS } from "@/generator";
 import {
   createColors,
@@ -105,6 +122,13 @@ export default defineCommand({
       description:
         "Classify test files too, which `init` exempts from the TSDoc rules.",
     },
+    enrich: {
+      type: "string",
+      description:
+        "Ask an LLM to suggest documentation for LOW-confidence and STALE " +
+        "exports (implies --classify): copilot | ollama | anthropic. " +
+        "Opt-in — omitting this flag never calls a provider.",
+    },
   },
   async run({ args }) {
     try {
@@ -113,8 +137,31 @@ export default defineCommand({
       const reportFormat = parseReportFormat(args.report);
       const failOnMissing = Boolean(args["fail-on-missing"]);
       const failOnStale = Boolean(args["fail-on-stale"]);
-      // The gates read a classification, so asking for one implies producing it.
-      const classify = Boolean(args.classify) || failOnMissing || failOnStale;
+
+      // `args.enrich` is `undefined` when the flag was not passed at all —
+      // that case must never reach `enricher`, and is kept apart from "passed
+      // with an unrecognized value", which is reported rather than silently
+      // running with no enrichment.
+      const enrichRequested = args.enrich !== undefined;
+      const enrichProvider = enrichRequested
+        ? parseEnrichProvider(args.enrich)
+        : undefined;
+      if (enrichRequested && enrichProvider === undefined) {
+        process.stderr.write(
+          `scan: unknown --enrich ${JSON.stringify(args.enrich)} — expected "copilot", "ollama", or "anthropic".\n`,
+        );
+        process.exitCode = 1;
+        return;
+      }
+
+      // The gates read a classification, so asking for one implies producing
+      // it — `--enrich` is one more such gate: it has nothing to enrich
+      // without a classification to read LOW-confidence/STALE cases from.
+      const classify =
+        Boolean(args.classify) ||
+        failOnMissing ||
+        failOnStale ||
+        enrichProvider !== undefined;
 
       // Classification judges how well exports are documented, and the ESLint
       // config `init` writes turns both TSDoc rules off for test paths — so
@@ -145,6 +192,7 @@ export default defineCommand({
           reportFormat,
           failOnMissing,
           failOnStale,
+          enrichProvider,
         });
         return;
       }
@@ -218,6 +266,22 @@ interface ClassifyRun {
   readonly reportFormat: "json" | "md" | undefined;
   readonly failOnMissing: boolean;
   readonly failOnStale: boolean;
+  /**
+   * The `--enrich` provider, or `undefined` when the flag was not passed.
+   *
+   * @remarks
+   * This is the single gate the whole feature hangs off: every reference to
+   * `@/enricher` below is inside the branch guarded by this being defined, so
+   * a run where it is `undefined` never imports a provider, never builds a
+   * prompt, and never opens a socket or spawns a process.
+   */
+  readonly enrichProvider: EnrichProviderName | undefined;
+}
+
+/** What `--enrich` produced, ready for the report renderers. */
+interface EnrichmentRun {
+  readonly provider: EnrichProviderName;
+  readonly outcomes: ReadonlyMap<DeclarationClassification, EnrichmentOutcome>;
 }
 
 /**
@@ -245,7 +309,12 @@ async function runClassify(run: ClassifyRun): Promise<void> {
       shouldUseColor(Boolean(process.stdout.isTTY)),
   );
 
-  emitClassification(summary, run.reportFormat, colors);
+  const enrichment =
+    run.enrichProvider === undefined
+      ? undefined
+      : await runEnrichment(run.enrichProvider, summary);
+
+  emitClassification(summary, run.reportFormat, colors, enrichment);
 
   const missing = missingCount(summary);
   const stale = staleCount(summary);
@@ -255,16 +324,47 @@ async function runClassify(run: ClassifyRun): Promise<void> {
 }
 
 /**
+ * Runs `--enrich` over the summary's LOW-confidence and STALE declarations.
+ *
+ * @remarks
+ * The only function in this file that touches `@/enricher`. A provider that
+ * cannot be reached fails per-target (`EnrichmentOutcome.ok: false`, per
+ * `AGENTS.md` §4 decision #10) — this never throws, so a run with, say,
+ * `--enrich=ollama` and no daemon listening still finishes and prints the full
+ * deterministic report, with every target reported as unavailable rather than
+ * the command crashing or hanging.
+ *
+ * @param provider - The requested provider.
+ * @param summary - The classification to pull targets from.
+ * @returns The provider name and every target's outcome.
+ */
+async function runEnrichment(
+  provider: EnrichProviderName,
+  summary: ClassifySummary,
+): Promise<EnrichmentRun> {
+  const targets = selectEnrichmentTargets(summary.files);
+  const outcomes = await enrichTargets(
+    createEnrichmentProvider(provider),
+    targets,
+  );
+  return { provider, outcomes };
+}
+
+/**
  * Writes the classification summary in the requested format.
  *
  * @param summary - The aggregated run result.
  * @param format - The `--report` format, or `undefined` for human output.
  * @param colors - Style functions for the terminal.
+ * @param enrichment - The `--enrich` result, or `undefined` when the flag was
+ * not passed — every branch below treats that as "add nothing", so the report
+ * is byte-identical to a run without `--enrich` in that case.
  */
 function emitClassification(
   summary: ClassifySummary,
   format: "json" | "md" | undefined,
   colors: Colors,
+  enrichment: EnrichmentRun | undefined,
 ): void {
   if (format === "json") {
     process.stdout.write(
@@ -283,7 +383,16 @@ function emitClassification(
                 path,
                 topology: classification.topology,
                 confidence: classification.confidence,
-                declarations: classification.declarations,
+                declarations: classification.declarations.map((declaration) => {
+                  // Additive only: a declaration --enrich did not target (or
+                  // that was never asked about at all) keeps its existing
+                  // shape exactly, so the field is absent rather than null
+                  // and a run without --enrich is unchanged byte for byte.
+                  const outcome = enrichment?.outcomes.get(declaration);
+                  return outcome === undefined
+                    ? declaration
+                    : { ...declaration, enrichment: outcome };
+                }),
               },
         ),
       })}\n`,
@@ -297,7 +406,14 @@ function emitClassification(
   }));
 
   if (format === "md") {
-    process.stdout.write(`${toMarkdownTable("Topology", rows, "Files")}\n`);
+    let body = `${toMarkdownTable("Topology", rows, "Files")}\n`;
+    if (enrichment !== undefined) {
+      body += enrichmentMarkdown(
+        enrichmentFindings(summary, enrichment.outcomes),
+        enrichment.provider,
+      );
+    }
+    process.stdout.write(body);
     return;
   }
 
@@ -313,19 +429,130 @@ function emitClassification(
   );
 
   const stale = staleFindings(summary);
-  if (stale.length === 0) {
+  if (stale.length > 0) {
+    process.stdout.write(
+      `\n${colors.bold("Stale documentation — review these by hand:")}\n`,
+    );
+    for (const { path, declaration } of stale) {
+      process.stdout.write(
+        `  ${colors.yellow(`${path}:${String(declaration.line)}`)} ${declaration.name}\n`,
+      );
+      for (const reason of declaration.stale) {
+        process.stdout.write(`    ${colors.dim(reason)}\n`);
+      }
+    }
+  }
+
+  if (enrichment !== undefined) {
+    printEnrichment(
+      enrichmentFindings(summary, enrichment.outcomes),
+      enrichment.provider,
+      colors,
+    );
+  }
+}
+
+/**
+ * Prints the human-readable enrichment section: every suggestion, then one
+ * summary line naming how many targets a provider could not enrich.
+ *
+ * @remarks
+ * Silent when there is nothing to say — `findings` is empty whenever
+ * `--enrich` found no LOW-confidence or STALE declarations to ask about — the
+ * same "stay quiet about clean results" rule the rest of this report follows.
+ *
+ * @param findings - Every enriched declaration and its outcome.
+ * @param provider - Which provider ran, for the section heading.
+ * @param colors - Style functions for the terminal.
+ */
+function printEnrichment(
+  findings: readonly EnrichmentFinding[],
+  provider: EnrichProviderName,
+  colors: Colors,
+): void {
+  if (findings.length === 0) {
     return;
   }
 
-  process.stdout.write(
-    `\n${colors.bold("Stale documentation — review these by hand:")}\n`,
+  const succeeded = findings.filter(
+    (
+      finding,
+    ): finding is EnrichmentFinding & {
+      outcome: { ok: true; suggestion: string };
+    } => finding.outcome.ok,
   );
-  for (const { path, declaration } of stale) {
+  const failed = findings.filter((finding) => !finding.outcome.ok);
+
+  process.stdout.write(
+    `\n${colors.bold(
+      `Enrichment (--enrich=${provider}) — ${String(succeeded.length)}/${String(findings.length)} suggestion(s):`,
+    )}\n`,
+  );
+  for (const { path, declaration, outcome } of succeeded) {
     process.stdout.write(
       `  ${colors.yellow(`${path}:${String(declaration.line)}`)} ${declaration.name}\n`,
     );
-    for (const reason of declaration.stale) {
-      process.stdout.write(`    ${colors.dim(reason)}\n`);
+    for (const line of outcome.suggestion.split("\n")) {
+      process.stdout.write(`    ${colors.dim(line)}\n`);
     }
   }
+
+  if (failed.length === 0) {
+    return;
+  }
+  // Only the first failure's detail is shown, deliberately: every target in
+  // one run shares the same provider, and a provider fails the same way for
+  // all of them within a run (the daemon is down, the key is unset, the CLI
+  // is missing) — printing N copies of an identical message would not add
+  // information. A future provider whose failure genuinely varies per target
+  // would need every distinct detail listed; nothing here does yet.
+  const [firstFailure] = failed;
+  // Provider detail strings are full sentences with their own punctuation
+  // (some end in a period, some in a parenthesis) — a colon reads correctly
+  // either way, where appending a trailing period would sometimes double one.
+  const detail =
+    firstFailure !== undefined && !firstFailure.outcome.ok
+      ? `: ${firstFailure.outcome.detail}`
+      : "";
+  process.stdout.write(
+    `${colors.dim(
+      `Enrichment unavailable for ${String(failed.length)} ${failed.length === 1 ? "entry" : "entries"}${detail}`,
+    )}\n`,
+  );
+}
+
+/**
+ * Renders the `--report=md` enrichment section: a heading, then a plain list
+ * of suggestions and failures.
+ *
+ * @remarks
+ * Not a `toMarkdownTable` row: a suggestion is prose, not a single scalar
+ * value, so forcing it into a two-column table would either truncate it or
+ * break the table on an embedded `|`. Appended after the existing topology
+ * table rather than replacing it, so an existing `--report=md` consumer that
+ * only reads that table is unaffected.
+ *
+ * @param findings - Every enriched declaration and its outcome.
+ * @param provider - Which provider ran, for the section heading.
+ * @returns The Markdown section text, or an empty string when there is
+ * nothing to enrich.
+ */
+function enrichmentMarkdown(
+  findings: readonly EnrichmentFinding[],
+  provider: EnrichProviderName,
+): string {
+  if (findings.length === 0) {
+    return "";
+  }
+
+  const lines = [`\n### Enrichment (\`--enrich=${provider}\`)\n`];
+  for (const { path, declaration, outcome } of findings) {
+    const where = `\`${path}:${String(declaration.line)}\` **${declaration.name}**`;
+    lines.push(
+      outcome.ok
+        ? `- ${where} — ${outcome.suggestion.split("\n").join(" ")}`
+        : `- ${where} — unavailable: ${outcome.detail}`,
+    );
+  }
+  return `${lines.join("\n")}\n`;
 }

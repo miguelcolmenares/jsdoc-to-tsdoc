@@ -21,6 +21,7 @@ import {
   type FileClassification,
   type Topology,
 } from "@/classifier";
+import type { EnrichmentOutcome } from "@/enricher";
 import type { Colors } from "@/reporter";
 
 /** One classified file. */
@@ -236,6 +237,52 @@ export function confidenceLine(summary: ClassifySummary): string {
   return CONFIDENCE_ORDER.map(
     (level) => `${level.toUpperCase()} ${String(summary.byConfidence[level])}`,
   ).join(" · ");
+}
+
+/** One target `--enrich` asked a provider about, and what came back. */
+export interface EnrichmentFinding {
+  /** Path to the file, relative to the scanned directory. */
+  readonly path: string;
+  /** The flagged declaration. */
+  readonly declaration: DeclarationClassification;
+  /** The provider's suggestion, or the reason it could not produce one. */
+  readonly outcome: EnrichmentOutcome;
+}
+
+/**
+ * Pairs every enriched declaration with its outcome, in scan order.
+ *
+ * @remarks
+ * Additive to the existing report shape: this reads `outcomes` (built by
+ * `enricher.enrichTargets`, keyed by declaration) alongside the same
+ * `summary.files` walk {@link staleFindings} already does, rather than
+ * changing what {@link DeclarationClassification} or {@link ClassifySummary}
+ * carry. Nothing here runs, and no entry is produced, unless a caller already
+ * ran the enrichment step and passed its `outcomes` map in — `--enrich`
+ * absent means an empty map, which yields an empty result.
+ *
+ * @param summary - The run summary.
+ * @param outcomes - Every target's outcome, keyed by its declaration (as
+ * returned by `enricher.enrichTargets`).
+ * @returns One finding per declaration present in `outcomes`, in scan order.
+ */
+export function enrichmentFindings(
+  summary: ClassifySummary,
+  outcomes: ReadonlyMap<DeclarationClassification, EnrichmentOutcome>,
+): readonly EnrichmentFinding[] {
+  const findings: EnrichmentFinding[] = [];
+
+  for (const { path, classification } of summary.files) {
+    if (classification === null) continue;
+    for (const declaration of classification.declarations) {
+      const outcome = outcomes.get(declaration);
+      if (outcome !== undefined) {
+        findings.push({ path, declaration, outcome });
+      }
+    }
+  }
+
+  return findings;
 }
 
 /**

@@ -121,6 +121,7 @@ npx jsdoc-to-tsdoc escalate --check
 | `--only <globs>` | `scan`, `convert`, `scaffold`, `check` | Comma-separated globs to include (e.g. `"src/lib/**"`). |
 | `--exclude <globs>` | `scan`, `convert`, `scaffold`, `check` | Comma-separated globs to exclude (e.g. `"**/*.test.ts"`). |
 | `--report <fmt>` | all | Machine-readable output: `json` or `md` (written to stdout). |
+| `--enrich <provider>` | `scan` | Ask an LLM to suggest documentation for LOW-confidence and STALE exports (implies `--classify`): `copilot`, `ollama`, or `anthropic`. **Off by default.** |
 
 ### Which commands look at test files
 
@@ -200,6 +201,46 @@ Files with nothing to document are counted apart from valid ones, which would ot
 `--report=json` lists **every** scanned file, including those, with `topology: null`. `files.length` always equals `filesScanned`, so the array can be reconciled against the totals. Test paths are skipped by default, because the ESLint config `init` writes turns both TSDoc rules off for them.
 
 The human report shows the summary plus the stale findings; `--report=json` carries the full per-declaration detail, gaps included.
+
+## What `scan --classify --enrich` does
+
+**Off by default.** `scan --classify` never calls an LLM on its own — this is
+the opt-in second opinion for the two buckets a person still has to act on by
+hand: LOW-confidence exports (`No docs`, `Line comments`) and `Stale docs`.
+Passing `--enrich=copilot|ollama|anthropic` implies `--classify`; omitting the
+flag entirely means the command never imports, constructs, or calls into the
+provider code at all — the deterministic pipeline (`scaffold`'s name
+inference, `convert`'s mechanical rewrites) stays fully usable with zero LLM
+dependency either way.
+
+```bash
+npx jsdoc-to-tsdoc scan --classify --enrich=ollama
+```
+
+| Provider | Needs | Notes |
+| ------ | ------ | ------ |
+| `copilot` | The GitHub Copilot CLI (`copilot`) on `$PATH` | No API key managed by this tool — the CLI handles its own auth. |
+| `ollama` | A local Ollama daemon (`ollama serve`) | No API key. Reads `OLLAMA_HOST` (default `http://localhost:11434`) and `OLLAMA_MODEL` (default `llama3.1`). |
+| `anthropic` | `ANTHROPIC_API_KEY` in the environment | Also needs `@anthropic-ai/sdk` installed — see below. Reads `ANTHROPIC_MODEL` (default `claude-opus-5`). |
+
+A suggestion is a proposal, never a write: `scan` stays read-only, and the
+suggested comment is surfaced as an additional `enrichment` field on the
+flagged declaration in the human table, `--report=json`, and `--report=md` —
+nothing here writes to a source file. A provider that is not set up — the CLI
+missing, the daemon unreachable, no API key — reports each target it could not
+enrich rather than crashing the command:
+
+```text
+Enrichment (--enrich=ollama) — 0/1 suggestion(s):
+Enrichment unavailable for 1 entry: Ollama is not reachable at http://localhost:11434: fetch failed
+```
+
+`@anthropic-ai/sdk` is a `devDependency` of this package, not a `dependency` —
+it is imported only from inside the `anthropic` provider, behind a dynamic
+`import()`, so a project that never passes `--enrich=anthropic` does not
+download it and it never enters the published bundle. To use
+`--enrich=anthropic`, install it yourself: `npm install @anthropic-ai/sdk`
+(or `-D`, since it is only needed at the moment the flag runs).
 
 ## What `convert` does
 
