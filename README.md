@@ -691,3 +691,7 @@ Prettier formats TypeScript and JSON, never Markdown — see [`.prettierignore`]
 ## License
 
 [MIT](./LICENSE)
+
+---
+
+Made by [Miguel Colmenares](https://github.com/miguelcolmenares)
