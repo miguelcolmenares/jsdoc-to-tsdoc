@@ -1,8 +1,49 @@
 # jsdoc-to-tsdoc
 
-CLI tool to migrate JSDoc comments to the [TSDoc](https://tsdoc.org/) standard in TypeScript projects.
+[![npm version](https://img.shields.io/npm/v/jsdoc-to-tsdoc.svg)](https://www.npmjs.com/package/jsdoc-to-tsdoc)
+[![CI](https://github.com/miguelcolmenares/jsdoc-to-tsdoc/actions/workflows/ci.yml/badge.svg)](https://github.com/miguelcolmenares/jsdoc-to-tsdoc/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+
+CLI tool to migrate JSDoc comments to the [TSDoc](https://tsdoc.org/) standard in TypeScript projects. Also ships as a [GitHub Action](https://github.com/marketplace/actions/jsdoc-to-tsdoc-check) that wraps the same `check`/`scan` gate for CI.
 
 > **Status: Stable.** Published on npm as [`jsdoc-to-tsdoc`](https://www.npmjs.com/package/jsdoc-to-tsdoc). Every command in the CLI contract ships: the full `init → convert → scaffold → escalate` workflow plus the `check` CI gate, dogfooded end-to-end on a 5th real repo. See [`CHANGELOG.md`](./CHANGELOG.md) for release history and [open issues labeled `future`](https://github.com/miguelcolmenares/jsdoc-to-tsdoc/issues?q=is%3Aissue+is%3Aopen+label%3Afuture) for what's deliberately deferred.
+
+## Quick Start
+
+**Landed here from the GitHub Marketplace?** You want the Action, not the CLI install
+instructions below — drop this in a workflow and skip to [GitHub Action](#github-action)
+for every input:
+
+```yaml
+- uses: miguelcolmenares/jsdoc-to-tsdoc@v1
+  with:
+    command: check
+```
+
+**Migrating a project by hand, or wiring the CLI into your own script instead?** Keep
+reading — [Installation](#installation) covers `npx`/`yarn dlx`/`pnpm dlx`, and
+[Usage](#usage) walks the `init → convert → scaffold → escalate` workflow.
+
+## Table of Contents
+
+- [The Problem](#the-problem)
+- [Installation](#installation)
+  - [Using `check` in CI](#using-check-in-ci)
+- [Usage](#usage)
+  - [Options](#options)
+- [What `init` does](#what-init-does)
+- [What `scan --classify` does](#what-scan---classify-does)
+- [What `scan --classify --enrich` does](#what-scan---classify---enrich-does)
+- [What `convert` does](#what-convert-does)
+- [What `scaffold` does](#what-scaffold-does)
+- [What `escalate` does](#what-escalate-does)
+- [What `check` does](#what-check-does)
+- [CI integration](#ci-integration)
+  - [GitHub Action](#github-action)
+  - [Bitbucket Pipe](#bitbucket-pipe)
+- [Development](#development)
+  - [Git hooks](#git-hooks)
+- [License](#license)
 
 ## The Problem
 
@@ -548,8 +589,10 @@ their own success/failure.
 
 ### GitHub Action
 
-A composite action at the repo root (`action.yml`), usable directly as
-`miguelcolmenares/jsdoc-to-tsdoc@main` (or pin a tag once one is cut):
+Also [listed on the GitHub Marketplace](https://github.com/marketplace/actions/jsdoc-to-tsdoc-check).
+A composite action at the repo root (`action.yml`), usable as
+`miguelcolmenares/jsdoc-to-tsdoc@v1` — the moving major tag, updated on every
+non-breaking release — or pin an exact `@v1.0.0` for full reproducibility:
 
 ```yaml
 # .github/workflows/tsdoc.yml
@@ -564,7 +607,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: miguelcolmenares/jsdoc-to-tsdoc@main
+      - uses: miguelcolmenares/jsdoc-to-tsdoc@v1
         with:
           command: check
           version: "1.0.0" # pin for a reproducible gate
@@ -573,7 +616,7 @@ jobs:
 Or the documentation-gap gate:
 
 ```yaml
-      - uses: miguelcolmenares/jsdoc-to-tsdoc@main
+      - uses: miguelcolmenares/jsdoc-to-tsdoc@v1
         with:
           command: scan
           version: "1.0.0"
@@ -647,4 +690,8 @@ Prettier formats TypeScript and JSON, never Markdown — see [`.prettierignore`]
 
 ## License
 
-MIT
+[MIT](./LICENSE)
+
+---
+
+Made by [Miguel Colmenares](https://github.com/miguelcolmenares)
