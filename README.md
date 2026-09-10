@@ -2,7 +2,7 @@
 
 CLI tool to migrate JSDoc comments to the [TSDoc](https://tsdoc.org/) standard in TypeScript projects.
 
-> **Status: Alpha.** Published on npm as [`jsdoc-to-tsdoc`](https://www.npmjs.com/package/jsdoc-to-tsdoc). Every command in the CLI contract ships: the full `init → convert → scaffold → escalate` workflow plus the `check` CI gate, dogfooded end-to-end on a 5th real repo. See [`CHANGELOG.md`](./CHANGELOG.md) for release history and [open issues labeled `future`](https://github.com/miguelcolmenares/jsdoc-to-tsdoc/issues?q=is%3Aissue+is%3Aopen+label%3Afuture) for what's deliberately deferred.
+> **Status: Stable.** Published on npm as [`jsdoc-to-tsdoc`](https://www.npmjs.com/package/jsdoc-to-tsdoc). Every command in the CLI contract ships: the full `init → convert → scaffold → escalate` workflow plus the `check` CI gate, dogfooded end-to-end on a 5th real repo. See [`CHANGELOG.md`](./CHANGELOG.md) for release history and [open issues labeled `future`](https://github.com/miguelcolmenares/jsdoc-to-tsdoc/issues?q=is%3Aissue+is%3Aopen+label%3Afuture) for what's deliberately deferred.
 
 ## The Problem
 
