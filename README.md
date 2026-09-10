@@ -690,4 +690,4 @@ Prettier formats TypeScript and JSON, never Markdown — see [`.prettierignore`]
 
 ## License
 
-MIT
+[MIT](./LICENSE)
