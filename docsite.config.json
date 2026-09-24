@@ -18,7 +18,29 @@
         "label": "Docs",
         "singular": "document",
         "source": {
-          "files": ["README.md", "CHANGELOG.md"]
+          "dir": "docs",
+          "layout": "files",
+          "suffix": ".md"
+        }
+      },
+      {
+        "id": "examples",
+        "label": "Examples",
+        "singular": "example",
+        "source": {
+          "dir": "docs/examples",
+          "layout": "files",
+          "suffix": ".md"
+        }
+      },
+      {
+        "id": "tutorials",
+        "label": "Tutorials",
+        "singular": "tutorial",
+        "source": {
+          "dir": "docs/tutorials",
+          "layout": "files",
+          "suffix": ".md"
         }
       }
     ]
