@@ -1,5 +1,5 @@
 {
-  "docsiteVersion": "0.4.0",
+  "docsiteVersion": "0.5.0",
   "items": {
     "badge": {
       "src/components/ui/badge.tsx": "59953420d01d23d172b4e32583426db153ff09226e2d460d53526b9f25282801"
@@ -113,5 +113,9 @@
       "src/components/ui/tabs.tsx": "b977274550595594055d850a16775c75761765e1cd76b4827e101c2f432762df"
     },
     "docsite-base": {}
+  },
+  "cli": {
+    "mode": "npx",
+    "version": "0.5.0"
   }
 }

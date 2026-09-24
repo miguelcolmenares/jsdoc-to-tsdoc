@@ -31,6 +31,9 @@ GitHub Pages from a private repository is public unless the organization restric
 There is no generated workflow yet. Create `.github/workflows/deploy-site.yml` modelled on an existing site: trigger on pushes to the default branch that touch `site/**` and the documented sources, and on `workflow_dispatch`.
 
 ```yaml
+env:
+  NPM_GITHUB_TOKEN: ${{ secrets.NPM_GITHUB_TOKEN }}
+
 permissions:
   contents: read
   packages: read
@@ -46,8 +49,6 @@ steps:
       cache-dependency-path: site/package-lock.json
   - name: Install site dependencies
     working-directory: site
-    env:
-      NPM_GITHUB_TOKEN: ${{ secrets.NPM_GITHUB_TOKEN }}
     run: npm ci
   - name: Build site
     working-directory: site
@@ -73,7 +74,7 @@ then a `deploy` job with `environment: github-pages` and `actions/deploy-pages@v
 
 Points that break deploys:
 
-- `npm ci` needs `NPM_GITHUB_TOKEN` in its environment, because the site depends on a package in GitHub Packages. The repository needs that secret. Ask the user to set it, never ask for its value.
+- `NPM_GITHUB_TOKEN` must be in the environment of every step, so set it on the job. The site scripts run the CLI through `npx`, which comes from GitHub Packages, and npm refuses to run at all when `site/.npmrc` reads a variable that is undefined. The repository needs that secret. Ask the user to set it, never ask for its value.
 - `VITE_BASE_PATH` must be `/<repository-name>/` for a project site, or assets 404.
 - `404.html` is a copy of `index.html`, which is what makes deep links work on a single-page app.
 - `check:publish` runs after the build because it scans `dist`. `GH_TOKEN` lets `gh repo view` answer, otherwise set `repositoryVisibility` in the config.

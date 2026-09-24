@@ -4,14 +4,14 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "generate-content": "npx --yes @silverassist/docsite@0.4.0 extract",
+    "generate-content": "node scripts/docsite.mjs extract",
     "predev": "npm run generate-content",
     "dev": "vite",
     "prebuild": "npm run generate-content",
     "build": "tsc -b && vite build",
     "postbuild": "node -e \"require('node:fs').copyFileSync('dist/index.html','dist/404.html')\"",
     "lint": "oxlint",
-    "check:publish": "npx --yes @silverassist/docsite@0.4.0 check --dist dist",
+    "check:publish": "node scripts/docsite.mjs check --dist dist",
     "preview": "vite preview"
   },
   "dependencies": {

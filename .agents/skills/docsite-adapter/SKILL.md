@@ -22,6 +22,8 @@ Point the config at a module and let it run a built-in first:
 { "adapter": { "module": "./scripts/docsite-adapter.mjs" }, "options": { "collections": [] } }
 ```
 
+By default the site does not install the CLI, so `import from "@silverassist/docsite"` does not resolve. An adapter that wraps a built-in, as below, needs it installed: run `npx @silverassist/docsite upgrade --mode dependency` first and tell the user, because it puts the package back in the site's devDependencies. An adapter that builds the content itself needs no import.
+
 ```js
 import { markdownCatalog } from "@silverassist/docsite";
 

@@ -24,8 +24,8 @@ Run each one and record the evidence, not just a verdict.
 
 4. **Design rules.** Search `site/src` for what the design forbids: light-theme or theme-toggle code, shadows and gradients on site components, solid gray borders, hand-copied content in pages, arbitrary Tailwind values where a scale value exists, edits to `generated.json` or `index.css`.
 5. **Anonymization.** `npm run build && npm run check:publish` in `site/`. Then read `.agents/skills/docsite-anonymize-review/SKILL.md` and review the published content against it. State which of the two you did: the mechanical rules, the human review, or both.
-6. **CLI version.** Compare the `@silverassist/docsite` devDependency in `site/package.json` with `npm view @silverassist/docsite version`, and read the package CHANGELOG between them for changes that matter.
-7. **Deploy.** A workflow builds `site/`, runs `npm run check:publish` after the build, gives `npm ci` the `NPM_GITHUB_TOKEN` secret, sets `VITE_BASE_PATH` and copies `index.html` to `404.html`. See `.agents/skills/docsite-publish/SKILL.md`.
+6. **CLI version.** Compare `cli.version` in `site/.docsite.json` (the release the site pins, or the devDependency in `site/package.json` on a site from before 0.5.0 that has no `cli` yet) with `npm view @silverassist/docsite version`, and read the package CHANGELOG between them for changes that matter. To move on, `npx @silverassist/docsite@latest upgrade` from the repository root. A script that still calls `docsite` directly, or a devDependency the site does not need, is drift that `upgrade` fixes.
+7. **Deploy.** A workflow builds `site/`, runs `npm run check:publish` after the build, has `NPM_GITHUB_TOKEN` in the environment of the whole job, sets `VITE_BASE_PATH` and copies `index.html` to `404.html`. See `.agents/skills/docsite-publish/SKILL.md`.
 8. **Visibility.** If the repository is private and the deploy target is GitHub Pages, `acknowledgePublicPages` must be `true` and the decision must be written down somewhere the team can find it. Report if either is missing.
 
 ## Report
