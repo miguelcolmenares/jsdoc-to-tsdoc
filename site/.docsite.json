@@ -1,5 +1,5 @@
 {
-  "docsiteVersion": "0.6.0",
+  "docsiteVersion": "0.7.0",
   "items": {
     "badge": {
       "src/components/ui/badge.tsx": "59953420d01d23d172b4e32583426db153ff09226e2d460d53526b9f25282801"
@@ -98,7 +98,7 @@
       "src/components/site/site-header.tsx": "d389a80a734f421016c718a184da8f8ac1bebff7f96db755a1bee63142fe94a9"
     },
     "site-footer": {
-      "src/components/site/site-footer.tsx": "1f8a899f5fc7854ed227d0909cfd3d1f1e400ec3abcf43ac6be6f0eef2824438"
+      "src/components/site/site-footer.tsx": "74c50a6c732a76ad88001bb550e03887ac16e9664fb36fc07375128d0cb8a5b5"
     },
     "sonner": {
       "src/components/ui/sonner.tsx": "2dd975ad2170ba2570b00e58713dcbda90f26a7fffdaceb1ef7255f450c2d2a6"
@@ -116,6 +116,6 @@
   },
   "cli": {
     "mode": "npx",
-    "version": "0.6.0"
+    "version": "0.7.0"
   }
 }

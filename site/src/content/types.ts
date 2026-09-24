@@ -59,6 +59,12 @@ export interface Collection {
   items: Item[];
 }
 
+/** A link shown in the site's footer, to a page outside the site. */
+export interface MetaLink {
+  label: string;
+  href: string;
+}
+
 /** Facts about the documented project. */
 export interface ContentMeta {
   name: string;
@@ -69,6 +75,8 @@ export interface ContentMeta {
   homepage?: string;
   license?: string;
   installCommand?: string;
+  /** Footer links to pages outside the site: the license, how to contribute, where to report an issue. */
+  links?: MetaLink[];
   /** Free-form usage notes published by the source, for example an MCP server's instructions. */
   instructions?: string;
 }

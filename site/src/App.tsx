@@ -55,18 +55,7 @@ export default function App() {
           installCommand={meta.installCommand}
           columns={[
             { title: "Catalog", links: NAV_LINKS },
-            ...(repository
-              ? [
-                  {
-                    title: "Project",
-                    links: [
-                      { label: "Contribute", href: `${repository}/blob/main/CONTRIBUTING.md` },
-                      { label: "License", href: `${repository}/blob/main/LICENSE` },
-                      { label: "Report an issue", href: `${repository}/issues` },
-                    ],
-                  },
-                ]
-              : []),
+            ...(meta.links?.length ? [{ title: "Project", links: meta.links }] : []),
           ]}
           repository={repository}
           license={meta.license}

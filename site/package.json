@@ -8,8 +8,7 @@
     "predev": "npm run generate-content",
     "dev": "vite",
     "prebuild": "npm run generate-content",
-    "build": "tsc -b && vite build",
-    "postbuild": "node -e \"require('node:fs').copyFileSync('dist/index.html','dist/404.html')\"",
+    "build": "tsc -b && vite build && vite build --ssr src/entry-server.tsx --outDir dist-ssr && node scripts/prerender.mjs",
     "lint": "oxlint",
     "check:publish": "node scripts/docsite.mjs check --dist dist",
     "preview": "vite preview"

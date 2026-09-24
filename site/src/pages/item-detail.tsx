@@ -5,11 +5,13 @@ import { MetaCard } from "@/components/catalog/meta-card";
 import { SchemaTable } from "@/components/catalog/schema-table";
 import { ToneBadge } from "@/components/catalog/tone-badge";
 import { findCollection, groupTone } from "@/lib/collections";
+import { usePageTitle } from "@/lib/head";
 
 export function ItemDetail() {
   const { collectionId, slug } = useParams();
   const collection = findCollection(collectionId);
   const item = collection?.items.find((entry) => entry.slug === slug);
+  usePageTitle(`${collectionId}/${slug}`);
 
   if (!collection) return <Navigate to="/" replace />;
   if (!item) return <Navigate to={`/${collection.id}`} replace />;

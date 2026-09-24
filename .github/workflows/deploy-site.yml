@@ -54,11 +54,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: npm run check:publish
 
-      - name: Add SPA fallback and disable Jekyll
+      # The build prerenders the pages and writes dist/404.html, so there is no fallback to copy.
+      - name: Disable Jekyll
         working-directory: site/dist
-        run: |
-          cp index.html 404.html
-          touch .nojekyll
+        run: touch .nojekyll
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5

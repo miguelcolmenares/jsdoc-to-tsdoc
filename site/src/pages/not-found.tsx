@@ -1,7 +1,9 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { useTitle } from "@/lib/head";
 
 export function NotFound() {
+  useTitle("Page not found");
   return (
     <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-4 py-32 text-center sm:px-6">
       <span className="font-mono text-sm text-muted-foreground">404</span>

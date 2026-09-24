@@ -60,11 +60,9 @@ steps:
     env:
       GH_TOKEN: ${{ github.token }}
     run: npm run check:publish
-  - name: Add SPA fallback and disable Jekyll
+  - name: Disable Jekyll
     working-directory: site/dist
-    run: |
-      cp index.html 404.html
-      touch .nojekyll
+    run: touch .nojekyll
   - uses: actions/upload-pages-artifact@v5
     with:
       path: site/dist
@@ -76,7 +74,7 @@ Points that break deploys:
 
 - `NPM_GITHUB_TOKEN` must be in the environment of every step, so set it on the job. The site scripts run the CLI through `npx`, which comes from GitHub Packages, and npm refuses to run at all when `site/.npmrc` reads a variable that is undefined. The repository needs that secret. Ask the user to set it, never ask for its value.
 - `VITE_BASE_PATH` must be `/<repository-name>/` for a project site, or assets 404.
-- `404.html` is a copy of `index.html`, which is what makes deep links work on a single-page app.
+- The build prerenders every page, so a deep link is a real file served with a 200 and its own title, and `dist/404.html` is the app shell that answers any other address. Do not add a step that copies `index.html` to `404.html`: it would replace the 404 page with the home page. A site made before 0.7.0 gets prerendering with `npx @silverassist/docsite upgrade --template`, which also warns about such a step.
 - `check:publish` runs after the build because it scans `dist`. `GH_TOKEN` lets `gh repo view` answer, otherwise set `repositoryVisibility` in the config.
 - The repository's Pages setting must use "GitHub Actions" as the source.
 

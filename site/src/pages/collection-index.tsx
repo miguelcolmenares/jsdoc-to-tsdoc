@@ -5,6 +5,7 @@ import { FilterBar } from "@/components/catalog/filter-bar";
 import { PageHeader } from "@/components/catalog/page-header";
 import { ToneBadge } from "@/components/catalog/tone-badge";
 import { findCollection, groupTone } from "@/lib/collections";
+import { usePageTitle } from "@/lib/head";
 import { NotFound } from "@/pages/not-found";
 
 export function CollectionIndex() {
@@ -12,6 +13,7 @@ export function CollectionIndex() {
   const collection = findCollection(collectionId);
   const [query, setQuery] = useState("");
   const [group, setGroup] = useState("All");
+  usePageTitle(collectionId ?? "");
 
   const filtered = useMemo(() => {
     const needle = query.toLowerCase();

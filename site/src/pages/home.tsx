@@ -9,11 +9,13 @@ import { AdoptSection } from "@/components/site/adopt-section";
 import { Button } from "@/components/ui/button";
 import { collections, meta } from "@/content";
 import { groupTone } from "@/lib/collections";
+import { usePageTitle } from "@/lib/head";
 
 const FEATURED = 6;
 
 export function Home() {
   const first = collections[0];
+  usePageTitle("");
 
   return (
     <>
