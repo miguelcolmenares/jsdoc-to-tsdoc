@@ -1,5 +1,5 @@
 {
-  "docsiteVersion": "0.7.0",
+  "docsiteVersion": "0.7.1",
   "files": {
     ".agents/skills/docsite-adapter/SKILL.md": "8157668204040894582210a630ec55fb845a0bd26bd948bdc4f7f61f82ccba72",
     ".agents/skills/docsite-anonymize-review/SKILL.md": "26db6d3f793e934e31354813dc7b2d1aad400ae7660d8c149e4c24f6cf8bae8c",
