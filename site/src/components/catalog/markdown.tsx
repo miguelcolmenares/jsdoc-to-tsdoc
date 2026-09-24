@@ -1,4 +1,5 @@
 import ReactMarkdown from "react-markdown";
+import { Link } from "react-router-dom";
 import rehypeRaw from "rehype-raw";
 import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
@@ -14,6 +15,18 @@ export function Markdown({ children }: { children: string }) {
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeRaw, rehypeSlug]}
         components={{
+          // A link that starts with a single `/` is a route of this site, which `docsite extract` writes
+          // when it rewrites a relative link to another document. `Link` keeps the navigation inside the
+          // app and adds the router's base path, so it works under a GitHub Pages subpath.
+          a: ({ href, children }) => {
+            if (href?.startsWith("/") && !href.startsWith("//")) return <Link to={href}>{children}</Link>;
+            const external = href !== undefined && /^https?:\/\//.test(href);
+            return (
+              <a href={href} {...(external && { target: "_blank", rel: "noreferrer" })}>
+                {children}
+              </a>
+            );
+          },
           // Fenced blocks own their full presentation below — no double <pre>.
           pre: ({ children }) => <>{children}</>,
           // A markdown table's columns don't shrink below their content's natural

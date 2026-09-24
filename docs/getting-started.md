@@ -32,7 +32,7 @@ The `{string}` and `{Promise<Lead>}` repeat what the signature already says, `@r
  */
 ```
 
-The page "JSDoc vs TSDoc" lists every difference the tool knows about and why each one exists.
+The page [JSDoc vs TSDoc](./jsdoc-vs-tsdoc.md) lists every difference the tool knows about and why each one exists.
 
 ## The workflow
 
@@ -40,14 +40,14 @@ Six commands, in this order. Only three of them write to your files, and every o
 
 | Step | Command | What it does | Writes files |
 | ---- | ------- | ------------ | ------------ |
-| 1 | `init` | Sets up `tsdoc.json` and the ESLint rules, without touching a single comment | Config only |
-| 2 | `scan` | Reports how your documentation looks today | No |
-| 3 | `convert` | Rewrites JSDoc into TSDoc, deterministically | Yes, `--dry-run` previews |
-| 4 | `scaffold` | Adds a stub to every export that has no documentation | Yes, `--dry-run` previews |
-| 5 | `escalate` | Turns the "missing documentation" rule from a warning into an error | Config only |
-| 6 | `check` | The CI gate: validates every comment and reports what is missing | No |
+| 1 | [`init`](./init.md) | Sets up `tsdoc.json` and the ESLint rules, without touching a single comment | Config only |
+| 2 | [`scan`](./scan.md) | Reports how your documentation looks today | No |
+| 3 | [`convert`](./convert.md) | Rewrites JSDoc into TSDoc, deterministically | Yes, `--dry-run` previews |
+| 4 | [`scaffold`](./scaffold.md) | Adds a stub to every export that has no documentation | Yes, `--dry-run` previews |
+| 5 | [`escalate`](./escalate.md) | Turns the "missing documentation" rule from a warning into an error | Config only |
+| 6 | [`check`](./check.md) | The CI gate: validates every comment and reports what is missing | No |
 
-The Tutorials section walks through all six on a small project, with the real output of each command.
+The tutorial [Migrate a JSDoc codebase to TSDoc](./tutorials/migrate-jsdoc-to-tsdoc.md) walks through all six on a small project, with the real output of each command.
 
 ## Run it without installing
 
@@ -91,6 +91,6 @@ Every command uses the same four codes, which is what makes them usable in CI.
 
 ## Where to go next
 
-- New to TSDoc: read "JSDoc vs TSDoc", then follow the tutorial "Migrate a JSDoc codebase to TSDoc".
-- Adding the gate to a pipeline: "CI integration" and the tutorial "Add the TSDoc gate to CI".
-- Looking for one command: `init`, `scan`, `convert`, `scaffold`, `escalate` and `check` each have a page, and "CLI reference" lists every flag.
+- New to TSDoc: read [JSDoc vs TSDoc](./jsdoc-vs-tsdoc.md), then follow the tutorial [Migrate a JSDoc codebase to TSDoc](./tutorials/migrate-jsdoc-to-tsdoc.md).
+- Adding the gate to a pipeline: [CI integration](./ci-integration.md) and the tutorial [Add the TSDoc gate to CI](./tutorials/add-the-gate-to-ci.md).
+- Looking for one command: [`init`](./init.md), [`scan`](./scan.md), [`convert`](./convert.md), [`scaffold`](./scaffold.md), [`escalate`](./escalate.md) and [`check`](./check.md) each have a page, and the [CLI reference](./cli-reference.md) lists every flag.

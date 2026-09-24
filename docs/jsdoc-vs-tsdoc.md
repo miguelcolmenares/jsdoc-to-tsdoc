@@ -35,7 +35,7 @@ Strictness is the point. A comment that a strict parser accepts is a comment eve
 | a bare `@example` body | the body in a code fence | `{`, `<`, `>` and `@` in sample code are read as TSDoc syntax |
 | `@/lib/thing` in prose | `` `@/lib/thing` `` | A bare `@` in a sentence starts a tag |
 
-Each row has a page of its own in Examples, with the before and after taken from a real run.
+Each row has an example with the before and after taken from a real run, starting with [Parameters, returns and throws](./examples/params-and-returns.md), and the [`convert` page](./convert.md) lists every rule.
 
 ## What the tool does not change
 

@@ -75,3 +75,7 @@ The same idea applies outside `@example`. A path alias or a scoped package menti
 ```
 
 A tag that opens a line is left alone, as is anything already inside a code span or a fence.
+
+## See also
+
+The [`convert` page](../convert.md) and [Reading check errors](./check-error-codes.md), for the rule ids these errors carry.

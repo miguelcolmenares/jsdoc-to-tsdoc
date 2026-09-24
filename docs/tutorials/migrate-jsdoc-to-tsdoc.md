@@ -297,6 +297,6 @@ From 36 problems to none, in three commands that write and three that only read.
 
 ## Next
 
-- "Fill in the generated stubs" turns the `TODO(tsdoc)` markers into documentation.
-- "Lock the migration in with escalate" makes missing documentation fail the build.
-- "Add the TSDoc gate to CI" runs `check` on every pull request.
+- [Fill in the generated stubs](./fill-in-the-stubs.md) turns the `TODO(tsdoc)` markers into documentation.
+- [Lock the migration in with escalate](./lock-the-migration-in.md) makes missing documentation fail the build.
+- [Add the TSDoc gate to CI](./add-the-gate-to-ci.md) runs `check` on every pull request.

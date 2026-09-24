@@ -42,3 +42,7 @@ npx jsdoc-to-tsdoc check --report=json
 ```
 
 The JSON carries every finding with its file, position, category and rule id, plus `tsdocConfigs` listing every `tsdoc.json` that was applied. It is the right input for a dashboard or a script that opens issues.
+
+## See also
+
+The [`check` page](../check.md), and the tutorial [Add the TSDoc gate to CI](../tutorials/add-the-gate-to-ci.md).

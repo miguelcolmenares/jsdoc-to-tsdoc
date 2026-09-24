@@ -96,3 +96,9 @@ Only `check` resolves configs this way today. `init`, `convert`, `scaffold` and 
 | `--only <globs>`, `--exclude <globs>` | Limit the files |
 | `--report <fmt>` | `json` or `md` on stdout |
 | `--cwd <dir>` | Project directory, default `.` |
+
+## See also
+
+- [Reading check errors](./examples/check-error-codes.md), a guide to the rule ids.
+- [A tsdoc.json per package](./examples/monorepo-tsdoc-json.md), for workspaces.
+- [CI integration](./ci-integration.md) and the tutorial [Add the TSDoc gate to CI](./tutorials/add-the-gate-to-ci.md).

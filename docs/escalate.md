@@ -72,3 +72,8 @@ Git deliberately does not let a committed file register an executable, because t
 npx jsdoc-to-tsdoc check          # full gate: syntax, missing, legacy
 npx jsdoc-to-tsdoc escalate --check   # exit 0 once the rule is at "error"
 ```
+
+## See also
+
+- [Lock the migration in with escalate](./tutorials/lock-the-migration-in.md), a step-by-step walkthrough.
+- [`check`](./check.md), the gate that runs alongside it.

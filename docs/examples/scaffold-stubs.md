@@ -160,3 +160,7 @@ export function slugify(input: string): string {
   return input.toLowerCase().replace(/\s+/g, "-");
 }
 ```
+
+## See also
+
+The [`scaffold` page](../scaffold.md) and the tutorial [Fill in the generated stubs](../tutorials/fill-in-the-stubs.md).

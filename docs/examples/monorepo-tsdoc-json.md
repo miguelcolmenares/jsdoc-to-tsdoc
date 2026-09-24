@@ -74,3 +74,7 @@ npx jsdoc-to-tsdoc convert --cwd packages/api
 npx jsdoc-to-tsdoc convert --cwd packages/ui
 npx jsdoc-to-tsdoc check
 ```
+
+## See also
+
+The [`check` page](../check.md) and [`init`](../init.md), which writes the root `tsdoc.json`.

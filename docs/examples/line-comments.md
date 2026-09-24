@@ -56,3 +56,7 @@ The words are the author's own. Nothing is recapitalised, repunctuated or summar
 | A bare `//` used as spacing | The empty comment it would produce satisfies the presence rule, and `check` would stop reporting the export without anything having been written |
 
 The flag is off by default because it is the only part of `convert` that rewrites lines that were not comments TSDoc recognised. Run it with `--dry-run` first and read the diff.
+
+## See also
+
+The [`convert` page](../convert.md), the [`scaffold` page](../scaffold.md), and [`scan`](../scan.md) for the "Line comments" bucket.

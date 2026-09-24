@@ -94,3 +94,8 @@ The variables are `COMMAND`, `VERSION`, `CWD`, `FAIL_ON_MISSING`, `FAIL_ON_STALE
 ## Exit codes in a pipeline
 
 Both wrappers run `npx jsdoc-to-tsdoc@<version> <command> <flags>` and pass the CLI's exit code through: `0` OK, `1` logic error, `2` parse failure, `3` violations.
+
+## See also
+
+- [Add the TSDoc gate to CI](./tutorials/add-the-gate-to-ci.md), a walkthrough from the first local run to a strict gate.
+- [`check`](./check.md) and [`scan`](./scan.md), the two commands that gate.

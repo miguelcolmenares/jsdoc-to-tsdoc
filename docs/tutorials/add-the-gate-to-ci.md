@@ -93,7 +93,7 @@ Read a line as `file`, then `line:column`, the category, the message and the rul
 npx jsdoc-to-tsdoc convert
 ```
 
-The example page "Reading check errors" lists the rule ids you will see most often and what fixes each.
+The example [Reading check errors](../examples/check-error-codes.md) lists the rule ids you will see most often and what fixes each.
 
 ## Step 5: tighten as you go
 
@@ -150,3 +150,7 @@ pipelines:
 - Start with a gate the project passes and tighten it, not the reverse.
 - Pin the version, in the workflow and not in `package.json`.
 - Exit code `3` means violations, and `2` means the configuration could not be read.
+
+## Next
+
+[Lock the migration in with escalate](./lock-the-migration-in.md), and the [CI integration](../ci-integration.md) reference for every action input.

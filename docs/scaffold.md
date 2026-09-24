@@ -111,3 +111,9 @@ Added 5 stub(s) across 2 file(s).
 ```
 
 Then read the generated prose. A stub that says "Slugify." is correct and unhelpful, which is exactly what the `TODO` marker is for.
+
+## See also
+
+- [Stubs for undocumented exports](./examples/scaffold-stubs.md), a worked example.
+- [Fill in the generated stubs](./tutorials/fill-in-the-stubs.md), for turning the `TODO(tsdoc)` markers into documentation.
+- [`convert`](./convert.md), which you run first.

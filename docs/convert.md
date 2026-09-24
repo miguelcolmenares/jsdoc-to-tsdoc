@@ -135,3 +135,9 @@ It is off by default, because it is the only part of `convert` that rewrites lin
 ## Safe to run twice
 
 A second run finds nothing to change. Together with `--dry-run`, that is what makes it reasonable to run on a large repository and review the result as a normal diff.
+
+## See also
+
+- Examples: [Parameters, returns and throws](./examples/params-and-returns.md), [Example blocks](./examples/example-blocks.md), [From @typedef to member comments](./examples/typedef-to-members.md) and [Promoting line comments](./examples/line-comments.md).
+- [Migrate a JSDoc codebase to TSDoc](./tutorials/migrate-jsdoc-to-tsdoc.md), where `convert` is step 3.
+- [JSDoc vs TSDoc](./jsdoc-vs-tsdoc.md), for why each difference exists.

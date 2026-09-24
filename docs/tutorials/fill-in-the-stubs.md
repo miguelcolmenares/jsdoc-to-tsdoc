@@ -90,7 +90,7 @@ npx jsdoc-to-tsdoc check
 grep -rn "TODO(tsdoc)" src | wc -l
 ```
 
-When that number is zero, you are done with the prose.
+When that number is zero, you are done with the prose. The [`scaffold` page](../scaffold.md) covers the flags that shape the stubs.
 
 ## Interface members
 
@@ -140,4 +140,4 @@ export default function Hero({ title, href }: HeroProps) {
 
 ## Next
 
-When the backlog is zero, "Lock the migration in with escalate" turns the presence rule into a build failure.
+When the backlog is zero, [Lock the migration in with escalate](./lock-the-migration-in.md) turns the presence rule into a build failure.

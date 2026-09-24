@@ -119,3 +119,9 @@ A suggestion is a proposal and never a write. It appears next to the flagged dec
 | `--include-tests` | Also inspect test paths, with `--classify` |
 | `--only <globs>`, `--exclude <globs>` | Comma-separated globs |
 | `--report <fmt>` | `json` or `md` |
+
+## See also
+
+- [`convert`](./convert.md) and [`scaffold`](./scaffold.md), the commands the classification points at.
+- [Promoting line comments](./examples/line-comments.md), for the "Line comments" bucket.
+- [Add the TSDoc gate to CI](./tutorials/add-the-gate-to-ci.md), for `--fail-on-missing` and `--fail-on-stale`.

@@ -69,3 +69,7 @@ export async function fetchLead(id: string, retries = 3): Promise<Lead> {
 | `@throws {SyntaxError}` | `@throws {@link SyntaxError}` | The thrown type appears nowhere else, so it becomes a link and is kept |
 
 The prose, "The lead identifier", "Number of attempts" and "The lead record", is unchanged. The tool moves syntax and never rewrites your sentences.
+
+## See also
+
+The [`convert` page](../convert.md) lists every rule, and [JSDoc vs TSDoc](../jsdoc-vs-tsdoc.md) explains why each one exists.

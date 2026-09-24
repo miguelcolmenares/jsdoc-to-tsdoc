@@ -1,5 +1,5 @@
 {
-  "docsiteVersion": "0.5.0",
+  "docsiteVersion": "0.6.0",
   "items": {
     "badge": {
       "src/components/ui/badge.tsx": "59953420d01d23d172b4e32583426db153ff09226e2d460d53526b9f25282801"
@@ -65,7 +65,7 @@
       "src/components/catalog/hero.tsx": "4be96a5b3740b24baea1e9765c5ccfc1ea24aeb2fce18bd47891e3306197d7c9"
     },
     "markdown": {
-      "src/components/catalog/markdown.tsx": "b2c908f466de352ce1da92703ef9692d73a1676560ce59a3002c69423c0fcd4e"
+      "src/components/catalog/markdown.tsx": "0a5ea5fe3a78615dc354163c0755dc845e68a51290cf256dad0cd978d7bd39a2"
     },
     "meta-card": {
       "src/components/catalog/meta-card.tsx": "dbf8cf4d4cf7d72ef8d159069c3aac9fe9a46ac27f2678201dfd7992e17a023b"
@@ -116,6 +116,6 @@
   },
   "cli": {
     "mode": "npx",
-    "version": "0.5.0"
+    "version": "0.6.0"
   }
 }

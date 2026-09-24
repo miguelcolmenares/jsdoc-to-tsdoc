@@ -129,3 +129,7 @@ Git does not let a committed file register a command, because that would let any
 ## You are done
 
 The project now migrates, gates and locks. New code has to be valid TSDoc, has to have a comment on every export, and cannot quietly turn either requirement down.
+
+## See also
+
+The [`escalate` page](../escalate.md) and [Add the TSDoc gate to CI](./add-the-gate-to-ci.md).

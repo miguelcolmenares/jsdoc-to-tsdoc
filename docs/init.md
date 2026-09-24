@@ -101,3 +101,8 @@ For any other shape it does not guess. It prints a snippet you can paste, and le
 git diff            # the ESLint and tsdoc.json changes, and nothing else
 npx eslint src      # runs with the new rules once the four packages are installed
 ```
+
+## See also
+
+- [Migrate a JSDoc codebase to TSDoc](./tutorials/migrate-jsdoc-to-tsdoc.md), where `init` is step 2.
+- [`convert`](./convert.md), the next step, and the [CLI reference](./cli-reference.md).

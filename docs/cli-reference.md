@@ -73,3 +73,7 @@ Not all of them, and the split is deliberate. `init` writes an ESLint config tha
 ## Runtimes
 
 The commands run through `npx`, `yarn dlx` and `pnpm dlx`, and all three are tested against a packed tarball on real projects, not assumed to be equivalent.
+
+## See also
+
+[`init`](./init.md), [`scan`](./scan.md), [`convert`](./convert.md), [`scaffold`](./scaffold.md), [`escalate`](./escalate.md) and [`check`](./check.md) each explain what they do and why.

@@ -65,3 +65,7 @@ The third case covers shapes with nothing to attach a comment to, such as the el
   */
  export const LOCALES = [{ code: "en", label: "English" }];
 ```
+
+## See also
+
+The [`convert` page](../convert.md), and [Parameters, returns and throws](./params-and-returns.md) for the tags around it.
