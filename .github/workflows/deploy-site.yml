@@ -35,7 +35,7 @@ jobs:
           cache: npm
           cache-dependency-path: site/package-lock.json
 
-      # @silverassist/docsite is in GitHub Packages, so this needs the NPM_GITHUB_TOKEN secret.
+      # The docsite package is in GitHub Packages, so this needs the NPM_GITHUB_TOKEN secret.
       - name: Install site dependencies
         working-directory: site
         env:

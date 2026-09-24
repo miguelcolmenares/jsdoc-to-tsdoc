@@ -53,7 +53,7 @@ jobs:
             exit 1
           fi
 
-  # The docs site is its own project. It depends on @silverassist/docsite, which lives in GitHub
+  # The docs site is its own project. It depends on the docsite package, which lives in GitHub
   # Packages, so installing it needs the NPM_GITHUB_TOKEN secret. A pull request from a fork gets
   # no secrets, so the job is skipped there instead of failing.
   docs-site:

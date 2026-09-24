@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **A documentation site** built from `README.md` and `CHANGELOG.md` with `@silverassist/docsite`, in `site/` with its own dependencies. CI builds it and runs the publish check (skipped for pull requests from forks, which get no secrets), and `deploy-site.yml` publishes it to GitHub Pages. `AGENTS.md` is excluded from it. Needs an `NPM_GITHUB_TOKEN` secret with `read:packages`, because the package is in GitHub Packages.
+- **A documentation site** built from `README.md` and `CHANGELOG.md` with the docsite package, in `site/` with its own dependencies. CI builds it and runs the publish check (skipped for pull requests from forks, which get no secrets), and `deploy-site.yml` publishes it to GitHub Pages. `AGENTS.md` is excluded from it. Needs an `NPM_GITHUB_TOKEN` secret with `read:packages`, because the package is in GitHub Packages.
 - The docsite agent kit (skills, the `/docsite-new` and `/docsite-audit` prompts and an instruction), installed with `docsite agents`.
 
 ### Changed

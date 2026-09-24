@@ -677,7 +677,7 @@ The CLI dogfoods the tooling it ships: it is documented with TSDoc, linted with 
 
 ### Docs site
 
-`README.md` and `CHANGELOG.md` are also published as a site (`site/`), built with `@silverassist/docsite`. It has its own `package.json`, so `npm install` at the root does not install it. The package lives in GitHub Packages, so the site needs a token with `read:packages` in `NPM_GITHUB_TOKEN`; nothing else in this repo does.
+`README.md` and `CHANGELOG.md` are also published as a site (`site/`), built with the docsite package. It has its own `package.json`, so `npm install` at the root does not install it. The package lives in GitHub Packages, so the site needs a token with `read:packages` in `NPM_GITHUB_TOKEN`; nothing else in this repo does.
 
 ```bash
 cd site && npm install
