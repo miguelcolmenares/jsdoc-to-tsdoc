@@ -4,14 +4,14 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "generate-content": "docsite extract",
+    "generate-content": "npx --yes @silverassist/docsite@0.4.0 extract",
     "predev": "npm run generate-content",
     "dev": "vite",
     "prebuild": "npm run generate-content",
     "build": "tsc -b && vite build",
     "postbuild": "node -e \"require('node:fs').copyFileSync('dist/index.html','dist/404.html')\"",
     "lint": "oxlint",
-    "check:publish": "docsite check --dist dist",
+    "check:publish": "npx --yes @silverassist/docsite@0.4.0 check --dist dist",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -48,7 +48,6 @@
     "oxlint": "^1.81.0",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.2",
-    "vite": "^8.3.0",
-    "@silverassist/docsite": "^0.4.0"
+    "vite": "^8.3.0"
   }
 }

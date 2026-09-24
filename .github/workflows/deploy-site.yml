@@ -25,6 +25,10 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    # The docsite CLI runs through npx from GitHub Packages, so every step needs the token
+    # (site/.npmrc reads it, and npm refuses to run when it is undefined).
+    env:
+      NPM_GITHUB_TOKEN: ${{ secrets.NPM_GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v7
 
@@ -35,11 +39,8 @@ jobs:
           cache: npm
           cache-dependency-path: site/package-lock.json
 
-      # The docsite package is in GitHub Packages, so this needs the NPM_GITHUB_TOKEN secret.
       - name: Install site dependencies
         working-directory: site
-        env:
-          NPM_GITHUB_TOKEN: ${{ secrets.NPM_GITHUB_TOKEN }}
         run: npm ci
 
       - name: Build site

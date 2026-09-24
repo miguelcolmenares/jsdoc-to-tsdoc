@@ -53,9 +53,9 @@ jobs:
             exit 1
           fi
 
-  # The docs site is its own project. It depends on the docsite package, which lives in GitHub
-  # Packages, so installing it needs the NPM_GITHUB_TOKEN secret. A pull request from a fork gets
-  # no secrets, so the job is skipped there instead of failing.
+  # The docs site is its own project. Its scripts run the docsite CLI through npx, and that package
+  # lives in GitHub Packages, so the job needs the NPM_GITHUB_TOKEN secret (site/.npmrc reads it).
+  # A pull request from a fork gets no secrets, so the job is skipped there instead of failing.
   docs-site:
     name: docs site builds
     if: github.event.pull_request.head.repo.fork != true
@@ -63,6 +63,8 @@ jobs:
     defaults:
       run:
         working-directory: site
+    env:
+      NPM_GITHUB_TOKEN: ${{ secrets.NPM_GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v7
 
@@ -74,8 +76,6 @@ jobs:
           cache-dependency-path: site/package-lock.json
 
       - name: Install site dependencies
-        env:
-          NPM_GITHUB_TOKEN: ${{ secrets.NPM_GITHUB_TOKEN }}
         run: npm ci
 
       - name: Build site
