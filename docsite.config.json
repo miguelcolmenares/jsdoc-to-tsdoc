@@ -21,7 +21,29 @@
           "dir": "docs",
           "layout": "files",
           "suffix": ".md"
-        }
+        },
+        "groups": [
+          {
+            "name": "Concepts",
+            "tone": "blue",
+            "items": ["getting-started", "jsdoc-vs-tsdoc"]
+          },
+          {
+            "name": "Migrate",
+            "tone": "violet",
+            "items": ["init", "scan", "convert", "scaffold", "escalate"]
+          },
+          {
+            "name": "Gate",
+            "tone": "teal",
+            "items": ["check", "ci-integration"]
+          },
+          {
+            "name": "Reference",
+            "tone": "neutral",
+            "items": ["cli-reference"]
+          }
+        ]
       },
       {
         "id": "examples",
@@ -31,7 +53,29 @@
           "dir": "docs/examples",
           "layout": "files",
           "suffix": ".md"
-        }
+        },
+        "groups": [
+          {
+            "name": "Convert",
+            "tone": "violet",
+            "items": [
+              "params-and-returns",
+              "example-blocks",
+              "typedef-to-members",
+              "line-comments"
+            ]
+          },
+          {
+            "name": "Scaffold",
+            "tone": "amber",
+            "items": ["scaffold-stubs"]
+          },
+          {
+            "name": "Check",
+            "tone": "teal",
+            "items": ["check-error-codes", "monorepo-tsdoc-json"]
+          }
+        ]
       },
       {
         "id": "tutorials",
@@ -41,7 +85,19 @@
           "dir": "docs/tutorials",
           "layout": "files",
           "suffix": ".md"
-        }
+        },
+        "groups": [
+          {
+            "name": "Migrate",
+            "tone": "violet",
+            "items": ["migrate-jsdoc-to-tsdoc", "fill-in-the-stubs"]
+          },
+          {
+            "name": "Enforce",
+            "tone": "teal",
+            "items": ["add-the-gate-to-ci", "lock-the-migration-in"]
+          }
+        ]
       }
     ]
   }
