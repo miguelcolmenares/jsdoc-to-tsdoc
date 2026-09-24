@@ -3,9 +3,16 @@ import { Link } from "react-router-dom";
 import { CodeBlock } from "@/components/catalog/code-block";
 import type { NavItem } from "@/components/site/site-header";
 
+/** A footer link: `to` is a route inside the site, `href` an external URL that opens in a new tab. */
+export interface FooterLink {
+  label: string;
+  to?: string;
+  href?: string;
+}
+
 export interface FooterColumn {
   title: string;
-  links: NavItem[];
+  links: (NavItem | FooterLink)[];
 }
 
 interface SiteFooterProps {
@@ -18,6 +25,8 @@ interface SiteFooterProps {
   installCommand?: string | undefined;
   columns: FooterColumn[];
   repository?: string | undefined;
+  /** License name, shown in the bottom bar next to the version. */
+  license?: string | undefined;
 }
 
 export function SiteFooter({
@@ -28,6 +37,7 @@ export function SiteFooter({
   installCommand,
   columns,
   repository,
+  license,
 }: SiteFooterProps) {
   return (
     <footer className="border-t border-white/10">
@@ -55,10 +65,21 @@ export function SiteFooter({
               <h4 className="font-mono text-xs tracking-widest text-muted-foreground uppercase">{column.title}</h4>
               <ul className="mt-3 space-y-2 text-sm">
                 {column.links.map((link) => (
-                  <li key={`${link.to}:${link.label}`}>
-                    <Link to={link.to} className="text-muted-foreground transition hover:text-foreground">
-                      {link.label}
-                    </Link>
+                  <li key={`${"to" in link ? link.to : ""}${"href" in link ? link.href : ""}:${link.label}`}>
+                    {"href" in link && link.href ? (
+                      <a
+                        href={link.href}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-muted-foreground transition hover:text-foreground"
+                      >
+                        {link.label}
+                      </a>
+                    ) : (
+                      <Link to={"to" in link && link.to ? link.to : "/"} className="text-muted-foreground transition hover:text-foreground">
+                        {link.label}
+                      </Link>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -66,7 +87,7 @@ export function SiteFooter({
           ))}
         </div>
         <div className="mt-12 flex flex-col gap-2 border-t border-white/10 pt-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-          <span>{version ?? name}</span>
+          <span>{[version ?? name, license && `${license} License`].filter(Boolean).join(" · ")}</span>
           {repository && (
             <a href={repository} target="_blank" rel="noreferrer" className="hover:text-foreground">
               {repository.replace("https://", "")}

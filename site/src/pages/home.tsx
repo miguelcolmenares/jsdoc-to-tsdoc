@@ -5,6 +5,7 @@ import { Hero } from "@/components/catalog/hero";
 import { Section } from "@/components/catalog/section";
 import { SectionHeading } from "@/components/catalog/section-heading";
 import { ToneBadge } from "@/components/catalog/tone-badge";
+import { AdoptSection } from "@/components/site/adopt-section";
 import { Button } from "@/components/ui/button";
 import { collections, meta } from "@/content";
 import { groupTone } from "@/lib/collections";
@@ -36,8 +37,10 @@ export function Home() {
         }))}
       />
 
+      <AdoptSection />
+
       {collections.map((collection, index) => (
-        <Section key={collection.id} variant={index % 2 === 1 ? "alt" : "default"}>
+        <Section key={collection.id} variant={index % 2 === 0 ? "default" : "alt"}>
           <SectionHeading
             index={String(index + 1).padStart(2, "0")}
             label={collection.label}
