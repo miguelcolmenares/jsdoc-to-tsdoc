@@ -1,0 +1,15 @@
+{
+  "docsiteVersion": "0.4.0",
+  "files": {
+    ".agents/skills/docsite-adapter/SKILL.md": "a07989351638e0e6edbe07fbc5116bd3151e6080b0805d59ef19207940785662",
+    ".agents/skills/docsite-anonymize-review/SKILL.md": "26db6d3f793e934e31354813dc7b2d1aad400ae7660d8c149e4c24f6cf8bae8c",
+    ".agents/skills/docsite-design/SKILL.md": "4b2791c7b5b00971cef87afad1a0b90a655fc5e4106b81faff3aeff80529fe97",
+    ".agents/skills/docsite-init/SKILL.md": "a793a02713fa99bbc7346730dd46a3115efad2179b6a06bfcfbb5998101f843b",
+    ".agents/skills/docsite-publish/SKILL.md": "ea94b509a22d32f5b67dcf91fcdfbed1f128dede6098060aad2bc1252ba39fb2",
+    ".github/prompts/docsite-audit.prompt.md": "2223955a1f2dd45736fcbb6278387f3c82faf3bdc920c570a906e375e1c00f9f",
+    ".claude/commands/docsite-audit.md": "15cb8ae282815e19c9d14b7960a336d53411fd6d247a0d7d990063708600e765",
+    ".github/prompts/docsite-new.prompt.md": "88a5f96ef7dfa80a1649c63cb7e0236b542a3f9665fded5dccfc74ad63a97b3f",
+    ".claude/commands/docsite-new.md": "89f6177af215962560d97de6ef71ef87a7a3c83d45bed8b13792ea9a8d9ed3e8",
+    ".github/instructions/docsite.instructions.md": "6a42aa7f285c1f9cbf3e9ad7f61b1144fb3046d5b462983f10821730cf13c957"
+  }
+}

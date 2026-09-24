@@ -50,7 +50,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "check": "npm run format:check && npm run typecheck && npm run lint && npm run test && npm run check:tsdoc",
-    "check:tsdoc": "npm run build && node dist/cli.mjs check --exclude \"fixtures/**\"",
+    "check:tsdoc": "npm run build && node dist/cli.mjs check --exclude \"fixtures/**,site/**\"",
     "prepare": "husky || true",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

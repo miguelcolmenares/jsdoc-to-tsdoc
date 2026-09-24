@@ -379,6 +379,7 @@ npm run check:tsdoc    # builds, then runs the CLI's own `check` over this repo
 | Which TSDoc tags are standard vs custom | `src/generator/tsdoc-tags.ts` |
 | Output formatting (diffs, tables, JSON/MD) | `src/reporter/` |
 | Add/change a `scan --enrich` provider, or the LOW/STALE target selection | `src/enricher/` |
+| Change the published docs site, or what it documents | `site/` (Vite, own tooling, excluded from every check here), `docsite.config.json`, `.github/workflows/deploy-site.yml`. Edit `README.md` / `CHANGELOG.md` for content, never `site/src/content/generated.json` |
 | Deliberately deferred future work | GitHub issues labeled [`future`](https://github.com/miguelcolmenares/jsdoc-to-tsdoc/issues?q=is%3Aissue+is%3Aopen+label%3Afuture) |
 
 ---

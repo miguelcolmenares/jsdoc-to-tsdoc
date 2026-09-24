@@ -675,6 +675,18 @@ npm run format  # prettier --write .
 
 The CLI dogfoods the tooling it ships: it is documented with TSDoc, linted with `eslint-plugin-tsdoc` + `eslint-plugin-tsdoc-require-2` at `error`, and gated by its own `check` command (`npm run check:tsdoc`).
 
+### Docs site
+
+`README.md` and `CHANGELOG.md` are also published as a site (`site/`), built with `@silverassist/docsite`. It has its own `package.json`, so `npm install` at the root does not install it. The package lives in GitHub Packages, so the site needs a token with `read:packages` in `NPM_GITHUB_TOKEN`; nothing else in this repo does.
+
+```bash
+cd site && npm install
+npm run dev                              # extracts the docs and serves them
+npm run build && npm run check:publish   # what CI runs
+```
+
+Edit the Markdown, never `site/src/content/generated.json`: it is regenerated on every build. `AGENTS.md` is not published. The `docs site builds` CI job is skipped on pull requests from forks, which get no secrets, and `deploy-site.yml` publishes to GitHub Pages on `main` (the repository's Pages source must be "GitHub Actions"). The docsite skills and prompts sit under `.agents/`, `.github/` and `.claude/`, and `/docsite-audit` checks the site against the kit. The checks above exclude `site/`, which is its own project.
+
 ### Git hooks
 
 `npm install` sets up Husky (`prepare`). Two hooks:

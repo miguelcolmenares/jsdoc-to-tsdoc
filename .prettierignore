@@ -22,3 +22,6 @@ package-lock.json
 # against. A formatter rewriting either would decouple the fixture from what it
 # pins.
 fixtures/
+
+# The docs site is its own project (Vite, React, oxlint), with its own tooling.
+site/

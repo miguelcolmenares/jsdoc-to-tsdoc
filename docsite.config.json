@@ -1,0 +1,27 @@
+{
+  "$schema": "./site/node_modules/@silverassist/docsite/schema/config.v1.schema.json",
+  "schemaVersion": 1,
+  "site": {
+    "installCommand": "npx jsdoc-to-tsdoc <command>"
+  },
+  "adapter": "markdown-catalog",
+  "visibility": "public",
+  "deploy": {
+    "target": "github-pages"
+  },
+  "anonymize": {
+    "excludePaths": ["AGENTS.md"]
+  },
+  "options": {
+    "collections": [
+      {
+        "id": "docs",
+        "label": "Docs",
+        "singular": "document",
+        "source": {
+          "files": ["README.md", "CHANGELOG.md"]
+        }
+      }
+    ]
+  }
+}
