@@ -2,9 +2,22 @@
 # Documentation: https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
 
 version: 2
+
+# GitHub Packages credentials for the private @silverassist/* packages.
+# Dependabot does not expand ${NPM_GITHUB_TOKEN} from .npmrc, so the token has
+# to be declared here and stored as a *Dependabot* secret (Settings > Secrets
+# and variables > Dependabot), which is separate from the Actions secret.
+registries:
+  npm-github:
+    type: npm-registry
+    url: https://npm.pkg.github.com
+    token: ${{secrets.NPM_GITHUB_TOKEN}}
+
 updates:
   # Maintain dependencies for npm
   - package-ecosystem: "npm"
+    registries:
+      - npm-github
     directory: "/"
     schedule:
       interval: "weekly"
