@@ -1106,7 +1106,7 @@ time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
   machine running it. What works: restore the last good lock and reconcile it
   with a full `npm install`.
 - **Branch protection now on `main`**, and the settings are deliberate, since
-  none of this is visible in the tree: all nine `check` contexts required;
+  none of this is visible in the tree: every `check` matrix context required (six: ubuntu/macos/windows × Node 22/24);
   `strict: false` (no forced rebase — PR checks already run against the merge);
   `enforce_admins: false`, because when CI itself is what broke, an admin has to
   be able to land the fix or the repo deadlocks; and no required reviews, since
@@ -1116,9 +1116,10 @@ time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
 ### Local hooks — and a test that failed for the wrong reason
 
 - **A devDependency can raise the floor the package promises.** `lint-staged@17`
-  requires Node `>=22.22.1`; this package declares `engines.node: ">=20.19"` and
-  CI runs 20.19. Pinned to `^16.4.0` (`>=20.17`) instead of raising the engine,
-  because the floor is a promise to consumers and no dev tool gets to move it.
+  requires Node `>=22.22.1`, above this package's floor (`engines.node: ">=22.13"`,
+  which follows vitest 5 and ESLint 10 after Node 20 reached end of life). Pinned to
+  `^16.4.0` instead of raising the engine again, because the floor is a promise
+  to consumers and no dev tool gets to move it.
   **Check `engines` on anything added to `devDependencies`,** not only on
   runtime deps.
 - **My own test failed for a reason unrelated to what it tested.** Checking
