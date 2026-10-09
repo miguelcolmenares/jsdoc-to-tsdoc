@@ -60,10 +60,12 @@ jobs:
 
   # The docs site is its own project. Its scripts run the docsite CLI through npx, and that package
   # lives in GitHub Packages, so the job needs the NPM_GITHUB_TOKEN secret (site/.npmrc reads it).
-  # A pull request from a fork gets no secrets, so the job is skipped there instead of failing.
+  # A pull request from a fork gets no secrets, and Dependabot runs only see Dependabot secrets, never
+  # Actions ones, so the job is skipped in both cases instead of failing with E401. A dependency bump
+  # does not change the site's content, and every push to main still builds it here.
   docs-site:
     name: docs site builds
-    if: github.event.pull_request.head.repo.fork != true
+    if: github.event.pull_request.head.repo.fork != true && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     defaults:
       run:
