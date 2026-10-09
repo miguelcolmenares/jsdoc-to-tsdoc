@@ -17,7 +17,7 @@ Add a documentation site to the current repository with `@silverassist/docsite`.
 
 ## Steps
 
-1. **Check the starting point.** If `docsite.config.json` or `site/` exists, stop: this repository already has a site, use `/docsite-audit` instead. Otherwise confirm Node 22 or newer and that `npm view @silverassist/docsite version` works. If it does not, stop and tell the user that `NPM_GITHUB_TOKEN` (with `read:packages`) is missing. Never ask for or print the token.
+1. **Check the starting point.** If `docsite.config.json` or `site/` exists, stop: this repository already has a site, use `/docsite-audit` instead. Otherwise confirm Node 22.13 or newer and that `npm view @silverassist/docsite version` works. If it does not, stop and tell the user that `NPM_GITHUB_TOKEN` (with `read:packages`) is missing. Never ask for or print the token.
 2. **Detect what the repository is** and what should be documented: markdown docs, an MCP server, a folder of regular source files, or a mix. State your reading in one line and continue, do not ask unless it is genuinely ambiguous.
 3. **Scaffold** following `docsite-init`: `npx @silverassist/docsite@latest init --dry-run`, then `init`, then fit `docsite.config.json` to the repository. Use `docsite-adapter` only when the built-in adapters cannot express something the site needs.
 4. **Review what will be published** following `docsite-anonymize-review`. Exclude or replace what must not be public, and ask the user about anything you are unsure of.

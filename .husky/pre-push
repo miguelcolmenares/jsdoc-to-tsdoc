@@ -6,7 +6,7 @@
 # and that last one builds the CLI and runs it against this repo's own source.
 # So a push cannot introduce a comment the tool itself would reject — which has
 # happened, and is the failure this hook exists to stop locally instead of ten
-# minutes later in CI across six matrix jobs.
+# minutes later in CI across seven matrix jobs.
 #
 # Output goes through `printf`, not `echo`. Whether `echo` expands a backslash
 # escape is implementation-defined in POSIX — it happens to work in the shells
