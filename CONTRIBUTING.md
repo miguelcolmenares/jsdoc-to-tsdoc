@@ -60,7 +60,7 @@ The site is built from the `docs/` folder: one page per command, plus `docs/exam
   npm run dev
   ```
 
-  The site's scripts run the docsite CLI through `npx` from GitHub Packages, so they need a token with `read:packages` in `NPM_GITHUB_TOKEN`. A pull request from a fork does not get one, so the `docs site builds` check is skipped there and a maintainer builds it.
+  The site's scripts run the docsite CLI through `npx` from GitHub Packages, so they need a token with `read:packages` in `NPM_GITHUB_TOKEN`. A pull request from a fork does not get one, and neither does a Dependabot pull request (it only sees Dependabot secrets), so the `docs site builds` check is skipped for both. A maintainer builds a fork's site, and a dependency bump does not change it.
 
 ## License
 
