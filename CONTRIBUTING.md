@@ -14,7 +14,7 @@ Open an [issue](https://github.com/miguelcolmenares/jsdoc-to-tsdoc/issues). The 
 
 ## Set up
 
-You need Node 20.19 or newer.
+You need Node 22.13 or newer.
 
 ```bash
 git clone https://github.com/miguelcolmenares/jsdoc-to-tsdoc.git

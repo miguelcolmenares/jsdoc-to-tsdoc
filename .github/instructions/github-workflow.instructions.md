@@ -32,7 +32,7 @@ gh pr create --base main | cat
 
 ## Quality gates (MANDATORY before every push)
 
-Run the same checks CI runs (`ci.yml` → matrix ubuntu/macos/windows × node 20.19/22/24):
+Run the same checks CI runs (`ci.yml` → matrix ubuntu/macos/windows × node 22/24, plus ubuntu × node 22.13 for the engines floor):
 
 ```bash
 npm run typecheck      # tsc --noEmit

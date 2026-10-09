@@ -10,6 +10,13 @@ updates:
       interval: "weekly"
     # Group all minor and patch updates together
     groups:
+      # vitest and @vitest/coverage-v8 require the exact same version, so any
+      # bump (major included) has to land as one pull request. Listed first so
+      # it wins over the catch-all group below.
+      vitest:
+        patterns:
+          - "vitest"
+          - "@vitest/*"
       dependencies:
         patterns:
           - "*"

@@ -10,7 +10,7 @@ You will learn what each command changes, how to preview it first, and how to te
 
 ## What you need
 
-- Node 22 or newer and a package runner (`npx`, `yarn dlx` or `pnpm dlx`)
+- Node 22.13 or newer and a package runner (`npx`, `yarn dlx` or `pnpm dlx`)
 - A TypeScript project with an ESLint flat config, or the sample below
 - Git, so each step is one reviewable commit
 

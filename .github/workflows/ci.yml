@@ -20,7 +20,12 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        node: ["20.19", "22", "24"]
+        node: ["22", "24"]
+        # The declared engines floor, exercised exactly. "22" resolves to the
+        # latest 22.x, so without this entry nothing tests the minimum runtime.
+        include:
+          - os: ubuntu-latest
+            node: "22.13"
     steps:
       - uses: actions/checkout@v7
 
