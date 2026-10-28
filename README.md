@@ -677,12 +677,12 @@ The CLI dogfoods the tooling it ships: it is documented with TSDoc, linted with 
 
 ### Docs site
 
-The `docs/` folder is published as an educational site (`site/`), built with [sitekit](https://github.com/miguelcolmenares/sitekit). It has three sections: **Docs** (`docs/*.md`, one page per command plus the concepts and the CLI reference), **Tutorials** (`docs/tutorials/`, guided walkthroughs) and **Examples** (`docs/examples/`, before and after taken from real runs). Pages are grouped in `site/sitekit.config.json`; a page that is in no group fails the build. The site has its own `package.json`, so `npm install` at the root does not install it, and it needs only public packages: no token, no private registry.
+The `docs/` folder is published as an educational site (`site/`), built with [sitekit](https://github.com/miguelcolmenares/docs-sitekit). It has three sections: **Docs** (`docs/*.md`, one page per command plus the concepts and the CLI reference), **Tutorials** (`docs/tutorials/`, guided walkthroughs) and **Examples** (`docs/examples/`, before and after taken from real runs). Pages are grouped in `site/sitekit.config.json`; a page that is in no group fails the build. The site has its own `package.json`, so `npm install` at the root does not install it, and it needs only public packages: no token, no private registry.
 
 ```bash
 cd site && npm ci
 npm run dev                              # serves the docs
-npm run build && npx @miguelcolmenares/sitekit check --dist dist   # what CI runs
+npm run build && npx docs-sitekit check --dist dist   # what CI runs
 ```
 
 Every page is a real HTML file (`dist/<page>/index.html`), so a deep link is served with a 200, its own title and its content in the HTML, and `dist/404.html` is the not-found page for any other address. Edit the Markdown in `docs/`. Every command, output and diff shown there comes from running the CLI, so re-run it when a behaviour changes. Give a page an `order` in its frontmatter to place it inside its group. `AGENTS.md` is not published. `docs.yml` builds the site on every pull request that touches the docs and publishes it to GitHub Pages on `main` (the repository's Pages source must be "GitHub Actions"). The checks above exclude `site/`, which is its own project.

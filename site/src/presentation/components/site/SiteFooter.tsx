@@ -13,6 +13,7 @@ export function SiteFooter({
   command,
   columns,
   license,
+  version,
   credit,
 }: {
   name: string;
@@ -20,6 +21,8 @@ export function SiteFooter({
   command?: string;
   columns: readonly FooterColumn[];
   license?: string;
+  /** Shown after the license, linked when `href` is given. */
+  version?: { label: string; href?: string };
   credit?: { prefix: string; label: string; href: string };
 }) {
   // One explicit track for the brand and one per column, so columns sit side by side on desktop.
@@ -70,6 +73,21 @@ export function SiteFooter({
           <span>
             © {new Date().getFullYear()} {name}
             {license ? ` · ${license} licensed` : ""}
+            {version && (
+              <>
+                {" · "}
+                {version.href ? (
+                  <a
+                    href={version.href}
+                    className="underline underline-offset-2 hover:text-fg-bright"
+                  >
+                    {version.label}
+                  </a>
+                ) : (
+                  version.label
+                )}
+              </>
+            )}
           </span>
           {credit && (
             <span>

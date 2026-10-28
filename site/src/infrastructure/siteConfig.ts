@@ -10,7 +10,7 @@ export function loadSiteConfig(siteDir: string): SiteConfig {
   try {
     raw = readFileSync(file, "utf8");
   } catch {
-    throw new Error(`Missing ${file}. Run \`npx @miguelcolmenares/sitekit init\` to create it.`);
+    throw new Error(`Missing ${file}. Run \`npx docs-sitekit init\` to create it.`);
   }
   try {
     return parseSiteConfig(JSON.parse(raw));

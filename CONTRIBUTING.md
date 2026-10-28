@@ -60,7 +60,7 @@ The site is built from the `docs/` folder: one page per command, plus `docs/exam
   npm run dev
   ```
 
-  The site is built with [sitekit](https://github.com/miguelcolmenares/sitekit) from public packages only, so no token is needed and it builds the same way for a pull request from a fork. `.github/workflows/docs.yml` builds it on every pull request that touches the docs and deploys it from `main`. A page that is in no group of `site/sitekit.config.json` fails the build, so add a new page to one.
+  The site is built with [sitekit](https://github.com/miguelcolmenares/docs-sitekit) from public packages only, so no token is needed and it builds the same way for a pull request from a fork. `.github/workflows/docs.yml` builds it on every pull request that touches the docs and deploys it from `main`. A page that is in no group of `site/sitekit.config.json` fails the build, so add a new page to one.
 
 ## License
 

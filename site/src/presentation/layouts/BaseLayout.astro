@@ -70,7 +70,8 @@ const columns = [
       command={config.site.installCommand}
       columns={columns}
       license={config.site.license}
-      credit={{ prefix: "Built with", label: "sitekit", href: "https://github.com/miguelcolmenares/sitekit" }}
+      version={site.version ? { label: `v${site.version}`, href: has("changelog") ? href("changelog/") : undefined } : undefined}
+      credit={{ prefix: "Built with", label: "sitekit", href: "https://github.com/miguelcolmenares/docs-sitekit" }}
     />
   </body>
 </html>
