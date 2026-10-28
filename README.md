@@ -677,15 +677,15 @@ The CLI dogfoods the tooling it ships: it is documented with TSDoc, linted with 
 
 ### Docs site
 
-The `docs/` folder is published as an educational site (`site/`), built with the docsite CLI. It has three sections: **Docs** (`docs/*.md`, one page per command plus the concepts and the CLI reference), **Examples** (`docs/examples/`, before and after taken from real runs) and **Tutorials** (`docs/tutorials/`, guided walkthroughs). It has its own `package.json`, so `npm install` at the root does not install it, and the CLI is not a dependency of it either: the `site/` scripts run it through `npx` at the release pinned in `site/.docsite.json`, which `npx @silverassist/docsite@latest upgrade` moves. The CLI lives in GitHub Packages, so running the site needs a token with `read:packages` in `NPM_GITHUB_TOKEN`; nothing else in this repo does.
+The `docs/` folder is published as an educational site (`site/`), built with [sitekit](https://github.com/miguelcolmenares/docs-sitekit). It has three sections: **Docs** (`docs/*.md`, one page per command plus the concepts and the CLI reference), **Tutorials** (`docs/tutorials/`, guided walkthroughs) and **Examples** (`docs/examples/`, before and after taken from real runs). Pages are grouped in `site/sitekit.config.json`; a page that is in no group fails the build. The site has its own `package.json`, so `npm install` at the root does not install it, and it needs only public packages: no token, no private registry.
 
 ```bash
-cd site && npm install
-npm run dev                              # extracts the docs and serves them
-npm run build && npm run check:publish   # what CI runs
+cd site && npm ci
+npm run dev                              # serves the docs
+npm run build && npx docs-sitekit check --dist dist   # what CI runs
 ```
 
-The build prerenders every page (`dist/<page>/index.html`), so a deep link is served with a 200, its own title and its content in the HTML, and `dist/404.html` is the app shell for any other address. Edit the Markdown in `docs/`, never `site/src/content/generated.json`: it is regenerated on every build. Every command, output and diff shown there comes from running the CLI, so re-run it when a behaviour changes. Give a page an `order` in its frontmatter to place it in the menu. `AGENTS.md` is not published. The `docs site builds` CI job is skipped on pull requests from forks and from Dependabot, which get no Actions secrets, and `deploy-site.yml` publishes to GitHub Pages on `main` (the repository's Pages source must be "GitHub Actions"). The docsite skills and prompts sit under `.agents/`, `.github/` and `.claude/`, and `/docsite-audit` checks the site against the kit. The checks above exclude `site/`, which is its own project.
+Every page is a real HTML file (`dist/<page>/index.html`), so a deep link is served with a 200, its own title and its content in the HTML, and `dist/404.html` is the not-found page for any other address. Edit the Markdown in `docs/`. Every command, output and diff shown there comes from running the CLI, so re-run it when a behaviour changes. Give a page an `order` in its frontmatter to place it inside its group. `AGENTS.md` is not published. `docs.yml` builds the site on every pull request that touches the docs and publishes it to GitHub Pages on `main` (the repository's Pages source must be "GitHub Actions"). The checks above exclude `site/`, which is its own project.
 
 ### Git hooks
 

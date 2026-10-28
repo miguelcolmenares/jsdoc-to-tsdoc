@@ -49,18 +49,18 @@ For how the code is organised and why decisions were made, read [`AGENTS.md`](./
 
 The site is built from the `docs/` folder: one page per command, plus `docs/examples/` and `docs/tutorials/`.
 
-- Edit the Markdown, never `site/src/content/generated.json`, which is regenerated on every build.
+- Edit the Markdown in `docs/`. The site reads it directly, and groups and order live in `site/sitekit.config.json`.
 - Every command, output and diff on the site comes from running the CLI. When you change a behaviour, re-run the example and paste what it printed.
 - Give a page a `title`, a `description` and an `order` in its frontmatter.
 - Preview it:
 
   ```bash
   cd site
-  npm install
+  npm ci
   npm run dev
   ```
 
-  The site's scripts run the docsite CLI through `npx` from GitHub Packages, so they need a token with `read:packages` in `NPM_GITHUB_TOKEN`. A pull request from a fork does not get one, and neither does a Dependabot pull request (it only sees Dependabot secrets), so the `docs site builds` check is skipped for both. A maintainer builds a fork's site, and a dependency bump does not change it.
+  The site is built with [sitekit](https://github.com/miguelcolmenares/docs-sitekit) from public packages only, so no token is needed and it builds the same way for a pull request from a fork. `.github/workflows/docs.yml` builds it on every pull request that touches the docs and deploys it from `main`. A page that is in no group of `site/sitekit.config.json` fails the build, so add a new page to one.
 
 ## License
 

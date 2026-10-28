@@ -1,0 +1,172 @@
+{
+  "site": {
+    "name": "jsdoc-to-tsdoc",
+    "description": "CLI tool to migrate JSDoc comments to the TSDoc standard in TypeScript projects.",
+    "url": "https://miguelcolmenares.github.io",
+    "base": "/jsdoc-to-tsdoc/",
+    "repository": "https://github.com/miguelcolmenares/jsdoc-to-tsdoc",
+    "license": "MIT",
+    "version": "1.0.0",
+    "installCommand": "npx jsdoc-to-tsdoc init"
+  },
+  "hero": {
+    "badge": "Stable \u00b7 on npm \u00b7 GitHub Action",
+    "title": "Move from JSDoc to TSDoc, and keep it moved.",
+    "lede": "A CLI that converts JSDoc comments to TSDoc, stubs the documentation that is missing, and fails CI when the gap comes back.",
+    "primary": {
+      "label": "Get started",
+      "href": "/docs/getting-started/"
+    },
+    "secondary": {
+      "label": "View on GitHub",
+      "href": "https://github.com/miguelcolmenares/jsdoc-to-tsdoc"
+    }
+  },
+  "features": [
+    {
+      "icon": "file-search",
+      "eyebrow": "Scan",
+      "title": "Know the gap first",
+      "text": "scan --classify counts exports with valid TSDoc, partial docs, line comments or none, before anything is changed."
+    },
+    {
+      "icon": "refresh-cw",
+      "eyebrow": "Convert",
+      "title": "Rewrite comments in place",
+      "text": "convert turns JSDoc into TSDoc. The examples on this site are before and after taken from real runs."
+    },
+    {
+      "icon": "file-pen",
+      "eyebrow": "Scaffold",
+      "title": "Stubs for what is missing",
+      "text": "scaffold adds a TSDoc stub to every export that has none, ready to fill in."
+    },
+    {
+      "icon": "shield-check",
+      "eyebrow": "Gate",
+      "title": "Keep it from coming back",
+      "text": "check fails the build when TSDoc is invalid or missing. Use it as a GitHub Action or a Bitbucket pipe."
+    }
+  ],
+  "nav": [],
+  "footer": {
+    "links": []
+  },
+  "sources": {
+    "root": "..",
+    "changelog": "../CHANGELOG.md"
+  },
+  "collections": [
+    {
+      "id": "docs",
+      "label": "Docs",
+      "dir": "../docs",
+      "groups": [
+        {
+          "name": "Concepts",
+          "tone": "brand",
+          "items": [
+            "getting-started",
+            "jsdoc-vs-tsdoc"
+          ]
+        },
+        {
+          "name": "Migrate",
+          "tone": "brand",
+          "items": [
+            "init",
+            "scan",
+            "convert",
+            "scaffold",
+            "escalate"
+          ]
+        },
+        {
+          "name": "Gate",
+          "tone": "success",
+          "items": [
+            "check",
+            "ci-integration"
+          ]
+        },
+        {
+          "name": "Reference",
+          "tone": "neutral",
+          "items": [
+            "cli-reference"
+          ]
+        }
+      ],
+      "lede": "One page per command, the concepts behind them, and the CLI reference."
+    },
+    {
+      "id": "tutorials",
+      "label": "Tutorials",
+      "dir": "../docs/tutorials",
+      "groups": [
+        {
+          "name": "Migrate",
+          "tone": "brand",
+          "items": [
+            "migrate-jsdoc-to-tsdoc",
+            "fill-in-the-stubs"
+          ]
+        },
+        {
+          "name": "Enforce",
+          "tone": "success",
+          "items": [
+            "add-the-gate-to-ci",
+            "lock-the-migration-in"
+          ]
+        }
+      ],
+      "lede": "Guided walkthroughs, from the first migration to a CI gate that holds."
+    },
+    {
+      "id": "examples",
+      "label": "Examples",
+      "dir": "../docs/examples",
+      "groups": [
+        {
+          "name": "Convert",
+          "tone": "brand",
+          "items": [
+            "params-and-returns",
+            "example-blocks",
+            "typedef-to-members",
+            "line-comments"
+          ]
+        },
+        {
+          "name": "Scaffold",
+          "tone": "warn",
+          "items": [
+            "scaffold-stubs"
+          ]
+        },
+        {
+          "name": "Check",
+          "tone": "success",
+          "items": [
+            "check-error-codes",
+            "monorepo-tsdoc-json"
+          ]
+        }
+      ],
+      "lede": "Before and after, taken from real runs of the CLI."
+    }
+  ],
+  "deploy": {
+    "target": "github-pages",
+    "acknowledgePublicPages": false
+  },
+  "anonymize": {
+    "excludePaths": [
+      "AGENTS.md"
+    ],
+    "replace": {},
+    "denyPatterns": [],
+    "allow": []
+  }
+}
