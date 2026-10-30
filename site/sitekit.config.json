@@ -2,7 +2,7 @@
   "site": {
     "name": "jsdoc-to-tsdoc",
     "description": "CLI tool to migrate JSDoc comments to the TSDoc standard in TypeScript projects.",
-    "url": "https://miguelcolmenares.github.io",
+    "url": "https://miguelcolmenares.com",
     "base": "/jsdoc-to-tsdoc/",
     "repository": "https://github.com/miguelcolmenares/jsdoc-to-tsdoc",
     "license": "MIT",
