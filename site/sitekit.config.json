@@ -10,7 +10,7 @@
     "installCommand": "npx jsdoc-to-tsdoc init"
   },
   "hero": {
-    "badge": "Stable \u00b7 on npm \u00b7 GitHub Action",
+    "badge": "Stable · on npm · GitHub Action",
     "title": "Move from JSDoc to TSDoc, and keep it moved.",
     "lede": "A CLI that converts JSDoc comments to TSDoc, stubs the documentation that is missing, and fails CI when the gap comes back.",
     "primary": {
@@ -168,5 +168,23 @@
     "replace": {},
     "denyPatterns": [],
     "allow": []
+  },
+  "theme": {
+    "default": "dark"
+  },
+  "search": {
+    "enabled": false
+  },
+  "llms": {
+    "enabled": false,
+    "optional": [],
+    "markdownPages": false
+  },
+  "editLink": {
+    "enabled": false,
+    "branch": "main"
+  },
+  "lastUpdated": {
+    "enabled": false
   }
 }
