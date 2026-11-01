@@ -42,49 +42,35 @@ export function renderMarkdownPage(document: Document, options: MarkdownPageOpti
   const lines = proseLines(document.body).map(({ text, fenced }) => {
     if (fenced) return text;
 
-    // We want to rewrite links but skip those inside code spans.
-    // We use a masked version of the text to find links that are NOT in code spans.
     const masked = maskInlineCode(text);
-    
-    // We can't use replaceInlineLinks directly because it replaces the text.
-    // Instead, we use the masked text to find valid links and their boundaries.
-    // Since scanInlineLinks isn't exported, we'll use replaceInlineLinks on the masked text
-    // with a replacement that marks the boundaries.
-    
-    const markers = replaceInlineLinks(masked, (link, whole) => {
-      return `__LINK_START__${whole}__LINK_END__`;
-    });
-
-    // Now we apply the same markers to the original text.
-    // Since the length of the masked text is identical to the original, 
-    // we can find the positions of the markers.
-    
-    let result = "";
-    let lastIdx = 0;
     const markerStart = "__LINK_START__";
     const markerEnd = "__LINK_END__";
     
+    const markers = replaceInlineLinks(masked, (link, whole) => {
+      return `${markerStart}${whole}${markerEnd}`;
+    });
+
+    let result = "";
+    let lastIdx = 0;
+    let markerCount = 0;
     let searchIdx = 0;
+
     while (true) {
       const start = markers.indexOf(markerStart, searchIdx);
       if (start === -1) break;
       const end = markers.indexOf(markerEnd, start);
       if (end === -1) break;
       
-      // The original text between start and end + markerEnd.length is the link.
-      const linkText = text.slice(start, end + markerEnd.length - markerEnd.length); // wait, markers are added
-      // Actually, the 'whole' inside the marker in 'markers' is the link from 'masked'.
-      // We need the 'whole' from the original text.
-      
-      // The markerStart is at 'start'. The markerEnd is at 'end'.
-      // The length of the link in masked text is (end - start - markerStart.length).
+      // Calculate position in the original text by subtracting marker lengths
+      const actualStart = start - (markerCount * (markerStart.length + markerEnd.length));
       const linkLen = end - start - markerStart.length;
-      const originalLink = text.slice(start, start + linkLen);
+      const originalLink = text.slice(actualStart, actualStart + linkLen);
       
-      result += text.slice(lastIdx, start) + rewriteProse(originalLink, options);
+      result += text.slice(lastIdx, actualStart) + rewriteProse(originalLink, options);
       
-      lastIdx = start + linkLen;
+      lastIdx = actualStart + linkLen;
       searchIdx = end + markerEnd.length;
+      markerCount++;
     }
     result += text.slice(lastIdx);
     
