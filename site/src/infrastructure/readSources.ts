@@ -27,11 +27,12 @@ function walk(directory: string): string[] {
   });
 }
 
-/** The text of a snippet, or undefined when there is no such file. A name that leaves the snippets folder finds nothing. */
-function readSnippetFile(root: string, name: string): string | undefined {
+/** The text of a snippet, or undefined when there is no such file or it is excluded. A name that leaves the snippets folder finds nothing. */
+function readSnippetFile(root: string, name: string, excludePaths: string[]): string | undefined {
   const folder = resolve(root, SNIPPETS_DIR);
   const file = resolve(folder, name);
-  if (!file.startsWith(`${folder}${sep}`) || !existsSync(file) || !statSync(file).isFile())
+  const repoPath = posix(relative(root, file));
+  if (!file.startsWith(`${folder}${sep}`) || !existsSync(file) || !statSync(file).isFile() || matchesAny(repoPath, excludePaths))
     return undefined;
   return readFileSync(file, "utf8");
 }
@@ -92,7 +93,7 @@ export function readSources(siteDir: string, config: SiteConfig): RepositorySour
     const reusable = {
       file: path,
       variables,
-      readSnippet: (name: string) => readSnippetFile(root, name),
+      readSnippet: (name: string) => readSnippetFile(root, name, excludePaths),
       onIssue: (issue: ReusableIssue) => reusableIssues.push(issue),
     };
     // Variables and snippets first, then the replacements, so a value from either is anonymized too. The keys
