@@ -7,7 +7,8 @@
     "repository": "https://github.com/miguelcolmenares/jsdoc-to-tsdoc",
     "license": "MIT",
     "version": "1.0.0",
-    "installCommand": "npx jsdoc-to-tsdoc init"
+    "installCommand": "npx jsdoc-to-tsdoc init",
+    "image": "/social.png"
   },
   "hero": {
     "badge": "Stable · on npm · GitHub Action",

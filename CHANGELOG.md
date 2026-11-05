@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The documentation site is upgraded to docs-sitekit 0.2.4, and a shared link to it now shows a picture: `site.image` names `/social.png`, a 1200 by 630 card that the docs workflow draws with [social-card-action](https://github.com/miguelcolmenares/social-card-action), so the pages have `og:image`, `twitter:image` and a large Twitter card.
 - **Node 20 is no longer supported: `engines.node` is now `>=22.13`.** Node 20 reached end of life, and the dev tooling no longer supports it: vitest 5 requires `^22.12 || ^24 || >=26` and ESLint 10 `^22.13`. The CI matrix runs Node 22 and 24. Consumers on Node 20 need to upgrade Node, so this ships in the next major release.
 - vitest and `@vitest/coverage-v8` are updated to 5 together. Dependabot now groups them, because they require the exact same version and a major bump cannot pass as two pull requests.
 - The CLI's own `check`, ESLint, Prettier and the CI-integration workflow exclude `site/`, which is its own project.
