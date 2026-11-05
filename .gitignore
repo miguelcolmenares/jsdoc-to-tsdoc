@@ -22,3 +22,6 @@ npm-debug.log*
 .env
 .env.*
 !.env.example
+
+# Drawn by the docs workflow with social-card-action
+site/public/social.png
