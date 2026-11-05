@@ -12,6 +12,19 @@ const attribute = (tag: string, name: string) =>
     .find((value) => value !== undefined);
 
 /**
+ * Take out the XML declaration, the comments and the doctype. A single pass can leave a comment behind that the
+ * removal itself closed up (`<!<!-- -->--`), so it runs until the text stops changing.
+ */
+function withoutMarkupNoise(source: string): string {
+  let markup = source;
+  for (let previous = ""; previous !== markup;) {
+    previous = markup;
+    markup = markup.replace(/<\?[\s\S]*?\?>|<!--[\s\S]*?-->|<!DOCTYPE[^>]*>/gi, "");
+  }
+  return markup;
+}
+
+/**
  * Read an SVG file the author added to the brands folder and keep only what a monochrome logo needs:
  * the view box and the path data. Anything else is refused, with the file named, so a logo never draws
  * differently from what the file shows, and a file never brings a script or a request with it.
@@ -22,7 +35,7 @@ export function parseCustomSvg(source: string, file: string): BrandGlyph {
   };
   if (source.length > MAX_BYTES)
     fail(`is larger than ${MAX_BYTES / 1000} KB. A logo is a few KB of path data.`);
-  const markup = source.replace(/<\?[\s\S]*?\?>|<!--[\s\S]*?-->|<!DOCTYPE[^>]*>/gi, "");
+  const markup = withoutMarkupNoise(source);
   const tags = [...markup.matchAll(/<\/?\s*([a-zA-Z][\w:-]*)([^>]*)>/g)];
   if (tags[0]?.[1]?.toLowerCase() !== "svg" || markup.trimStart().startsWith("</"))
     fail("is not an SVG: it must start with an <svg> element.");
