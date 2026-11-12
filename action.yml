@@ -25,7 +25,7 @@ inputs:
   node-version:
     description: "Node.js version to set up before running the CLI."
     required: false
-    default: "22"
+    default: "24"
   cwd:
     description: "Project directory to scan (--cwd)."
     required: false
