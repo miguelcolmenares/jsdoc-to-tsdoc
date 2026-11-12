@@ -139,7 +139,7 @@ pipelines:
     "**":
       - step:
           name: TSDoc check
-          image: node:22
+          image: node:24
           script:
             - npx jsdoc-to-tsdoc@1.0.0 check --syntax-only
 ```
