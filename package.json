@@ -37,7 +37,7 @@
     "dist"
   ],
   "engines": {
-    "node": ">=22.13"
+    "node": ">=24"
   },
   "overrides": {
     "esbuild": "^0.28.2"

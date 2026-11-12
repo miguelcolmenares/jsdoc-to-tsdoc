@@ -1106,7 +1106,7 @@ time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
   machine running it. What works: restore the last good lock and reconcile it
   with a full `npm install`.
 - **Branch protection now on `main`**, and the settings are deliberate, since
-  none of this is visible in the tree: every `check` matrix context required (six: ubuntu/macos/windows × Node 22/24);
+  none of this is visible in the tree: every `check` matrix context required (six: ubuntu/macos/windows × Node 24/26 since #142, and × Node 22/24 before it);
   `strict: false` (no forced rebase — PR checks already run against the merge);
   `enforce_admins: false`, because when CI itself is what broke, an admin has to
   be able to land the fix or the repo deadlocks; and no required reviews, since

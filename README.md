@@ -625,7 +625,7 @@ Or the documentation-gap gate:
 ```
 
 Inputs: `command` (`check` or `scan`, default `check`), `version` (npm
-version to run via `npx`, default `latest`), `node-version` (default `22`),
+version to run via `npx`, default `latest`), `node-version` (default `24`),
 `cwd`, `fail-on-missing` / `fail-on-stale` (`scan` only), `syntax-only`
 (`check` only), `include-tests`, `only`, `exclude`, `report`. Output:
 `exit-code`, the CLI's own exit code, for a step that wants to inspect it

@@ -64,7 +64,7 @@ The documentation-gap gate:
 | ----- | ------- |
 | `command` | `check` or `scan`, default `check` |
 | `version` | npm version to run through `npx`, default `latest` |
-| `node-version` | Default `22` |
+| `node-version` | Default `24` |
 | `cwd` | Project directory |
 | `fail-on-missing`, `fail-on-stale` | `scan` only |
 | `syntax-only` | `check` only |
