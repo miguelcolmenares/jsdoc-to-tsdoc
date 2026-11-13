@@ -118,7 +118,9 @@ Workflows in `.github/workflows/`:
 - **Dependabot auto-merge** uses the canonical pattern: `on: pull_request`, top-level
   `permissions: {}`, and a single job gated on `if: github.actor == 'dependabot[bot]'` with
   job-level `contents`/`pull-requests: write`, that runs `dependabot/fetch-metadata` and
-  `gh pr merge --auto --squash` for non-major updates. Gating the **job** on the actor is
+  `gh pr review --approve` and `gh pr merge --auto --squash` for non-major updates. The approval uses
+  `github.token` and needs the repository setting "Allow GitHub Actions to create and approve pull
+  requests" (it satisfies the required review on `main`, and no secret is involved). Gating the **job** on the actor is
   intentional here — the auto-merge job is **not** a required status check, so its skip on
   human PRs cannot block branch protection.
 - **Least privilege**: default `permissions: {}` at the workflow level; grant scopes per job.
