@@ -469,16 +469,20 @@ time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
   checkout, after `publish-npm` has already succeeded, so the two jobs publish
   the same build under two different names without either file or job
   affecting the other.
-- **Required reviews and Dependabot's auto-merge are in genuine tension, and
-  the fix is a second identity, not a bypass.** Enabling
+- **Required reviews and Dependabot's auto-merge need one repository
+  setting, not a bypass and not a secret.** Enabling
   `required_pull_request_reviews` on `main` blocks any merge lacking an
-  approval — including Dependabot's own `gh pr merge --auto` step, since
-  GitHub explicitly refuses to let a workflow's default `GITHUB_TOKEN` approve
-  a pull request in its own repository (precisely to stop a workflow from
-  clearing its own gate). Dependabot didn't author the PR as the *repo owner*,
-  though, so an approval from the owner's own personal access token
-  (`secrets.AUTO_APPROVE_TOKEN`) is not self-review and satisfies the rule
-  legitimately. Every other merge — including an agent's — now needs either a
+  approval — including Dependabot's own `gh pr merge --auto` step. By default
+  GitHub refuses to let a workflow's `GITHUB_TOKEN` approve a pull request
+  ("GitHub Actions is not permitted to approve pull requests"). The setting
+  "Allow GitHub Actions to create and approve pull requests" (Settings →
+  Actions → General, `can_approve_pull_request_reviews` in the API) lifts that
+  for this repository, and `auto-merge-dependabot.yml` then approves with
+  `github.token`. The approval step runs only in the job gated on
+  `github.actor == 'dependabot[bot]'`, for minor and patch updates that passed
+  the cooldown, so no other pull request is approved by a workflow. If the
+  setting is turned off, the step fails and Dependabot's PRs wait for a manual
+  review. Every other merge — including an agent's — still needs either a
   real review or the owner's explicit `gh pr merge --admin` override.
 - **`enforce_admins` stays `false`, deliberately.** Turning it on would also
   block the repo owner's own admin-override merge, and since GitHub already
@@ -1111,7 +1115,9 @@ time. Skip the obvious; this is not a changelog (that is `CHANGELOG.md`).
   `enforce_admins: false`, because when CI itself is what broke, an admin has to
   be able to land the fix or the repo deadlocks; and no required reviews, since
   GitHub forbids self-approval and a solo maintainer would be unable to merge
-  anything.
+  anything. (That was true when it was written. Since then `main` requires one
+  review, and the maintainer's own pull requests use `--admin`, see the
+  paragraph on required reviews and Dependabot above.)
 
 ### Local hooks — and a test that failed for the wrong reason
 
