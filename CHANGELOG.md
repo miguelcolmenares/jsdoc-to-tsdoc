@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The CLI's own `check`, ESLint, Prettier and the CI-integration workflow exclude `site/`, which is its own project.
 - The documentation site is upgraded to docs-sitekit 0.2.3. The footer line has no copyright sign and no year, the search button is named `Search`, and the two side menus of a doc page are no longer unnamed landmarks, because the navigation inside each one carries the name.
 
+### Security
+
+- `minimatch` is overridden to `^11.0.1`, which closes Dependabot alert #52 (versions from 7.0.0 up to 11.0.1 are affected). It is a development-only dependency, pulled in through ESLint and `typescript-eslint`, so the published package does not change.
+
 ## [1.0.0] - 2026-09-09
 
 First stable release. Everything below accumulated since 0.2.1 as the `[Unreleased]` backlog `AGENTS.md` describes as deliberately deferred — held until there was enough of it to call a stable line.
